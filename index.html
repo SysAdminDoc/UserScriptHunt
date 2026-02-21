@@ -281,7 +281,7 @@
             <div class="state-empty">
                 <div style="margin-bottom:16px;opacity:0.2"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
                 <h3>Search userscripts everywhere</h3>
-                <p>Greasy Fork, Sleazy Fork, GitHub, GitHub Gists, OpenUserJS, Userscript.Zone</p>
+                <p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone</p>
                 <p style="margin-top:8px;font-size:11px;color:var(--text-muted)">Advanced: <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">site:youtube.com</code> <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">author:name</code> <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">updated:90d</code></p>
             </div>
         </div>
@@ -344,7 +344,7 @@
         greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: true },
         sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: false },
         github: { id: 'github', name: 'GitHub', color: '#e6edf3', dimColor: 'rgba(230,237,243,0.08)', enabled: true },
-        gists: { id: 'gists', name: 'Gists', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: true },
+
         openuserjs: { id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: true },
         uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: true },
     };
@@ -546,25 +546,6 @@
             license: (item.license && item.license.spdx_id) || '', stars: item.stargazers_count || 0, forks: item.forks_count || 0, language: item.language || '' };
     }
 
-    /* ===== Source: GitHub Gists ===== */
-    async function srcGists(query, page) {
-        var ck = _ck('gists', query, page);
-        var cached = _cGet(ck); if (cached) return cached;
-        var q = encodeURIComponent(query + ' .user.js');
-        var r = await fetch('https://api.github.com/search/code?q=' + q + '+extension:js&per_page=20&page=' + page, { headers: { Accept: 'application/vnd.github.v3+json' }, signal: AbortSignal.timeout(12000) });
-        if (r.status === 403) throw new Error('Rate limited');
-        if (!r.ok) throw new Error('Gists HTTP ' + r.status);
-        var data = await r.json(); _cSet(ck, data); return data;
-    }
-
-    function normGist(item) {
-        var repo = item.repository || {};
-        return { id: 'gist-' + (item.sha || Math.random()), source: 'gists', name: item.name || item.path || 'Untitled',
-            description: repo.description || '', author: (repo.owner && repo.owner.login) || 'Unknown',
-            url: item.html_url || '', installUrl: '', version: '', dailyInstalls: 0, totalInstalls: 0,
-            rating: 0, badRating: 0, createdAt: '', updatedAt: '', license: '' };
-    }
-
     /* ===== Source: OpenUserJS ===== */
     async function srcOUJS(query, page) {
         var ck = _ck('openuserjs', query, page);
@@ -729,10 +710,6 @@
                     var raw = await srcGH(parsed.query, page);
                     items = (raw.items || []).map(normGH);
                     if (items.length < 30 || (raw.total_count && page * 30 >= raw.total_count)) state.sourceHasMore.github = false;
-                } else if (srcId === 'gists') {
-                    var graw = await srcGists(parsed.query, page);
-                    items = (graw.items || []).map(normGist);
-                    if (items.length < 20 || (graw.total_count && page * 20 >= graw.total_count)) state.sourceHasMore.gists = false;
                 } else if (srcId === 'openuserjs') {
                     items = await srcOUJS(parsed.query, page);
                     if (items.length < 5) state.sourceHasMore.openuserjs = false;
@@ -1167,7 +1144,7 @@
         searchInput.value = ''; clearBtn.classList.remove('visible'); siteFilter.value = '';
         state.results = []; state.rawQuery = ''; state.query = ''; state.sourceCounts = {}; state.compareIds = []; state.showFavs = false;
         updateCompareBar();
-        grid.innerHTML = '<div class="state-empty"><div style="margin-bottom:16px;opacity:0.2"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><h3>Search userscripts everywhere</h3><p>Greasy Fork, Sleazy Fork, GitHub, Gists, OpenUserJS, Userscript.Zone</p><p style="margin-top:8px;font-size:11px;color:var(--text-muted)">Advanced: <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">site:youtube.com</code> <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">author:name</code> <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">updated:90d</code></p></div>';
+        grid.innerHTML = '<div class="state-empty"><div style="margin-bottom:16px;opacity:0.2"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><h3>Search userscripts everywhere</h3><p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone</p><p style="margin-top:8px;font-size:11px;color:var(--text-muted)">Advanced: <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">site:youtube.com</code> <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">author:name</code> <code style="background:var(--bg-secondary);padding:2px 5px;border-radius:3px">updated:90d</code></p></div>';
         statsBar.style.display = 'none'; document.getElementById('sourceStatusBar').innerHTML = '';
         renderSourceToggles(); searchInput.focus();
     });
