@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScriptHunt - Unified Userscript Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #05060a;
+            --bg-primary: #0a0d14;
+            --bg-secondary: #10141e;
+            --bg-card: #131825;
+            --bg-card-hover: #181e2e;
+            --bg-input: #0e1219;
+            --border: #1e2536;
+            --border-focus: #3b82f6;
+            --text-primary: #e8ecf4;
+            --text-secondary: #6b7a94;
+            --text-muted: #3d4a61;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.15);
+            --accent-dim: #2563eb;
+            --green: #22c55e;
+            --green-dim: rgba(34, 197, 94, 0.12);
+            --amber: #f59e0b;
+            --amber-dim: rgba(245, 158, 11, 0.12);
+            --red: #ef4444;
+            --purple: #a855f7;
+            --purple-dim: rgba(168, 85, 247, 0.12);
+            --cyan: #06b6d4;
+            --cyan-dim: rgba(6, 182, 212, 0.12);
+            --orange: #f97316;
+            --orange-dim: rgba(249, 115, 22, 0.12);
+            --pink: #ec4899;
+            --pink-dim: rgba(236, 72, 153, 0.12);
+            --radius: 10px;
+            --radius-lg: 14px;
+            --shadow: 0 8px 32px rgba(0,0,0,0.5);
+            --shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', -apple-system, sans-serif;
+            background: var(--bg-void);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ── Background effects ── */
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        .bg-glow {
+            position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
+            width: 800px; height: 500px; z-index: 0; pointer-events: none;
+            background: radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%);
+        }
+
+        /* ── Layout ── */
+        .app { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* ── Header ── */
+        .header {
+            padding: 48px 0 40px;
+            text-align: center;
+        }
+        .logo-row {
+            display: flex; align-items: center; justify-content: center; gap: 14px;
+            margin-bottom: 12px;
+        }
+        .logo-icon {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; color: #fff;
+            box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+        }
+        .logo-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px; font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+        .tagline {
+            color: var(--text-secondary); font-size: 14px; font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+        .version {
+            display: inline-block; margin-top: 8px; padding: 2px 10px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 20px; font-family: 'JetBrains Mono', monospace;
+            font-size: 10px; color: var(--text-muted); letter-spacing: 0.5px;
+        }
+
+        /* ── Search ── */
+        .search-wrap {
+            position: relative; max-width: 720px; margin: 0 auto 20px;
+        }
+        .search-input {
+            width: 100%; padding: 16px 54px 16px 50px;
+            background: var(--bg-input);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-lg);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 400;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 4px var(--accent-glow), var(--shadow);
+        }
+        .search-input::placeholder { color: var(--text-muted); font-weight: 300; }
+        .search-icon {
+            position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); pointer-events: none;
+        }
+        .search-clear {
+            position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 4px; display: none; font-size: 18px;
+            line-height: 1; border-radius: 4px;
+            transition: color 0.15s;
+        }
+        .search-clear:hover { color: var(--text-secondary); }
+        .search-clear.visible { display: block; }
+
+        /* ── Source toggles ── */
+        .sources-bar {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; flex-wrap: wrap; max-width: 720px; margin: 0 auto 32px;
+        }
+        .source-toggle {
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 14px; border-radius: 8px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            cursor: pointer; user-select: none;
+            transition: all 0.2s;
+            font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
+        }
+        .source-toggle:hover { border-color: var(--text-muted); }
+        .source-toggle.active { border-color: var(--src-color, var(--accent)); color: var(--text-primary); }
+        .source-toggle.active .source-dot { opacity: 1; }
+        .source-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--src-color, var(--accent));
+            opacity: 0.3; transition: opacity 0.2s;
+        }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px; padding: 0 4px;
+            min-height: 24px;
+        }
+        .stats-left {
+            font-size: 13px; color: var(--text-secondary); font-weight: 400;
+        }
+        .stats-left strong { color: var(--text-primary); font-weight: 600; }
+        .stats-right { display: flex; align-items: center; gap: 12px; }
+        .sort-select {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 5px 10px; border-radius: 6px;
+            font-family: 'Outfit', sans-serif; font-size: 12px; cursor: pointer;
+            outline: none;
+        }
+        .sort-select:focus { border-color: var(--accent); }
+
+        /* ── Source status chips ── */
+        .source-status-bar {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .source-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 12px; border-radius: 6px;
+            font-size: 11.5px; font-weight: 500;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+        .source-chip.loading { color: var(--amber); border-color: rgba(245,158,11,0.2); }
+        .source-chip.done { color: var(--green); border-color: rgba(34,197,94,0.15); }
+        .source-chip.error { color: var(--red); border-color: rgba(239,68,68,0.15); }
+        .source-chip .chip-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: currentColor;
+        }
+        .source-chip.loading .chip-dot {
+            animation: pulse-dot 1s ease infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        /* ── Results grid ── */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 14px;
+            padding-bottom: 80px;
+        }
+
+        /* ── Result card ── */
+        .result-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+            animation: cardIn 0.35s ease both;
+        }
+        .result-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--text-muted);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card-source-stripe {
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: var(--stripe-color, var(--accent));
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+        .card-title {
+            font-size: 14.5px; font-weight: 600; line-height: 1.3;
+            color: var(--text-primary);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .card-source-badge {
+            flex-shrink: 0; padding: 3px 8px; border-radius: 5px;
+            font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+            text-transform: uppercase;
+            background: var(--badge-bg, var(--accent-glow));
+            color: var(--badge-color, var(--accent));
+            white-space: nowrap;
+        }
+        .card-desc {
+            font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;
+            margin-bottom: 14px; font-weight: 300;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .card-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .meta-item {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 11.5px; color: var(--text-muted); font-weight: 400;
+        }
+        .meta-item svg { flex-shrink: 0; }
+        .meta-item strong { color: var(--text-secondary); font-weight: 600; }
+        .card-author {
+            font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px;
+            font-weight: 400;
+        }
+        .card-author span { color: var(--text-secondary); font-weight: 500; }
+
+        /* ── Empty / loading states ── */
+        .state-empty {
+            text-align: center; padding: 80px 20px;
+            grid-column: 1 / -1;
+        }
+        .state-empty .empty-icon {
+            font-size: 48px; margin-bottom: 16px; opacity: 0.2;
+        }
+        .state-empty h3 {
+            font-size: 18px; font-weight: 500; color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .state-empty p { font-size: 13px; color: var(--text-muted); font-weight: 300; }
+
+        .skeleton-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 18px 20px;
+            animation: skeleton-pulse 1.5s ease infinite;
+        }
+        .skeleton-bar {
+            background: var(--bg-secondary); border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .skeleton-bar.w70 { width: 70%; height: 16px; }
+        .skeleton-bar.w100 { width: 100%; height: 12px; }
+        .skeleton-bar.w50 { width: 50%; height: 12px; }
+        @keyframes skeleton-pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ── Load more ── */
+        .load-more-wrap {
+            grid-column: 1 / -1; text-align: center; padding: 20px 0;
+        }
+        .load-more-btn {
+            padding: 10px 28px; border-radius: 8px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            color: var(--text-secondary); font-family: 'Outfit', sans-serif;
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .load-more-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+        .load-more-btn:disabled { opacity: 0.4; cursor: default; }
+
+        /* ── Toast ── */
+        .toast-container {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+            align-items: center; pointer-events: none;
+        }
+        .toast {
+            padding: 10px 20px; border-radius: 8px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            color: var(--text-primary); font-size: 13px;
+            box-shadow: var(--shadow-lg);
+            animation: toastIn 0.3s ease;
+            pointer-events: auto;
+        }
+        .toast.out { animation: toastOut 0.3s ease forwards; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(12px); } }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .header { padding: 32px 0 28px; }
+            .logo-text { font-size: 22px; }
+            .search-input { font-size: 15px; padding: 14px 48px 14px 44px; }
+            .results-grid { grid-template-columns: 1fr; gap: 10px; }
+            .sources-bar { gap: 6px; }
+            .source-toggle { padding: 6px 10px; font-size: 11.5px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+
+    <div class="app">
+        <header class="header">
+            <div class="logo-row">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </div>
+                <span class="logo-text">ScriptHunt</span>
+            </div>
+            <p class="tagline">Unified search across every userscript source</p>
+            <span class="version">v0.0.1</span>
+        </header>
+
+        <div class="search-wrap">
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" class="search-input" id="searchInput" placeholder="Search userscripts across all sources..." autocomplete="off" spellcheck="false">
+            <button class="search-clear" id="clearBtn" title="Clear">&times;</button>
+        </div>
+
+        <div class="sources-bar" id="sourcesBar"></div>
+
+        <div class="source-status-bar" id="sourceStatusBar"></div>
+
+        <div class="stats-bar" id="statsBar" style="display:none;">
+            <div class="stats-left" id="statsText"></div>
+            <div class="stats-right">
+                <select class="sort-select" id="sortSelect">
+                    <option value="relevance">Sort: Relevance</option>
+                    <option value="installs">Sort: Installs</option>
+                    <option value="rating">Sort: Rating</option>
+                    <option value="updated">Sort: Updated</option>
+                    <option value="name">Sort: Name</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <div class="state-empty">
+                <div class="empty-icon">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <h3>Search userscripts everywhere</h3>
+                <p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS &mdash; all in one place</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+    /* ═════════════════════════════════════════════
+       ScriptHunt v0.0.1 - Unified Userscript Search
+       ═════════════════════════════════════════════ */
+
+    const CORS_PROXIES = [
+        url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    ];
+    let proxyIndex = 0;
+    function corsProxy(url) { return CORS_PROXIES[proxyIndex % CORS_PROXIES.length](url); }
+    function rotateProxy() { proxyIndex++; }
+
+    /* ── Source Definitions ── */
+    const SOURCES = {
+        greasyfork: {
+            id: 'greasyfork', name: 'Greasy Fork', color: '#c83737',
+            dimColor: 'rgba(200,55,55,0.12)', enabled: true
+        },
+        sleazyfork: {
+            id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7',
+            dimColor: 'rgba(168,85,247,0.12)', enabled: false
+        },
+        github: {
+            id: 'github', name: 'GitHub', color: '#e6edf3',
+            dimColor: 'rgba(230,237,243,0.08)', enabled: true
+        },
+        openuserjs: {
+            id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4',
+            dimColor: 'rgba(6,182,212,0.12)', enabled: true
+        },
+    };
+
+    /* ── State ── */
+    const state = {
+        query: '',
+        results: [],
+        sourcePages: {},
+        sourceStatus: {},   // 'idle' | 'loading' | 'done' | 'error'
+        sourceCounts: {},
+        sourceHasMore: {},
+        searching: false,
+        sortBy: 'relevance',
+    };
+
+    /* ── JSONP helper ── */
+    let jsonpCounter = 0;
+    function jsonpFetch(url) {
+        return new Promise((resolve, reject) => {
+            const cbName = `_shcb_${++jsonpCounter}_${Date.now()}`;
+            const timeout = setTimeout(() => {
+                cleanup();
+                reject(new Error('JSONP timeout'));
+            }, 12000);
+            const script = document.createElement('script');
+            function cleanup() {
+                clearTimeout(timeout);
+                delete window[cbName];
+                script.remove();
+            }
+            window[cbName] = data => { cleanup(); resolve(data); };
+            const sep = url.includes('?') ? '&' : '?';
+            script.src = `${url}${sep}callback=${cbName}`;
+            script.onerror = () => { cleanup(); reject(new Error('JSONP load error')); };
+            document.head.appendChild(script);
+        });
+    }
+
+    /* ── Source: Greasy Fork / Sleazy Fork ── */
+    async function searchGreasyFork(query, page = 1, domain = 'greasyfork.org') {
+        const url = `https://${domain}/en/scripts.json?q=${encodeURIComponent(query)}&page=${page}`;
+        try {
+            const data = await jsonpFetch(url.replace('.json', '.jsonp'));
+            return data;
+        } catch {
+            // Fallback to CORS proxy
+            const resp = await fetch(corsProxy(url), { signal: AbortSignal.timeout(12000) });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return await resp.json();
+        }
+    }
+
+    function normalizeGreasyFork(item, sourceId) {
+        return {
+            id: `${sourceId}-${item.id}`,
+            source: sourceId,
+            name: item.name || 'Untitled',
+            description: item.description || '',
+            author: item.users?.[0]?.name || 'Unknown',
+            url: item.url || `https://greasyfork.org/en/scripts/${item.id}`,
+            installUrl: item.code_url || '',
+            version: item.version || '',
+            dailyInstalls: item.daily_installs || 0,
+            totalInstalls: item.total_installs || 0,
+            rating: item.good_ratings || 0,
+            badRating: item.bad_ratings || 0,
+            createdAt: item.created_at || '',
+            updatedAt: item.code_updated_at || '',
+            license: item.license || '',
+        };
+    }
+
+    /* ── Source: GitHub ── */
+    async function searchGitHub(query, page = 1) {
+        // Use repository search (no auth required, CORS enabled)
+        const q = encodeURIComponent(`${query} userscript OR tampermonkey OR greasemonkey`);
+        const url = `https://api.github.com/search/repositories?q=${q}&per_page=30&page=${page}&sort=stars&order=desc`;
+        const resp = await fetch(url, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' },
+            signal: AbortSignal.timeout(12000)
+        });
+        if (!resp.ok) throw new Error(`GitHub HTTP ${resp.status}`);
+        return await resp.json();
+    }
+
+    function normalizeGitHub(item) {
+        return {
+            id: `github-${item.id}`,
+            source: 'github',
+            name: item.name || item.full_name,
+            description: item.description || '',
+            author: item.owner?.login || 'Unknown',
+            url: item.html_url,
+            installUrl: '',
+            version: '',
+            dailyInstalls: 0,
+            totalInstalls: 0,
+            rating: item.stargazers_count || 0,
+            badRating: 0,
+            createdAt: item.created_at || '',
+            updatedAt: item.updated_at || '',
+            license: item.license?.spdx_id || '',
+            stars: item.stargazers_count || 0,
+            forks: item.forks_count || 0,
+            language: item.language || '',
+        };
+    }
+
+    /* ── Source: OpenUserJS ── */
+    async function searchOpenUserJS(query, page = 1) {
+        const perPage = 25;
+        const p = page;
+        const url = `https://openuserjs.org/?q=${encodeURIComponent(query)}&orderBy=installs&orderDir=desc&p=${p}`;
+        const resp = await fetch(corsProxy(url), { signal: AbortSignal.timeout(15000) });
+        if (!resp.ok) throw new Error(`OpenUserJS HTTP ${resp.status}`);
+        const html = await resp.text();
+        return parseOpenUserJSHTML(html);
+    }
+
+    function parseOpenUserJSHTML(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const results = [];
+        const panels = doc.querySelectorAll('.script-panel, .panel, [class*="panel"]');
+        // Try multiple selector strategies
+        const rows = doc.querySelectorAll('tr[data-script-name], .script-row, a[href*="/scripts/"]');
+        const links = doc.querySelectorAll('a[href^="/scripts/"]');
+        const seen = new Set();
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (!href || href === '/scripts' || seen.has(href)) return;
+            // Filter to script detail pages: /scripts/username/scriptname pattern
+            const parts = href.split('/').filter(Boolean);
+            if (parts.length < 3 || parts[0] !== 'scripts') return;
+            seen.add(href);
+            const name = link.textContent.trim();
+            if (!name || name.length < 2 || name.length > 200) return;
+            const author = parts[1] || 'Unknown';
+            const scriptSlug = parts.slice(2).join('/');
+            results.push({
+                id: `openuserjs-${author}-${scriptSlug}`,
+                source: 'openuserjs',
+                name: name,
+                description: '',
+                author: author,
+                url: `https://openuserjs.org${href}`,
+                installUrl: `https://openuserjs.org/install/${author}/${scriptSlug}.user.js`,
+                version: '',
+                dailyInstalls: 0,
+                totalInstalls: 0,
+                rating: 0,
+                badRating: 0,
+                createdAt: '',
+                updatedAt: '',
+                license: '',
+            });
+        });
+        return results;
+    }
+
+    /* ── Search Orchestrator ── */
+    let searchAbort = null;
+
+    async function executeSearch(query, loadMore = false) {
+        if (!query.trim()) return;
+        if (searchAbort) searchAbort.abort();
+        searchAbort = new AbortController();
+
+        state.query = query.trim();
+
+        if (!loadMore) {
+            state.results = [];
+            state.sourcePages = {};
+            state.sourceStatus = {};
+            state.sourceCounts = {};
+            state.sourceHasMore = {};
+            Object.keys(SOURCES).forEach(s => {
+                state.sourcePages[s] = 1;
+                state.sourceHasMore[s] = true;
+            });
+        }
+
+        const activeSources = Object.keys(SOURCES).filter(s => SOURCES[s].enabled);
+        activeSources.forEach(s => {
+            if (state.sourceHasMore[s] !== false) {
+                state.sourceStatus[s] = 'loading';
+            }
+        });
+        renderStatusChips();
+        if (!loadMore) renderSkeletons();
+        state.searching = true;
+
+        const promises = activeSources.map(async srcId => {
+            if (state.sourceHasMore[srcId] === false) return [];
+            const page = state.sourcePages[srcId] || 1;
+            try {
+                let items = [];
+                if (srcId === 'greasyfork') {
+                    const raw = await searchGreasyFork(state.query, page, 'greasyfork.org');
+                    items = (Array.isArray(raw) ? raw : []).map(i => normalizeGreasyFork(i, 'greasyfork'));
+                    if (items.length < 50) state.sourceHasMore.greasyfork = false;
+                } else if (srcId === 'sleazyfork') {
+                    const raw = await searchGreasyFork(state.query, page, 'sleazyfork.org');
+                    items = (Array.isArray(raw) ? raw : []).map(i => normalizeGreasyFork(i, 'sleazyfork'));
+                    if (items.length < 50) state.sourceHasMore.sleazyfork = false;
+                } else if (srcId === 'github') {
+                    const raw = await searchGitHub(state.query, page);
+                    items = (raw.items || []).map(normalizeGitHub);
+                    if (items.length < 30 || (raw.total_count && page * 30 >= raw.total_count)) {
+                        state.sourceHasMore.github = false;
+                    }
+                } else if (srcId === 'openuserjs') {
+                    items = await searchOpenUserJS(state.query, page);
+                    if (items.length < 5) state.sourceHasMore.openuserjs = false;
+                }
+                state.sourcePages[srcId] = page + 1;
+                state.sourceCounts[srcId] = (state.sourceCounts[srcId] || 0) + items.length;
+                state.sourceStatus[srcId] = 'done';
+                return items;
+            } catch (err) {
+                console.warn(`[${srcId}] Error:`, err.message);
+                state.sourceStatus[srcId] = 'error';
+                state.sourceHasMore[srcId] = false;
+                return [];
+            }
+        });
+
+        const settled = await Promise.allSettled(promises);
+        const newItems = settled.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+
+        // Deduplicate
+        const existing = new Set(state.results.map(r => r.id));
+        const deduped = newItems.filter(item => {
+            if (existing.has(item.id)) return false;
+            existing.add(item.id);
+            // Cross-source dedup by name+author
+            const key = `${item.name.toLowerCase().trim()}::${item.author.toLowerCase().trim()}`;
+            if (existing.has(key)) return false;
+            existing.add(key);
+            return true;
+        });
+
+        state.results = [...state.results, ...deduped];
+        state.searching = false;
+
+        sortAndRender();
+        renderStatusChips();
+    }
+
+    function sortAndRender() {
+        let sorted = [...state.results];
+        switch (state.sortBy) {
+            case 'installs':
+                sorted.sort((a, b) => b.totalInstalls - a.totalInstalls);
+                break;
+            case 'rating':
+                sorted.sort((a, b) => (b.rating + (b.stars || 0)) - (a.rating + (a.stars || 0)));
+                break;
+            case 'updated':
+                sorted.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+                break;
+            case 'name':
+                sorted.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+        }
+        renderResults(sorted);
+    }
+
+    /* ── Rendering ── */
+    const grid = document.getElementById('resultsGrid');
+    const statsBar = document.getElementById('statsBar');
+    const statsText = document.getElementById('statsText');
+
+    function renderResults(items) {
+        grid.innerHTML = '';
+        if (items.length === 0 && !state.searching) {
+            grid.innerHTML = `
+                <div class="state-empty">
+                    <div class="empty-icon">
+                        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                    </div>
+                    <h3>No results found</h3>
+                    <p>Try a different search term or enable more sources</p>
+                </div>`;
+            statsBar.style.display = 'none';
+            return;
+        }
+
+        statsBar.style.display = 'flex';
+        const totalCount = Object.values(state.sourceCounts).reduce((a, b) => a + b, 0);
+        statsText.innerHTML = `<strong>${items.length}</strong> results from <strong>${Object.keys(state.sourceCounts).filter(k => state.sourceCounts[k] > 0).length}</strong> sources`;
+
+        items.forEach((item, i) => {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.style.animationDelay = `${Math.min(i * 0.03, 0.5)}s`;
+
+            const src = SOURCES[item.source] || {};
+            card.style.setProperty('--stripe-color', src.color || 'var(--accent)');
+
+            const metaParts = [];
+            if (item.totalInstalls > 0) {
+                metaParts.push(`<span class="meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><strong>${formatNum(item.totalInstalls)}</strong></span>`);
+            }
+            if (item.dailyInstalls > 0) {
+                metaParts.push(`<span class="meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><strong>${formatNum(item.dailyInstalls)}</strong>/day</span>`);
+            }
+            if (item.rating > 0 && item.source !== 'github') {
+                metaParts.push(`<span class="meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><strong>${item.rating}</strong></span>`);
+            }
+            if (item.stars > 0) {
+                metaParts.push(`<span class="meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><strong>${formatNum(item.stars)}</strong> stars</span>`);
+            }
+            if (item.version) {
+                metaParts.push(`<span class="meta-item">v${escHTML(item.version)}</span>`);
+            }
+            if (item.updatedAt) {
+                metaParts.push(`<span class="meta-item">${timeAgo(item.updatedAt)}</span>`);
+            }
+
+            card.innerHTML = `
+                <div class="card-source-stripe"></div>
+                <div class="card-header">
+                    <div class="card-title">${escHTML(item.name)}</div>
+                    <span class="card-source-badge" style="--badge-bg:${src.dimColor};--badge-color:${src.color}">${escHTML(src.name || item.source)}</span>
+                </div>
+                ${item.author ? `<div class="card-author">by <span>${escHTML(item.author)}</span></div>` : ''}
+                ${item.description ? `<div class="card-desc">${escHTML(item.description)}</div>` : ''}
+                <div class="card-meta">${metaParts.join('')}</div>
+            `;
+            card.addEventListener('click', () => window.open(item.url, '_blank'));
+            grid.appendChild(card);
+        });
+
+        // Load more button
+        const anyHasMore = Object.keys(SOURCES).some(s => SOURCES[s].enabled && state.sourceHasMore[s] !== false);
+        if (anyHasMore && items.length > 0) {
+            const wrap = document.createElement('div');
+            wrap.className = 'load-more-wrap';
+            wrap.innerHTML = `<button class="load-more-btn" id="loadMoreBtn">Load more results</button>`;
+            grid.appendChild(wrap);
+            document.getElementById('loadMoreBtn').addEventListener('click', () => {
+                executeSearch(state.query, true);
+            });
+        }
+    }
+
+    function renderSkeletons() {
+        grid.innerHTML = '';
+        for (let i = 0; i < 6; i++) {
+            const sk = document.createElement('div');
+            sk.className = 'skeleton-card';
+            sk.style.animationDelay = `${i * 0.1}s`;
+            sk.innerHTML = `
+                <div class="skeleton-bar w70"></div>
+                <div class="skeleton-bar w100"></div>
+                <div class="skeleton-bar w100"></div>
+                <div class="skeleton-bar w50"></div>
+            `;
+            grid.appendChild(sk);
+        }
+        statsBar.style.display = 'none';
+    }
+
+    function renderStatusChips() {
+        const bar = document.getElementById('sourceStatusBar');
+        const activeSources = Object.keys(SOURCES).filter(s => SOURCES[s].enabled);
+        if (activeSources.every(s => !state.sourceStatus[s] || state.sourceStatus[s] === 'idle')) {
+            bar.innerHTML = '';
+            return;
+        }
+        bar.innerHTML = activeSources.map(s => {
+            const src = SOURCES[s];
+            const status = state.sourceStatus[s] || 'idle';
+            if (status === 'idle') return '';
+            const count = state.sourceCounts[s] || 0;
+            const label = status === 'loading' ? 'Searching...'
+                        : status === 'done' ? `${count} found`
+                        : 'Failed';
+            return `<span class="source-chip ${status}"><span class="chip-dot"></span>${src.name}: ${label}</span>`;
+        }).join('');
+    }
+
+    /* ── Source toggles ── */
+    function renderSourceToggles() {
+        const bar = document.getElementById('sourcesBar');
+        bar.innerHTML = '';
+        Object.values(SOURCES).forEach(src => {
+            const el = document.createElement('div');
+            el.className = `source-toggle${src.enabled ? ' active' : ''}`;
+            el.style.setProperty('--src-color', src.color);
+            el.innerHTML = `<span class="source-dot"></span>${src.name}`;
+            el.addEventListener('click', () => {
+                src.enabled = !src.enabled;
+                el.classList.toggle('active', src.enabled);
+                if (state.query) executeSearch(state.query);
+            });
+            bar.appendChild(el);
+        });
+    }
+
+    /* ── Utility ── */
+    function escHTML(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    function formatNum(n) {
+        if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+        if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+        return String(n);
+    }
+
+    function timeAgo(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now - date;
+        const days = Math.floor(diffMs / 86400000);
+        if (days < 1) return 'today';
+        if (days === 1) return 'yesterday';
+        if (days < 30) return `${days}d ago`;
+        if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+        return `${Math.floor(days / 365)}y ago`;
+    }
+
+    function showToast(msg, duration = 3000) {
+        const container = document.getElementById('toastContainer');
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = msg;
+        container.appendChild(t);
+        setTimeout(() => {
+            t.classList.add('out');
+            setTimeout(() => t.remove(), 300);
+        }, duration);
+    }
+
+    /* ── Event Bindings ── */
+    const searchInput = document.getElementById('searchInput');
+    const clearBtn = document.getElementById('clearBtn');
+    const sortSelect = document.getElementById('sortSelect');
+
+    let debounceTimer = null;
+    searchInput.addEventListener('input', () => {
+        clearBtn.classList.toggle('visible', searchInput.value.length > 0);
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const q = searchInput.value.trim();
+            if (q.length >= 2) executeSearch(q);
+        }, 450);
+    });
+
+    searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            clearTimeout(debounceTimer);
+            const q = searchInput.value.trim();
+            if (q) executeSearch(q);
+        }
+    });
+
+    clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearBtn.classList.remove('visible');
+        state.results = [];
+        state.query = '';
+        grid.innerHTML = `
+            <div class="state-empty">
+                <div class="empty-icon">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <h3>Search userscripts everywhere</h3>
+                <p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS &mdash; all in one place</p>
+            </div>`;
+        statsBar.style.display = 'none';
+        document.getElementById('sourceStatusBar').innerHTML = '';
+        searchInput.focus();
+    });
+
+    sortSelect.addEventListener('change', () => {
+        state.sortBy = sortSelect.value;
+        if (state.results.length > 0) sortAndRender();
+    });
+
+    /* ── Init ── */
+    renderSourceToggles();
+    searchInput.focus();
+
+    // URL param support
+    const urlParams = new URLSearchParams(window.location.search);
+    const initQuery = urlParams.get('q');
+    if (initQuery) {
+        searchInput.value = initQuery;
+        clearBtn.classList.add('visible');
+        executeSearch(initQuery);
+    }
+    </script>
+</body>
+</html>
