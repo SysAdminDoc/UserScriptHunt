@@ -1,6 +1,6 @@
 # ScriptHunt
 
-![Version](https://img.shields.io/badge/version-0.0.1-blue)
+![Version](https://img.shields.io/badge/version-0.0.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web-ff6600)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black)
@@ -11,8 +11,7 @@
 
 <img width="1594" height="1059" alt="image" src="https://github.com/user-attachments/assets/8be2abe9-9e0d-4564-ac4b-6baa58e53ab3" />
 
-https://sysadmindoc.github.io/UserScriptHunt/
-
+**Live:** https://sysadmindoc.github.io/UserScriptHunt/
 
 ScriptHunt is a zero-dependency, single-file HTML webapp that searches every major userscript repository in parallel and merges the results into one unified, deduplicated feed. No backend required — runs entirely in the browser, deployable as a static page on GitHub Pages.
 
@@ -20,12 +19,10 @@ ScriptHunt is a zero-dependency, single-file HTML webapp that searches every maj
 
 ## Quick Start
 
-**Live:** Open `userscript-search.html` in any browser, or deploy to GitHub Pages.
-
 **Local:**
 ```bash
-git clone https://github.com/SysAdminDoc/ScriptHunt.git
-cd ScriptHunt
+git clone https://github.com/SysAdminDoc/UserScriptHunt.git
+cd UserScriptHunt
 # Open directly — no build step, no dependencies
 open userscript-search.html
 ```
@@ -33,7 +30,7 @@ open userscript-search.html
 **GitHub Pages:**
 1. Push to a GitHub repository
 2. Go to **Settings → Pages → Source → Deploy from branch** (main, root)
-3. Access at `https://yourusername.github.io/ScriptHunt/userscript-search.html`
+3. Access at `https://yourusername.github.io/UserScriptHunt/`
 
 **Direct link with pre-filled search:**
 ```
@@ -49,7 +46,7 @@ userscript-search.html?q=youtube+enhancer
 | Multi-Source Search | Queries Greasy Fork, Sleazy Fork, GitHub, and OpenUserJS simultaneously |
 | Parallel Fetching | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
 | Cross-Source Dedup | Eliminates duplicate scripts posted to multiple platforms (matched on name + author) |
-| JSONP + CORS Proxy | Greasy Fork/Sleazy Fork via JSONP (no proxy needed); OpenUserJS via CORS proxy fallback |
+| Native CORS | Greasy Fork, Sleazy Fork, and GitHub fetched directly — only OpenUserJS needs a proxy |
 | Source Toggles | Enable/disable individual sources per search with clickable toggle chips |
 | Live Status Chips | Real-time per-source indicators showing loading, complete, or failed states |
 | Sort Controls | Sort results by relevance, total installs, rating, last updated, or name |
@@ -66,17 +63,18 @@ userscript-search.html?q=youtube+enhancer
 
 | Source | Method | Auth Required | CORS | Per-Page | Metadata |
 |--------|--------|:---:|:---:|:---:|----------|
-| **Greasy Fork** | JSONP / JSON API | No | JSONP bypass | 50 | Installs, ratings, version, dates, license, author |
-| **Sleazy Fork** | JSONP / JSON API | No | JSONP bypass | 50 | Same as Greasy Fork (adult-flagged scripts) |
+| **Greasy Fork** | JSON API (direct) | No | Native (`*`) | 100 | Installs, ratings, version, dates, license, author |
+| **Sleazy Fork** | JSON API (direct) | No | Native (`*`) | 100 | Same as Greasy Fork (adult-flagged scripts) |
 | **GitHub** | REST API v3 | No | Native CORS | 30 | Stars, forks, language, license, dates |
-| **OpenUserJS** | HTML scraping | No | Via proxy | ~25 | Name, author, install URL |
+| **OpenUserJS** | HTML scraping via proxy | No | Via proxy | ~25 | Name, author, install URL |
 
 ### Source Details
 
 **Greasy Fork / Sleazy Fork**
-- Endpoint: `https://greasyfork.org/en/scripts.jsonp?q={query}&page={n}&callback={fn}`
+- Endpoint: `https://api.greasyfork.org/en/scripts.json?q={query}&page={n}`
+- Direct fetch with native CORS (`Access-Control-Allow-Origin: *`)
 - Largest userscript repository (~100,000+ scripts)
-- Sleazy Fork is the same codebase, hosts adult-content scripts separately
+- 100 results per page
 - Full metadata: daily/total installs, good/bad ratings, fan score, version, license, code URL
 
 **GitHub**
@@ -88,7 +86,7 @@ userscript-search.html?q=youtube+enhancer
 **OpenUserJS**
 - Endpoint: `https://openuserjs.org/?q={query}&orderBy=installs&orderDir=desc&p={n}`
 - HTML response parsed via DOMParser (no JSON API available)
-- Routed through CORS proxy (allorigins.win with corsproxy.io fallback)
+- Routed through CORS proxy (allorigins.win with codetabs fallback)
 - ~12,000 scripts indexed
 
 ---
@@ -105,7 +103,7 @@ userscript-search.html?q=youtube+enhancer
               ▼            ▼            ▼            ▼
      ┌──────────────┐ ┌──────────┐ ┌────────┐ ┌───────────┐
      │ Greasy Fork  │ │ Sleazy   │ │ GitHub │ │ OpenUserJS│
-     │   (JSONP)    │ │  (JSONP) │ │ (CORS) │ │  (Proxy)  │
+     │  (Direct)    │ │ (Direct) │ │(Direct)│ │  (Proxy)  │
      └──────┬───────┘ └────┬─────┘ └───┬────┘ └─────┬─────┘
             │              │           │             │
             └──────────────┴─────┬─────┴─────────────┘
@@ -143,18 +141,16 @@ Default state:
 
 ### CORS Proxies
 
-The app uses two CORS proxy services with automatic fallback:
+The app uses CORS proxy services with automatic sequential fallback, but **only for OpenUserJS** (HTML scraping). Greasy Fork, Sleazy Fork, and GitHub all have native CORS support and are fetched directly with no proxy.
 
-1. `api.allorigins.win` (primary)
-2. `corsproxy.io` (fallback)
+Proxy chain for OpenUserJS:
+1. `api.allorigins.win/get` (primary — wraps HTML in JSON)
+2. `api.codetabs.com` (fallback — passes through raw content)
 
-These are only used for OpenUserJS (HTML scraping) and as a fallback for Greasy Fork if JSONP fails. GitHub uses native CORS and never requires a proxy.
-
-To use a custom proxy, modify the `CORS_PROXIES` array in the script:
+To use a custom proxy, modify the `fetchViaProxy` function in the script:
 ```javascript
-const CORS_PROXIES = [
-    url => `https://your-proxy.workers.dev/?url=${encodeURIComponent(url)}`,
-];
+// Example: Cloudflare Worker proxy
+const resp = await fetch(`https://your-proxy.workers.dev/?url=${encodeURIComponent(url)}`);
 ```
 
 ### URL Parameters
@@ -174,10 +170,10 @@ GitHub source searches repositories (not individual files) using keyword matchin
 OpenUserJS results depend on CORS proxy availability. If both proxies are down or rate-limited, OpenUserJS will show a "Failed" status chip. Results from other sources will still display normally.
 
 **Rate limits**
-GitHub enforces 10 search requests/minute for unauthenticated users. Heavy pagination or rapid searching may trigger a 403 response — the app will surface this as an error chip. Greasy Fork has no documented rate limits but self-throttles via 50-item pagination.
+GitHub enforces 10 search requests/minute for unauthenticated users. Heavy pagination or rapid searching may trigger a 403 response — the app will surface this as an error chip. Greasy Fork has no documented rate limits but self-throttles via 100-item pagination.
 
 **Can I self-host a CORS proxy?**
-Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS proxy and update the `CORS_PROXIES` array. This eliminates reliance on third-party proxy services.
+Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS proxy and update the `fetchViaProxy` function. This eliminates reliance on third-party proxy services.
 
 ---
 
@@ -187,7 +183,7 @@ Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS 
 - **Vanilla JavaScript (ES2022)** — async/await, Promise.allSettled, AbortController, DOMParser
 - **CSS Custom Properties** — full theming via variables
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
-- **JSONP** — dynamic script injection for Greasy Fork CORS bypass
+- **CORS Proxy** — allorigins.win/codetabs fallback chain, only used for OpenUserJS HTML scraping
 - **No localStorage** — stateless, no tracking, no cookies
 
 ---
