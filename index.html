@@ -364,7 +364,7 @@
                 <span class="logo-text">ScriptHunt</span>
             </div>
             <p class="tagline">Unified search across every userscript source</p>
-            <span class="version">v0.0.3</span>
+            <span class="version">v0.0.4</span>
         </header>
 
         <div class="search-wrap">
@@ -405,88 +405,35 @@
 
     <script>
     /* ═════════════════════════════════════════════
-       ScriptHunt v0.0.3 - Unified Userscript Search
+       ScriptHunt v0.0.4 - Unified Userscript Search
        ═════════════════════════════════════════════ */
 
-    /* ── CORS Proxy System ──
-       corsproxy.io: blocks HTML, only allows JSON/XML/CSV
-       allorigins /get: wraps any content in JSON {contents: "..."} — works for HTML
-       allorigins /raw: unreliable, often 500s
-       codetabs: allows any content type
-       everyorigin: free, no rate limit, returns JSON wrapper
+    /* ── CORS Proxy (only needed for OpenUserJS) ──
+       Greasy Fork, Sleazy Fork, GitHub all have native CORS support.
+       Only OpenUserJS requires proxying for HTML scraping.
     */
-
-    // For JSON APIs (Greasy Fork, Sleazy Fork)
-    async function fetchJsonProxy(url, timeoutMs = 15000) {
+    async function fetchViaProxy(url, timeoutMs = 15000) {
         const proxies = [
-            // corsproxy.io works for JSON content
-            async () => {
-                const resp = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                return resp;
-            },
-            // allorigins /get wraps in JSON — unwrap needed but reliable
+            // allorigins /get wraps content in JSON {contents: "..."} — reliable for HTML
             async () => {
                 const resp = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const wrapper = await resp.json();
-                // Return a synthetic Response with the inner contents
-                return new Response(wrapper.contents, { status: 200, headers: { 'Content-Type': 'application/json' } });
-            },
-            // codetabs as last resort
-            async () => {
-                const resp = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                return resp;
-            },
-        ];
-
-        let lastErr;
-        for (let i = 0; i < proxies.length; i++) {
-            try {
-                return await proxies[i]();
-            } catch (err) {
-                lastErr = err;
-                console.warn(`JSON proxy ${i} failed for ${url}:`, err.message);
-            }
-        }
-        throw lastErr || new Error('All JSON proxies failed');
-    }
-
-    // For HTML scraping (OpenUserJS)
-    async function fetchHtmlProxy(url, timeoutMs = 20000) {
-        const proxies = [
-            // allorigins /get wraps HTML inside JSON.contents — most reliable for HTML
-            async () => {
-                const resp = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                if (!resp.ok) throw new Error(`allorigins HTTP ${resp.status}`);
                 const wrapper = await resp.json();
                 return new Response(wrapper.contents, { status: 200, headers: { 'Content-Type': 'text/html' } });
             },
-            // codetabs passes through any content
+            // codetabs passes through any content type
             async () => {
                 const resp = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                return resp;
-            },
-            // corsproxy.io as last resort (may block HTML but worth trying)
-            async () => {
-                const resp = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(timeoutMs) });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                if (!resp.ok) throw new Error(`codetabs HTTP ${resp.status}`);
                 return resp;
             },
         ];
-
         let lastErr;
         for (let i = 0; i < proxies.length; i++) {
-            try {
-                return await proxies[i]();
-            } catch (err) {
-                lastErr = err;
-                console.warn(`HTML proxy ${i} failed for ${url}:`, err.message);
-            }
+            try { return await proxies[i](); }
+            catch (err) { lastErr = err; console.warn(`Proxy ${i} failed for ${url}:`, err.message); }
         }
-        throw lastErr || new Error('All HTML proxies failed');
+        throw lastErr || new Error('All proxies failed');
     }
 
     /* ── Source Definitions ── */
@@ -521,10 +468,11 @@
         sortBy: 'relevance',
     };
 
-    /* ── Source: Greasy Fork / Sleazy Fork ── */
+    /* ── Source: Greasy Fork / Sleazy Fork (native CORS, no proxy needed) ── */
     async function searchGreasyFork(query, page = 1, domain = 'greasyfork.org') {
-        const url = `https://${domain}/en/scripts.json?q=${encodeURIComponent(query)}&page=${page}`;
-        const resp = await fetchJsonProxy(url, 15000);
+        const url = `https://api.${domain}/en/scripts.json?q=${encodeURIComponent(query)}&page=${page}`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        if (!resp.ok) throw new Error(`${domain} HTTP ${resp.status}`);
         const data = await resp.json();
         return Array.isArray(data) ? data : [];
     }
@@ -585,10 +533,10 @@
         };
     }
 
-    /* ── Source: OpenUserJS ── */
+    /* ── Source: OpenUserJS (requires CORS proxy) ── */
     async function searchOpenUserJS(query, page = 1) {
         const url = `https://openuserjs.org/?q=${encodeURIComponent(query)}&orderBy=installs&orderDir=desc&p=${page}`;
-        const resp = await fetchHtmlProxy(url, 20000);
+        const resp = await fetchViaProxy(url, 20000);
         const html = await resp.text();
         return parseOpenUserJSHTML(html);
     }
@@ -674,11 +622,11 @@
                 if (srcId === 'greasyfork') {
                     const raw = await searchGreasyFork(state.query, page, 'greasyfork.org');
                     items = (Array.isArray(raw) ? raw : []).map(i => normalizeGreasyFork(i, 'greasyfork'));
-                    if (items.length < 50) state.sourceHasMore.greasyfork = false;
+                    if (items.length < 100) state.sourceHasMore.greasyfork = false;
                 } else if (srcId === 'sleazyfork') {
                     const raw = await searchGreasyFork(state.query, page, 'sleazyfork.org');
                     items = (Array.isArray(raw) ? raw : []).map(i => normalizeGreasyFork(i, 'sleazyfork'));
-                    if (items.length < 50) state.sourceHasMore.sleazyfork = false;
+                    if (items.length < 100) state.sourceHasMore.sleazyfork = false;
                 } else if (srcId === 'github') {
                     const raw = await searchGitHub(state.query, page);
                     items = (raw.items || []).map(normalizeGitHub);
