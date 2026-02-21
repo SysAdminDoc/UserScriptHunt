@@ -11,6 +11,8 @@
 
 <img width="1594" height="1059" alt="image" src="https://github.com/user-attachments/assets/8be2abe9-9e0d-4564-ac4b-6baa58e53ab3" />
 
+https://sysadmindoc.github.io/UserScriptHunt/
+
 
 ScriptHunt is a zero-dependency, single-file HTML webapp that searches every major userscript repository in parallel and merges the results into one unified, deduplicated feed. No backend required — runs entirely in the browser, deployable as a static page on GitHub Pages.
 
