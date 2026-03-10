@@ -23,7 +23,6 @@ ScriptHunt is a zero-dependency, single-file HTML webapp that searches every maj
 ```bash
 git clone https://github.com/SysAdminDoc/UserScriptHunt.git
 cd UserScriptHunt
-# Open directly — no build step, no dependencies
 open userscript-search.html
 ```
 
@@ -161,19 +160,34 @@ const resp = await fetch(`https://your-proxy.workers.dev/?url=${encodeURICompone
 
 ---
 
+## Related Tools
+
+> **ScriptHunt** is a standalone web app — open it, type any search query, and browse results across all repositories. No Tampermonkey required.
+>
+> If you want to find scripts **for the site you're currently browsing** without leaving the page, use the companion userscript instead:
+
+**[UserScript-Finder](https://github.com/SysAdminDoc/UserScript-Finder)** — A Tampermonkey/Violentmonkey userscript. Adds a menu entry to your script manager that detects the current site and instantly searches for scripts matching that domain. Zero visual footprint — nothing appears on the page until you click your script manager icon.
+
+| Tool | Use When |
+|------|----------|
+| **ScriptHunt** (this repo) | You want to search for any userscript by keyword, browse results, compare installs/ratings |
+| **UserScript-Finder** | You're on a website and want to find scripts made specifically for that site |
+
+---
+
 ## FAQ / Troubleshooting
 
 **GitHub results seem broad / not all are userscripts**
-GitHub source searches repositories (not individual files) using keyword matching against `userscript OR tampermonkey OR greasemonkey`. This casts a wider net but may include related tools and libraries alongside actual userscripts. Unauthenticated code search (which would filter to `.user.js` files specifically) is restricted by GitHub's API.
+GitHub source searches repositories (not individual files) using keyword matching against `userscript OR tampermonkey OR greasemonkey`. This casts a wider net but may include related tools and libraries alongside actual userscripts.
 
 **OpenUserJS returns no results or fails**
 OpenUserJS results depend on CORS proxy availability. If both proxies are down or rate-limited, OpenUserJS will show a "Failed" status chip. Results from other sources will still display normally.
 
 **Rate limits**
-GitHub enforces 10 search requests/minute for unauthenticated users. Heavy pagination or rapid searching may trigger a 403 response — the app will surface this as an error chip. Greasy Fork has no documented rate limits but self-throttles via 100-item pagination.
+GitHub enforces 10 search requests/minute for unauthenticated users. Heavy pagination or rapid searching may trigger a 403 response — the app will surface this as an error chip.
 
 **Can I self-host a CORS proxy?**
-Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS proxy and update the `fetchViaProxy` function. This eliminates reliance on third-party proxy services.
+Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS proxy and update the `fetchViaProxy` function.
 
 ---
 
