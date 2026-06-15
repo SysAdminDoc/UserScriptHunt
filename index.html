@@ -563,46 +563,43 @@
 
     /* ===== TRUST SCORE ===== */
     function computeTrust(item, scanResult) {
-        var score = 50; // baseline
-        // Installs signal
-        if (item.totalInstalls > 100000) score += 20;
-        else if (item.totalInstalls > 10000) score += 15;
-        else if (item.totalInstalls > 1000) score += 10;
-        else if (item.totalInstalls > 100) score += 5;
-        // Rating signal
-        if (item.rating > 50) score += 10;
-        else if (item.rating > 10) score += 6;
-        else if (item.rating > 0) score += 3;
-        if (item.badRating > item.rating && item.rating > 0) score -= 10;
-        // Freshness signal
-        if (item.updatedAt) {
-            var days = Math.floor((Date.now() - new Date(item.updatedAt)) / 864e5);
-            if (days < 30) score += 10;
-            else if (days < 180) score += 5;
-            else if (days > 730) score -= 10;
-            else if (days > 365) score -= 5;
-        }
-        // GitHub stars
-        if (item.stars > 100) score += 10;
-        else if (item.stars > 10) score += 5;
-        // Security scan
+        var pop = 50, sec = 50, fresh = 50;
+        // Popularity dimension (0-100)
+        if (item.totalInstalls > 100000) pop += 30;
+        else if (item.totalInstalls > 10000) pop += 22;
+        else if (item.totalInstalls > 1000) pop += 15;
+        else if (item.totalInstalls > 100) pop += 8;
+        if (item.rating > 50) pop += 15;
+        else if (item.rating > 10) pop += 10;
+        else if (item.rating > 0) pop += 5;
+        if (item.badRating > item.rating && item.rating > 0) pop -= 15;
+        if (item.stars > 100) pop += 15;
+        else if (item.stars > 10) pop += 8;
+        if (item._sourceCount > 1) pop += Math.min((item._sourceCount - 1) * 8, 15);
+        if (item.name && item.name.length > 100) pop -= 20;
+        if (item.description && item.description.length < 10 && item.totalInstalls < 100) pop -= 15;
+        pop = Math.max(0, Math.min(100, pop));
+        // Security dimension (0-100)
         if (scanResult) {
-            if (scanResult.score >= 90) score += 10;
-            else if (scanResult.score >= 70) score += 5;
-            else if (scanResult.score < 40) score -= 15;
-            else if (scanResult.score < 60) score -= 8;
+            sec = scanResult.score;
         }
-        // Multi-source boost
-        if (item._sourceCount > 1) score += Math.min((item._sourceCount - 1) * 8, 15);
-        // Antifeature penalty
         if (item._meta && item._meta.antifeature) {
             var af = Array.isArray(item._meta.antifeature) ? item._meta.antifeature : [item._meta.antifeature];
-            score -= af.length * 10;
+            sec = Math.max(0, sec - af.length * 15);
         }
-        // Spam signals
-        if (item.name && item.name.length > 100) score -= 15;
-        if (item.description && item.description.length < 10 && item.totalInstalls < 100) score -= 10;
-        return Math.max(0, Math.min(100, score));
+        sec = Math.max(0, Math.min(100, sec));
+        // Freshness dimension (0-100)
+        if (item.updatedAt) {
+            var days = Math.floor((Date.now() - new Date(item.updatedAt)) / 864e5);
+            if (days < 30) fresh = 90;
+            else if (days < 180) fresh = 70;
+            else if (days < 365) fresh = 50;
+            else if (days < 730) fresh = 30;
+            else fresh = 15;
+        }
+        var total = Math.round(pop * 0.4 + sec * 0.35 + fresh * 0.25);
+        item._trustDims = { popularity: pop, security: sec, freshness: fresh };
+        return Math.max(0, Math.min(100, total));
     }
 
     function trustClass(score) {
@@ -1182,9 +1179,17 @@
             panel.innerHTML = '<span class="meta-loading">Running security scan...</span>';
             var scan = await fetchAndScan(item);
             if (!scan) { panel.innerHTML = '<span class="meta-loading">Could not fetch script</span>'; return; }
-            var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="trust-badge ' + trustClass(scan.score) + '">Security: ' + scan.score + '/100</span>';
+            var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="trust-badge ' + trustClass(scan.score) + '">Security: ' + scan.score + '/100</span>';
             if (scan.codeSize) html += '<span style="font-size:10px;color:var(--text-muted)">' + fmtNum(scan.codeSize) + ' bytes</span>';
             html += '</div>';
+            if (item._trustDims) {
+                var d = item._trustDims;
+                html += '<div style="display:flex;gap:6px;margin-bottom:8px;font-size:10px;flex-wrap:wrap">';
+                html += '<span class="trust-badge ' + trustClass(d.popularity) + '">Pop: ' + d.popularity + '</span>';
+                html += '<span class="trust-badge ' + trustClass(d.security) + '">Sec: ' + d.security + '</span>';
+                html += '<span class="trust-badge ' + trustClass(d.freshness) + '">Fresh: ' + d.freshness + '</span>';
+                html += '</div>';
+            }
             // Permission pills
             if (scan.meta && scan.meta.grant) {
                 var pills = getPermPills(scan.meta);
