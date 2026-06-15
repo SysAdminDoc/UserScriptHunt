@@ -395,7 +395,12 @@
         { rx: /localStorage|sessionStorage/, label: 'Accesses browser storage', level: 'info' },
         { rx: /navigator\.clipboard|execCommand\s*\(\s*['"]copy['"]/, label: 'Accesses clipboard', level: 'warn' },
         { rx: /window\.open\s*\(/, label: 'Opens new windows/tabs', level: 'info' },
+        { rx: /WebAssembly\s*\.\s*(instantiate|compile|Module)/, label: 'WebAssembly loading', level: 'danger' },
+        { rx: /\]\s*\(\s*!\s*\[\s*\]\s*\+\s*\[\s*\]\s*\)|\(\s*!\s*\+\s*\[\s*\]\s*\+\s*!\s*\+\s*\[\s*\]\s*\)/, label: 'JSFuck-style obfuscation detected', level: 'danger' },
     ];
+
+    var MINING_DOMAINS = ['coinhive.com','coin-hive.com','cryptoloot.pro','crypto-loot.com','jsecoin.com','authedmine.com','ppoi.org','webmine.pro'];
+    var TRUSTED_REQUIRE_DOMAINS = ['greasyfork.org','github.com','githubusercontent.com','cdnjs.cloudflare.com','cdn.jsdelivr.net','unpkg.com','ajax.googleapis.com','code.jquery.com'];
 
     function scanCode(code) {
         if (!code) return { score: 50, findings: [], permLevel: 'unknown' };
@@ -410,6 +415,23 @@
         if (longStrings > 0) findings.push({ label: 'Contains very long strings (possible obfuscation)', level: 'danger' });
         var hexEscapes = (body.match(/\\x[0-9a-f]{2}/gi) || []).length;
         if (hexEscapes > 20) findings.push({ label: 'Heavy hex escape usage (' + hexEscapes + ' found)', level: 'danger' });
+        // Check @require domains
+        var meta = parseMetaBlock(code);
+        if (meta && meta.require) {
+            var reqs = Array.isArray(meta.require) ? meta.require : [meta.require];
+            reqs.forEach(function(r) {
+                try {
+                    var host = new URL(r).hostname;
+                    if (!TRUSTED_REQUIRE_DOMAINS.some(function(d) { return host === d || host.endsWith('.' + d); })) {
+                        findings.push({ label: '@require from untrusted domain: ' + host, level: 'warn' });
+                    }
+                } catch(e) {}
+            });
+        }
+        // Check for known mining domains
+        MINING_DOMAINS.forEach(function(d) {
+            if (code.indexOf(d) >= 0) findings.push({ label: 'Known crypto mining domain: ' + d, level: 'danger' });
+        });
         // Compute score
         var score = 100;
         for (var j = 0; j < findings.length; j++) {
