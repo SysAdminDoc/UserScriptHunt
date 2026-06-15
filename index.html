@@ -239,8 +239,8 @@
         .compare-value.best{color:var(--green);font-weight:600}
 
         /* Bookmarklet section */
-        .bookmarklet-section{max-width:680px;margin:0 auto 20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:none}
-        .bookmarklet-section.visible{display:block;animation:cardIn 0.2s ease}
+        .bookmarklet-section{max-width:680px;margin:0 auto 20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;inset:unset;position:relative}
+        .bookmarklet-section:popover-open{display:block;animation:cardIn 0.2s ease}
         .bookmarklet-title{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text-primary)}
         .bookmarklet-desc{font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5}
         .bookmarklet-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);color:#fff;font-size:12px;font-weight:600;text-decoration:none;cursor:grab;transition:all var(--transition)}
@@ -330,14 +330,14 @@
                 <svg class="site-filter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <input type="text" class="site-filter" id="siteFilter" placeholder="Filter by site (youtube.com)" autocomplete="off" spellcheck="false" aria-label="Filter by website domain">
             </div>
-            <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool">Bookmarklet</button>
+            <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection">Bookmarklet</button>
             <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
             <button class="tool-btn" id="btnExportFavs" title="Export favorites" style="display:none">Export</button>
             <button class="tool-btn" id="btnImportFavs" title="Import favorites" style="display:none">Import</button>
             <input type="file" id="importFavsFile" accept=".json" style="display:none">
         </div>
 
-        <div class="bookmarklet-section" id="bookmarkletSection">
+        <div class="bookmarklet-section" id="bookmarkletSection" popover="auto">
             <div class="bookmarklet-title">Find Scripts for Any Page</div>
             <div class="bookmarklet-desc">Drag this button to your bookmarks bar. Click it on any webpage to search ScriptHunt for scripts that target that site.</div>
             <a class="bookmarklet-link" id="bookmarkletLink" href="javascript:void(0)">ScriptHunt This Page</a>
@@ -404,7 +404,7 @@
 
     /* -- CORS Proxy (OpenUserJS & Userscript.Zone only) -- */
     var _customProxy = _prefGet('proxy', '');
-    var _proxyNames = _customProxy ? ['custom', 'allorigins', 'codetabs'] : ['allorigins', 'codetabs'];
+    var _proxyNames = _customProxy ? ['custom', 'allorigins', 'codetabs', 'everyorigin'] : ['allorigins', 'codetabs', 'everyorigin'];
     var _proxyHealth = { lastUsed: '', failures: {} };
     async function fetchViaProxy(url, ms) {
         var proxies = [];
@@ -413,7 +413,8 @@
         }
         proxies.push(
             function() { return fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }).then(function(w) { return new Response(w.contents, { status: 200 }); }); },
-            function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('codetabs ' + r.status); return r; }); }
+            function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('codetabs ' + r.status); return r; }); },
+            function() { return fetch('https://everyorigin.jwvbremen.nl/api/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('everyorigin ' + r.status); return r.json(); }).then(function(w) { return new Response(w.html || w.contents || '', { status: 200 }); }); }
         );
         var lastErr;
         for (var i = 0; i < proxies.length; i++) {
@@ -1516,11 +1517,12 @@
     });
 
     // Bookmarklet
-    var bmCode = "javascript:void(window.open('" + (location.origin + location.pathname) + "?q=site:'+encodeURIComponent(location.hostname),'_blank'))";
+    var bmBase = location.origin !== 'null' ? location.origin + location.pathname.replace(/[^/]*$/, '') : 'https://sysadmindoc.github.io/UserScriptHunt/';
+    var bmCode = "javascript:void(window.open('" + bmBase + "?q=site:'+encodeURIComponent(location.hostname),'_blank'))";
     document.getElementById('bookmarkletLink').href = bmCode;
-    document.getElementById('btnBookmarklet').addEventListener('click', function() {
-        var sec = document.getElementById('bookmarkletSection');
-        sec.classList.toggle('visible'); this.classList.toggle('active');
+    var bmBtn = document.getElementById('btnBookmarklet');
+    document.getElementById('bookmarkletSection').addEventListener('toggle', function(e) {
+        bmBtn.classList.toggle('active', e.newState === 'open');
     });
 
     // Favorites button
