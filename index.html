@@ -821,9 +821,10 @@
 
     function normSC(item) {
         var ver = (item.script && item.script.version) || '';
+        var scInstall = item.id ? 'https://scriptcat.org/scripts/code/' + item.id + '/' + encodeURIComponent((item.name || 'script').replace(/\s+/g, '-')) + '.user.js' : '';
         return { id: 'scriptcat-' + item.id, source: 'scriptcat', name: item.name || 'Untitled', description: item.description || '',
             author: item.username || 'Unknown', url: 'https://scriptcat.org/en/script-show-page/' + item.id,
-            installUrl: '', version: ver, dailyInstalls: item.today_install || 0, totalInstalls: item.total_install || 0,
+            installUrl: scInstall, version: ver, dailyInstalls: item.today_install || 0, totalInstalls: item.total_install || 0,
             rating: item.score || 0, badRating: 0,
             createdAt: item.createtime ? new Date(item.createtime * 1000).toISOString() : '',
             updatedAt: item.updatetime ? new Date(item.updatetime * 1000).toISOString() : '',
@@ -854,7 +855,7 @@
     function parseMetaBlock(code) {
         var m = code.match(/\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/);
         if (!m) return null;
-        var meta = {}, arrayKeys = ['match','include','exclude','grant','require','resource','connect'];
+        var meta = {}, arrayKeys = ['match','include','exclude','grant','require','resource','connect','antifeature'];
         var lines = m[1].split('\n');
         for (var i = 0; i < lines.length; i++) {
             var p = lines[i].match(/\/\/\s*@(\S+)\s+(.*)/);
@@ -921,7 +922,7 @@
                     var raw = await srcGH(parsed.query, page);
                     items = (raw.items || []).map(normGH);
                     if (_ghToken && parsed.query) {
-                        try { var codeRaw = await srcGHCode(parsed.query, page); items = items.concat((codeRaw.items || []).map(normGHCode)); } catch(ce) {}
+                        try { var codeRaw = await srcGHCode(parsed.query, page); items = items.concat((codeRaw.items || []).map(normGHCode)); } catch(ce) { console.warn('[github-code]', ce.message); if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000); }
                     }
                     if (items.length < 30 || (raw.total_count && page * 30 >= raw.total_count)) state.sourceHasMore.github = false;
                 } else if (srcId === 'openuserjs') {

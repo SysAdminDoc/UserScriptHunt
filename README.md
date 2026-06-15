@@ -222,7 +222,7 @@ Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS 
 - **CSS Custom Properties** — full theming via variables
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
 - **CORS Proxy** — allorigins.win/codetabs fallback chain, only used for OpenUserJS HTML scraping
-- **No localStorage** — stateless, no tracking, no cookies
+- **localStorage** — preferences, favorites, and source toggles persist locally; no tracking, no cookies, no server-side state
 
 ---
 
