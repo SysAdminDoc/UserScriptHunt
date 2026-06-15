@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 test('page loads with search input and source toggles', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#searchInput')).toBeVisible();
-  await expect(page.locator('.source-toggle')).toHaveCount({ minimum: 5 });
+  await expect(page.locator('.source-toggle')).toHaveCount({ minimum: 6 });
   await expect(page.locator('.version')).toContainText('v0.3.0');
 });
 

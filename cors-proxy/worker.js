@@ -13,6 +13,10 @@ async function handleRequest(request) {
     return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
 
+  if (request.method !== 'GET') {
+    return new Response('Only GET requests allowed', { status: 405 });
+  }
+
   if (!target) {
     return new Response('Missing ?url= parameter', { status: 400 });
   }
