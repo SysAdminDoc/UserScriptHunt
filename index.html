@@ -134,6 +134,7 @@
         .source-chip.loading{color:var(--amber);border-color:var(--amber-dim)}
         .source-chip.done{color:var(--green);border-color:var(--green-dim)}
         .source-chip.error{color:var(--red);border-color:var(--red-dim)}
+        .source-chip.suspended{color:var(--amber);border-color:var(--amber-dim);opacity:0.7}
         .source-chip .chip-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
         .source-chip.loading .chip-dot{animation:pulse-dot 1.2s ease infinite}
         @keyframes pulse-dot{0%,100%{opacity:0.3}50%{opacity:1}}
@@ -461,6 +462,29 @@
         uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true },
         scriptcat: { id: 'scriptcat', name: 'ScriptCat', color: '#10b981', dimColor: 'rgba(16,185,129,0.12)', enabled: _savedSrc.scriptcat !== undefined ? _savedSrc.scriptcat : true },
     };
+
+    /* -- Source Health (auto-disable on repeated failures) -- */
+    var _sourceHealth = {};
+    function srcSuspended(srcId) {
+        var h = _sourceHealth[srcId];
+        if (!h || !h.until) return false;
+        if (Date.now() < h.until) return true;
+        h.until = 0;
+        return false;
+    }
+    function srcFail(srcId) {
+        var h = _sourceHealth[srcId] || (_sourceHealth[srcId] = { fails: 0, until: 0 });
+        h.fails++;
+        if (h.fails >= 3) {
+            var cooldown = Math.min(15000 * Math.pow(2, h.fails - 3), 120000);
+            h.until = Date.now() + cooldown;
+            setTimeout(function() { h.until = 0; h.fails = 0; renderStatusChips(); }, cooldown);
+        }
+    }
+    function srcOk(srcId) {
+        var h = _sourceHealth[srcId];
+        if (h) { h.fails = 0; h.until = 0; }
+    }
 
     /* -- State -- */
     var state = { query: '', rawQuery: '', siteFilter: '', results: [], sourcePages: {}, sourceStatus: {}, sourceCounts: {}, sourceHasMore: {}, searching: false, sortBy: 'relevance', loadingMore: false, compareIds: [], showFavs: false };
@@ -909,6 +933,14 @@
 
         var promises = active.map(async function(srcId) {
             if (state.sourceHasMore[srcId] === false) return [];
+            if (srcSuspended(srcId)) {
+                var h = _sourceHealth[srcId];
+                var secs = Math.ceil((h.until - Date.now()) / 1000);
+                state.sourceStatus[srcId] = 'suspended';
+                state._suspendSecs = state._suspendSecs || {};
+                state._suspendSecs[srcId] = secs;
+                return [];
+            }
             var page = state.sourcePages[srcId] || 1;
             try {
                 var items = [];
@@ -939,10 +971,12 @@
                 state.sourcePages[srcId] = page + 1;
                 state.sourceCounts[srcId] = (state.sourceCounts[srcId] || 0) + items.length;
                 state.sourceStatus[srcId] = 'done';
+                srcOk(srcId);
                 return items;
             } catch (err) {
                 console.warn('[' + srcId + ']', err.message);
                 state.sourceStatus[srcId] = 'error'; state.sourceHasMore[srcId] = false;
+                srcFail(srcId);
                 showToast(SOURCES[srcId].name + ': ' + err.message, 'error', 4000);
                 return [];
             }
@@ -1307,7 +1341,7 @@
             var src = SOURCES[s], status = state.sourceStatus[s] || 'idle';
             if (status === 'idle') return '';
             var count = state.sourceCounts[s] || 0;
-            var label = status === 'loading' ? 'Searching...' : status === 'done' ? count + ' found' : 'Failed';
+            var label = status === 'loading' ? 'Searching...' : status === 'done' ? count + ' found' : status === 'suspended' ? 'Paused (' + ((state._suspendSecs && state._suspendSecs[s]) || '?') + 's)' : 'Failed';
             var proxyNote = '';
             if ((s === 'openuserjs' || s === 'uszone') && status === 'done' && _proxyHealth.lastUsed) proxyNote = ' via ' + _proxyHealth.lastUsed;
             if ((s === 'openuserjs' || s === 'uszone') && status === 'error' && _proxyHealth.failures.allorigins && _proxyHealth.failures.codetabs) proxyNote = ' (all proxies down)';
