@@ -228,14 +228,14 @@ Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS 
 
 ## Roadmap
 
-- [ ] Userscript.Zone integration (HTML scraping — would add 10+ aggregated sub-sources)
-- [ ] ScriptCat store integration
-- [ ] GitHub authenticated code search (`.user.js` file-level search)
-- [ ] Metadata block preview (parse @match, @grant, @require from script headers)
-- [ ] One-click install URLs (direct `.user.js` links for Tampermonkey/Violentmonkey)
-- [ ] Search history / saved searches (sessionStorage)
-- [ ] Filter by target site (e.g. show only scripts for youtube.com)
-- [ ] Dark/OLED theme toggle
+- [ ] GitHub Gists as a search source
+- [ ] Filter panel (license, min installs, date range, @grant types)
+- [ ] URL deep-linking for all state (sources, sort, filters)
+- [ ] Trust score dimension breakdown (show popularity/security/freshness sub-scores)
+- [ ] Entropy-based obfuscation detection in security scanner
+- [ ] Search within loaded results (client-side filtering)
+
+See [ROADMAP.md](ROADMAP.md) for the full plan.
 
 ---
 
