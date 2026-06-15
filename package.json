@@ -1,0 +1,11 @@
+{
+  "name": "scripthunt",
+  "version": "0.3.0",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
