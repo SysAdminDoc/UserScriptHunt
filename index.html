@@ -114,7 +114,8 @@
         .sources-bar{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;max-width:680px;margin:0 auto 20px}
         .source-toggle{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--bg-secondary);border:1px solid var(--border);cursor:pointer;user-select:none;transition:all var(--transition);font-size:12px;font-weight:500;color:var(--text-muted)}
         .source-toggle:hover{border-color:var(--text-muted);color:var(--text-secondary)}
-        .source-toggle.active{border-color:var(--src-color,var(--accent));color:var(--text-primary);background:color-mix(in srgb,var(--src-color,var(--accent)) 6%,var(--bg-secondary))}
+        .source-toggle.active{border-color:var(--src-color,var(--accent));color:var(--text-primary);background:var(--bg-secondary)}
+        @supports (background:color-mix(in srgb,red 50%,blue)){.source-toggle.active{background:color-mix(in srgb,var(--src-color,var(--accent)) 6%,var(--bg-secondary))}}
         .source-toggle.active .source-dot{opacity:1}
         .source-dot{width:7px;height:7px;border-radius:50%;background:var(--src-color,var(--accent));opacity:0.25;transition:opacity 0.2s}
         .source-count{font-size:10px;color:var(--text-muted);font-weight:400;margin-left:1px}
@@ -285,10 +286,13 @@
             .app{padding:0 16px}
             .header{padding:24px 0 16px}.logo-text{font-size:22px}.logo-icon{width:36px;height:36px}
             .tagline{font-size:12.5px}
-            .search-input{font-size:15px;padding:12px 44px 12px 42px}
+            .search-input{font-size:16px;padding:12px 44px 12px 42px}
             .results-grid{grid-template-columns:1fr;gap:10px}
-            .sources-bar{gap:5px}.source-toggle{padding:5px 10px;font-size:11px}
+            .sources-bar{gap:5px}.source-toggle{padding:6px 10px;font-size:11px;min-height:36px}
             .site-filter{width:100%}.filter-row{flex-direction:column;gap:8px}
+            .tool-btn{min-height:36px}
+            .card-btn{min-height:36px;padding:7px 12px}
+            .card-btn-icon{min-width:36px;min-height:36px;display:inline-flex;align-items:center;justify-content:center}
             .compare-bar{flex-direction:column;gap:10px;padding:10px 16px}
             .modal{padding:16px;max-height:95vh;border-radius:12px}
             .compare-grid{grid-template-columns:1fr!important}
@@ -314,7 +318,7 @@
 
         <div class="search-wrap">
             <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" class="search-input" id="searchInput" placeholder="Search userscripts... (try site:youtube.com or author:user)" autocomplete="off" spellcheck="false" role="searchbox" aria-label="Search userscripts">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search userscripts..." autocomplete="off" spellcheck="false" role="searchbox" aria-label="Search userscripts">
             <button class="search-clear" id="clearBtn" title="Clear" aria-label="Clear search">&times;</button>
             <div class="search-history" id="searchHistory"></div>
         </div>
@@ -1017,6 +1021,7 @@
         heart: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
         heartFill: '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
         compare: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+        share: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
     };
 
     /* ===== Rendering ===== */
@@ -1077,12 +1082,12 @@
             h += '<div class="card-meta">' + meta.join('') + '</div>';
 
             h += '<div class="card-actions">';
-            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + esc(item.installUrl) + '" target="_blank" onclick="event.stopPropagation()">' + ICO.install + ' Install</a>';
-            h += '<a class="card-btn card-btn-view" href="' + esc(item.url) + '" target="_blank" onclick="event.stopPropagation()">' + ICO.ext + ' View</a>';
+            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + esc(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' Install</a>';
+            h += '<a class="card-btn card-btn-view" href="' + esc(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
             if (canScan) h += '<button class="card-btn card-btn-icon" data-action="scan" data-idx="' + i + '" title="Security scan">' + ICO.shield + '</button>';
             if (canScan) h += '<button class="card-btn card-btn-icon" data-action="meta" data-idx="' + i + '" title="Metadata">' + ICO.code + '</button>';
             h += '<button class="card-btn card-btn-icon' + (fav ? ' fav-active' : '') + '" data-action="fav" data-idx="' + i + '" title="Favorite">' + (fav ? ICO.heartFill : ICO.heart) + '</button>';
-            if (navigator.share) h += '<button class="card-btn card-btn-icon" data-action="share" data-idx="' + i + '" title="Share">' + ICO.ext + '</button>';
+            if (navigator.share) h += '<button class="card-btn card-btn-icon" data-action="share" data-idx="' + i + '" title="Share">' + ICO.share + '</button>';
             h += '<button class="card-btn card-btn-icon' + (state.compareIds.indexOf(item.id) >= 0 ? ' active' : '') + '" data-action="compare" data-idx="' + i + '" title="Compare">' + ICO.compare + '</button>';
             h += '</div>';
 
@@ -1091,7 +1096,7 @@
             card.innerHTML = h;
 
             // Wire events
-            card.querySelector('.card-title').addEventListener('click', function() { window.open(item.url, '_blank'); });
+            card.querySelector('.card-title').addEventListener('click', function() { window.open(item.url, '_blank', 'noopener'); });
             card.querySelectorAll('[data-action]').forEach(function(btn) {
                 btn.addEventListener('click', function(e) { e.stopPropagation(); handleCardAction(btn.dataset.action, parseInt(btn.dataset.idx), btn); });
             });
@@ -1359,11 +1364,11 @@
             h += '<span class="card-source-badge" style="--badge-bg:' + (src.dimColor || 'var(--accent-glow)') + ';--badge-color:' + (src.color || 'var(--accent)') + '">' + esc(src.name || item.source) + '</span></div>';
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';
             h += '<div class="card-actions">';
-            if (item.installUrl) h += '<a class="card-btn card-btn-install" href="' + esc(item.installUrl) + '" target="_blank" onclick="event.stopPropagation()">' + ICO.install + ' Install</a>';
-            h += '<a class="card-btn card-btn-view" href="' + esc(item.url) + '" target="_blank" onclick="event.stopPropagation()">' + ICO.ext + ' View</a>';
+            if (item.installUrl) h += '<a class="card-btn card-btn-install" href="' + esc(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' Install</a>';
+            h += '<a class="card-btn card-btn-view" href="' + esc(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
             h += '<button class="card-btn card-btn-icon fav-active" data-action="unfav" data-idx="' + i + '" title="Remove">' + ICO.heartFill + '</button></div>';
             card.innerHTML = h;
-            card.querySelector('.card-title').addEventListener('click', function() { window.open(item.url, '_blank'); });
+            card.querySelector('.card-title').addEventListener('click', function() { window.open(item.url, '_blank', 'noopener'); });
             card.querySelector('[data-action="unfav"]').addEventListener('click', function(e) {
                 e.stopPropagation();
                 var snapshot = getFavs().slice();
@@ -1450,7 +1455,7 @@
         if (e.target.closest('.result-card') && e.key === 'Enter' && !e.target.closest('a, button')) {
             var c = e.target.closest('.result-card');
             var title = c.querySelector('.card-title');
-            if (title && title.dataset.url) window.open(title.dataset.url, '_blank');
+            if (title && title.dataset.url) window.open(title.dataset.url, '_blank', 'noopener');
         }
     });
 
