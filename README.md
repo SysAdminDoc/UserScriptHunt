@@ -155,17 +155,26 @@ Default state:
 
 ### CORS Proxies
 
-The app uses CORS proxy services with automatic sequential fallback, but **only for OpenUserJS** (HTML scraping). Greasy Fork, Sleazy Fork, and GitHub all have native CORS support and are fetched directly with no proxy.
+The app uses CORS proxy services with automatic sequential fallback for **OpenUserJS and Userscript.Zone** (HTML scraping). Greasy Fork, Sleazy Fork, and GitHub all have native CORS support and are fetched directly with no proxy.
 
-Proxy chain for OpenUserJS:
+Default proxy chain:
 1. `api.allorigins.win/get` (primary — wraps HTML in JSON)
 2. `api.codetabs.com` (fallback — passes through raw content)
 
-To use a custom proxy, modify the `fetchViaProxy` function in the script:
-```javascript
-// Example: Cloudflare Worker proxy
-const resp = await fetch(`https://your-proxy.workers.dev/?url=${encodeURIComponent(url)}`);
+**Self-hosted proxy (recommended for production):**
+
+A Cloudflare Worker template is included in `cors-proxy/`:
+```bash
+cd cors-proxy
+npx wrangler deploy
 ```
+This gives you a private proxy with domain allowlisting on Cloudflare's free tier (100K req/day).
+
+To use your custom proxy, set it in the browser console:
+```javascript
+localStorage.setItem('sh_pref_proxy', '"https://your-proxy.workers.dev"');
+```
+The app will try your proxy first, then fall back to the public proxies.
 
 ### URL Parameters
 

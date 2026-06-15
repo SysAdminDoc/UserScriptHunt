@@ -368,13 +368,18 @@
     }
 
     /* -- CORS Proxy (OpenUserJS & Userscript.Zone only) -- */
-    var _proxyNames = ['allorigins', 'codetabs'];
+    var _customProxy = _prefGet('proxy', '');
+    var _proxyNames = _customProxy ? ['custom', 'allorigins', 'codetabs'] : ['allorigins', 'codetabs'];
     var _proxyHealth = { lastUsed: '', failures: {} };
     async function fetchViaProxy(url, ms) {
-        var proxies = [
+        var proxies = [];
+        if (_customProxy) {
+            proxies.push(function() { return fetch(_customProxy + '?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('custom proxy ' + r.status); return r.json(); }).then(function(w) { return new Response(w.contents, { status: 200 }); }); });
+        }
+        proxies.push(
             function() { return fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }).then(function(w) { return new Response(w.contents, { status: 200 }); }); },
-            function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('codetabs ' + r.status); return r; }); },
-        ];
+            function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('codetabs ' + r.status); return r; }); }
+        );
         var lastErr;
         for (var i = 0; i < proxies.length; i++) {
             try {
