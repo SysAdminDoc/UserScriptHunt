@@ -551,6 +551,14 @@
         MINING_DOMAINS.forEach(function(d) {
             if (code.indexOf(d) >= 0) findings.push({ label: 'Known crypto mining domain: ' + d, level: 'danger' });
         });
+        // Entropy-based obfuscation detection
+        var identifiers = body.match(/\b[a-zA-Z_$][a-zA-Z0-9_$]*\b/g) || [];
+        if (identifiers.length > 50) {
+            var shortCount = identifiers.filter(function(id) { return id.length <= 2 && !/^(if|in|do|of)$/.test(id); }).length;
+            if (shortCount / identifiers.length > 0.4) {
+                findings.push({ label: 'High ratio of short identifiers (' + Math.round(shortCount / identifiers.length * 100) + '%) — possible obfuscation', level: 'warn' });
+            }
+        }
         // Compute score
         var score = 100;
         for (var j = 0; j < findings.length; j++) {
