@@ -349,6 +349,7 @@
         <div class="stats-bar" id="statsBar" style="display:none">
             <div class="stats-left" id="statsText"></div>
             <div class="stats-right">
+                <input type="text" class="site-filter" id="filterResults" placeholder="Filter results..." style="width:140px;padding:5px 10px;font-size:11px" aria-label="Filter loaded results" autocomplete="off">
                 <select class="sort-select" id="sortSelect" aria-label="Sort results by">
                     <option value="relevance">Sort: Relevance</option>
                     <option value="trust">Sort: Trust Score</option>
@@ -1030,7 +1031,12 @@
     }
 
     function sortAndRender() {
+        var fq = (document.getElementById('filterResults') || {}).value || '';
         var sorted = state.results.slice();
+        if (fq.length >= 2) {
+            var fl = fq.toLowerCase();
+            sorted = sorted.filter(function(r) { return (r.name || '').toLowerCase().includes(fl) || (r.description || '').toLowerCase().includes(fl) || (r.author || '').toLowerCase().includes(fl); });
+        }
         var sortKey = state.sortBy;
         sorted.sort(function(a, b) {
             var sa = a._spam ? 1 : 0, sb = b._spam ? 1 : 0;
@@ -1479,6 +1485,12 @@
     });
 
     sortSelect.addEventListener('change', function() { state.sortBy = sortSelect.value; _prefSet('sort', state.sortBy); if (state.results.length) sortAndRender(); });
+
+    var filterDebounce = null;
+    document.getElementById('filterResults').addEventListener('input', function() {
+        clearTimeout(filterDebounce);
+        filterDebounce = setTimeout(function() { if (state.results.length) sortAndRender(); }, 200);
+    });
 
     var siteDebounce = null;
     siteFilter.addEventListener('input', function() { clearTimeout(siteDebounce); siteDebounce = setTimeout(function() { if (state.rawQuery) executeSearch(state.rawQuery); }, 600); });
