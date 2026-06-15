@@ -237,7 +237,7 @@
                 <span class="logo-text">ScriptHunt</span>
             </div>
             <p class="tagline">Unified search across every userscript source</p>
-            <span class="version">v0.2.0</span>
+            <span class="version">v0.3.0</span>
         </header>
 
         <div class="search-wrap">
@@ -304,9 +304,18 @@
 
     <script>
     /* =============================================
-       ScriptHunt v0.2.0 - Unified Userscript Search
+       ScriptHunt v0.3.0 - Unified Userscript Search
        Security Scanner + Trust Scoring + Comparison
        ============================================= */
+
+    /* -- AbortSignal.timeout polyfill (Safari <16.4, Firefox <100) -- */
+    if (!AbortSignal.timeout) {
+        AbortSignal.timeout = function(ms) {
+            var c = new AbortController();
+            setTimeout(function() { c.abort(new DOMException('TimeoutError', 'TimeoutError')); }, ms);
+            return c.signal;
+        };
+    }
 
     /* -- CORS Proxy (OpenUserJS & Userscript.Zone only) -- */
     async function fetchViaProxy(url, ms) {
@@ -342,14 +351,18 @@
         return idx < 0;
     }
 
-    /* -- Sources -- */
-    var SOURCES = {
-        greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: true },
-        sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: false },
-        github: { id: 'github', name: 'GitHub', color: '#e6edf3', dimColor: 'rgba(230,237,243,0.08)', enabled: true },
+    /* -- User Preferences (localStorage) -- */
+    function _prefGet(k, def) { try { var v = localStorage.getItem('sh_pref_' + k); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; } }
+    function _prefSet(k, v) { try { localStorage.setItem('sh_pref_' + k, JSON.stringify(v)); } catch(e) {} }
 
-        openuserjs: { id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: true },
-        uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: true },
+    /* -- Sources -- */
+    var _savedSrc = _prefGet('sources', {});
+    var SOURCES = {
+        greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true },
+        sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false },
+        github: { id: 'github', name: 'GitHub', color: '#e6edf3', dimColor: 'rgba(230,237,243,0.08)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true },
+        openuserjs: { id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: _savedSrc.openuserjs !== undefined ? _savedSrc.openuserjs : true },
+        uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true },
     };
 
     /* -- State -- */
@@ -531,12 +544,20 @@
     }
 
     /* ===== Source: GitHub Repos ===== */
+    var _ghCooldown = 0;
     async function srcGH(query, page) {
+        if (_ghCooldown > Date.now()) throw new Error('Rate limited — retrying in ' + Math.ceil((_ghCooldown - Date.now()) / 1000) + 's');
         var ck = _ck('github', query, page);
         var cached = _cGet(ck); if (cached) return cached;
         var q = encodeURIComponent(query + ' userscript OR tampermonkey OR greasemonkey');
         var r = await fetch('https://api.github.com/search/repositories?q=' + q + '&per_page=30&page=' + page + '&sort=stars&order=desc', { headers: { Accept: 'application/vnd.github.v3+json' }, signal: AbortSignal.timeout(12000) });
-        if (r.status === 403) throw new Error('Rate limited - try again in 60s');
+        if (r.status === 403 || r.status === 429) {
+            var reset = r.headers.get('x-ratelimit-reset');
+            var waitMs = reset ? Math.max(0, (parseInt(reset) * 1000) - Date.now()) : 60000;
+            _ghCooldown = Date.now() + Math.min(waitMs, 120000);
+            setTimeout(function() { _ghCooldown = 0; renderStatusChips(); }, Math.min(waitMs, 120000));
+            throw new Error('Rate limited — retrying in ' + Math.ceil(waitMs / 1000) + 's');
+        }
         if (!r.ok) throw new Error('GitHub HTTP ' + r.status);
         var data = await r.json(); _cSet(ck, data); return data;
     }
@@ -1072,7 +1093,11 @@
             el.style.setProperty('--src-color', src.color);
             var count = state.sourceCounts[src.id] || 0;
             el.innerHTML = '<span class="source-dot"></span>' + src.name + (count > 0 ? ' <span class="source-count">(' + count + ')</span>' : '');
-            el.addEventListener('click', function() { src.enabled = !src.enabled; el.classList.toggle('active', src.enabled); if (state.rawQuery) executeSearch(state.rawQuery); });
+            el.addEventListener('click', function() {
+                src.enabled = !src.enabled; el.classList.toggle('active', src.enabled);
+                var sp = {}; Object.keys(SOURCES).forEach(function(k) { sp[k] = SOURCES[k].enabled; }); _prefSet('sources', sp);
+                if (state.rawQuery) executeSearch(state.rawQuery);
+            });
             bar.appendChild(el);
         });
     }
@@ -1152,7 +1177,7 @@
         renderSourceToggles(); searchInput.focus();
     });
 
-    sortSelect.addEventListener('change', function() { state.sortBy = sortSelect.value; if (state.results.length) sortAndRender(); });
+    sortSelect.addEventListener('change', function() { state.sortBy = sortSelect.value; _prefSet('sort', state.sortBy); if (state.results.length) sortAndRender(); });
 
     var siteDebounce = null;
     siteFilter.addEventListener('input', function() { clearTimeout(siteDebounce); siteDebounce = setTimeout(function() { if (state.rawQuery) executeSearch(state.rawQuery); }, 600); });
@@ -1177,6 +1202,8 @@
     });
 
     /* ===== Init ===== */
+    var savedSort = _prefGet('sort', 'relevance');
+    if (savedSort) { sortSelect.value = savedSort; state.sortBy = savedSort; }
     renderSourceToggles(); searchInput.focus();
     var urlParams = new URLSearchParams(window.location.search);
     var initQ = urlParams.get('q');
