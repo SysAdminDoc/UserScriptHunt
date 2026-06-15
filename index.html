@@ -457,12 +457,24 @@
     /* -- Sources -- */
     var _savedSrc = _prefGet('sources', {});
     var SOURCES = {
-        greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true },
-        sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false },
-        github: { id: 'github', name: 'GitHub', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true },
-        openuserjs: { id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: _savedSrc.openuserjs !== undefined ? _savedSrc.openuserjs : true },
-        uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true },
-        scriptcat: { id: 'scriptcat', name: 'ScriptCat', color: '#10b981', dimColor: 'rgba(16,185,129,0.12)', enabled: _savedSrc.scriptcat !== undefined ? _savedSrc.scriptcat : true },
+        greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true, pageSize: 100,
+            search: function(q, p, site) { return srcGF(q, p, 'greasyfork.org', site).then(function(d) { return d.map(function(i) { return normGF(i, 'greasyfork'); }); }); } },
+        sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false, pageSize: 100,
+            search: function(q, p, site) { return srcGF(q, p, 'sleazyfork.org', site).then(function(d) { return d.map(function(i) { return normGF(i, 'sleazyfork'); }); }); } },
+        github: { id: 'github', name: 'GitHub', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true, pageSize: 30,
+            search: function(q, p) {
+                return srcGH(q, p).then(function(raw) {
+                    var items = (raw.items || []).map(normGH);
+                    if (_ghToken && q) { return srcGHCode(q, p).then(function(cr) { return items.concat((cr.items || []).map(normGHCode)); }).catch(function(ce) { console.warn('[github-code]', ce.message); if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000); return items; }); }
+                    return items;
+                });
+            }, _getTotal: function(raw) { return raw.total_count; } },
+        openuserjs: { id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: _savedSrc.openuserjs !== undefined ? _savedSrc.openuserjs : true, pageSize: 5,
+            search: function(q, p) { return srcOUJS(q, p); } },
+        uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true, pageSize: 3,
+            search: function(q, p) { return srcUSZ(q, p); } },
+        scriptcat: { id: 'scriptcat', name: 'ScriptCat', color: '#10b981', dimColor: 'rgba(16,185,129,0.12)', enabled: _savedSrc.scriptcat !== undefined ? _savedSrc.scriptcat : true, pageSize: 30,
+            search: function(q, p) { return srcSC(q, p).then(function(r) { return { items: (r.items || []).map(normSC), total: r.total }; }); } },
     };
 
     /* -- Source Health (auto-disable on repeated failures) -- */
@@ -955,33 +967,13 @@
                 state._suspendSecs[srcId] = secs;
                 return [];
             }
+            var srcDef = SOURCES[srcId];
             var page = state.sourcePages[srcId] || 1;
             try {
-                var items = [];
-                if (srcId === 'greasyfork') {
-                    items = (await srcGF(parsed.query, page, 'greasyfork.org', siteVal)).map(function(i) { return normGF(i, 'greasyfork'); });
-                    if (items.length < 100) state.sourceHasMore.greasyfork = false;
-                } else if (srcId === 'sleazyfork') {
-                    items = (await srcGF(parsed.query, page, 'sleazyfork.org', siteVal)).map(function(i) { return normGF(i, 'sleazyfork'); });
-                    if (items.length < 100) state.sourceHasMore.sleazyfork = false;
-                } else if (srcId === 'github') {
-                    var raw = await srcGH(parsed.query, page);
-                    items = (raw.items || []).map(normGH);
-                    if (_ghToken && parsed.query) {
-                        try { var codeRaw = await srcGHCode(parsed.query, page); items = items.concat((codeRaw.items || []).map(normGHCode)); } catch(ce) { console.warn('[github-code]', ce.message); if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000); }
-                    }
-                    if (items.length < 30 || (raw.total_count && page * 30 >= raw.total_count)) state.sourceHasMore.github = false;
-                } else if (srcId === 'openuserjs') {
-                    items = await srcOUJS(parsed.query, page);
-                    if (items.length < 5) state.sourceHasMore.openuserjs = false;
-                } else if (srcId === 'uszone') {
-                    items = await srcUSZ(parsed.query, page);
-                    if (items.length < 3) state.sourceHasMore.uszone = false;
-                } else if (srcId === 'scriptcat') {
-                    var scRaw = await srcSC(parsed.query, page);
-                    items = (scRaw.items || []).map(normSC);
-                    if (items.length < 30 || page * 30 >= scRaw.total) state.sourceHasMore.scriptcat = false;
-                }
+                var result = await srcDef.search(parsed.query, page, siteVal);
+                var items = Array.isArray(result) ? result : (result.items || result);
+                var total = result.total;
+                if (items.length < srcDef.pageSize || (total && page * srcDef.pageSize >= total)) state.sourceHasMore[srcId] = false;
                 state.sourcePages[srcId] = page + 1;
                 state.sourceCounts[srcId] = (state.sourceCounts[srcId] || 0) + items.length;
                 state.sourceStatus[srcId] = 'done';
