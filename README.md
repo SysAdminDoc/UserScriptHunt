@@ -1,40 +1,49 @@
+<!-- codex-branding:start -->
+<p align="center"><img src="icon.png" width="128" alt="ScriptHunt"></p>
+
+<p align="center">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-58A6FF?style=for-the-badge">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-4ade80?style=for-the-badge">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Web%20App-58A6FF?style=for-the-badge">
+</p>
+<!-- codex-branding:end -->
+
 # ScriptHunt
 
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Version](https://img.shields.io/badge/version-0.4.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web-ff6600)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black)
 ![HTML](https://img.shields.io/badge/Single_File-HTML-E34F26?logo=html5&logoColor=white)
 ![Status](https://img.shields.io/badge/status-active-success)
 
-> Unified search engine for userscripts — query Greasy Fork, Sleazy Fork, GitHub, and OpenUserJS from a single interface.
+> Unified search engine for userscripts — query Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and GitHub Gists from a single interface.
 
 <img width="1594" height="1059" alt="image" src="https://github.com/user-attachments/assets/8be2abe9-9e0d-4564-ac4b-6baa58e53ab3" />
 
-**Live:** https://sysadmindoc.github.io/UserScriptHunt/
+## **[Try it live → sysadmindoc.github.io/UserScriptHunt](https://sysadmindoc.github.io/UserScriptHunt/)**
 
-ScriptHunt is a zero-dependency, single-file HTML webapp that searches every major userscript repository in parallel and merges the results into one unified, deduplicated feed. No backend required — runs entirely in the browser, deployable as a static page on GitHub Pages.
+ScriptHunt is a zero-dependency, single-file HTML webapp that searches every major userscript repository in parallel and merges the results into one unified, deduplicated feed with trust scoring, security scanning, and comparison tools. No backend required — runs entirely in the browser, deployable as a static page on GitHub Pages.
 
 ---
 
 ## Quick Start
 
-**Local:**
+**Use it now:** Open **[sysadmindoc.github.io/UserScriptHunt](https://sysadmindoc.github.io/UserScriptHunt/)** in any browser.
+
+**Pre-filled search:** [sysadmindoc.github.io/UserScriptHunt/?q=youtube+enhancer](https://sysadmindoc.github.io/UserScriptHunt/?q=youtube+enhancer)
+
+**Self-host:**
 ```bash
 git clone https://github.com/SysAdminDoc/UserScriptHunt.git
 cd UserScriptHunt
-open userscript-search.html
+open index.html
 ```
 
-**GitHub Pages:**
-1. Push to a GitHub repository
+**GitHub Pages deploy:**
+1. Fork or push to a GitHub repository
 2. Go to **Settings → Pages → Source → Deploy from branch** (main, root)
 3. Access at `https://yourusername.github.io/UserScriptHunt/`
-
-**Direct link with pre-filled search:**
-```
-userscript-search.html?q=youtube+enhancer
-```
 
 ---
 
@@ -42,33 +51,35 @@ userscript-search.html?q=youtube+enhancer
 
 | Feature | Description |
 |---------|-------------|
-| Multi-Source Search | Queries Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, and Userscript.Zone simultaneously |
-| Parallel Fetching | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
-| Cross-Source Dedup | Eliminates duplicate scripts with multi-source trust boost for scripts found on 2+ platforms |
-| Trust Scoring | 0-100 trust score based on installs, ratings, freshness, security scan, and cross-platform presence |
-| Security Scanner | Pattern-based code analysis for dangerous APIs, obfuscation, @require chain validation, crypto mining domains |
-| Permission Risk Pills | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
-| Script Comparison | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
-| Favorites | Save scripts to localStorage with export/import as JSON and undo on removal |
-| Advanced Query Syntax | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search |
-| Source Toggles | Enable/disable sources with preferences persisted across sessions in localStorage |
-| Live Status Chips | Real-time per-source indicators with CORS proxy health info |
-| Sort Controls | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |
-| Infinite Scroll | Automatic pagination fetches next page from all active sources |
-| Staleness Indicators | Active/Aging/Stale badges on result cards based on last update date |
-| Spam Detection | Low-quality results auto-dimmed and pushed to bottom of results |
-| Metadata Viewer | Formatted @-directive display with syntax highlighting |
-| Bookmarklet | One-click "find scripts for this page" from any website |
-| URL Parameters | Shareable search links via `?q=` query parameter |
-| Keyboard Navigation | Tab/arrow key navigation, Enter to open, Escape to close modals |
-| Accessibility | ARIA roles, labels, live regions for screen reader support |
-| Web Share API | Native mobile sharing via share button on result cards |
-| Content Security Policy | CSP meta tag restricting connections to known API domains |
-| View Transitions | GPU-accelerated smooth transitions between search states |
-| Skeleton Loading | Animated placeholder cards during search |
-| Responsive Design | Full mobile/tablet/desktop support with CSS container queries |
-| Zero Dependencies | Single HTML file, no build tools, no npm, no frameworks |
-| Dark Theme | Deep dark UI with accent-colored source badges and card stripes |
+| **7-Source Search** | Queries Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and GitHub Gists simultaneously |
+| **Parallel Fetching** | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
+| **Cross-Source Dedup** | Eliminates duplicate scripts with trust boost for scripts found on 2+ platforms |
+| **Trust Scoring** | Three-axis scoring (Popularity 40%, Security 35%, Freshness 25%) with visible dimension breakdown |
+| **Security Scanner** | Pattern-based code analysis for dangerous APIs, obfuscation detection (entropy + JSFuck), @require chain validation, @connect wildcard warning, crypto mining domain blocklist |
+| **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
+| **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
+| **Favorites** | Save scripts to localStorage with export/import as JSON and undo on removal |
+| **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search |
+| **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
+| **Source Health** | Auto-disables failing sources with exponential backoff; auto-re-enables after cooldown |
+| **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
+| **Live Status Chips** | Real-time per-source indicators with CORS proxy health and suspension status |
+| **Sort Controls** | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |
+| **Infinite Scroll** | Automatic pagination fetches next page from all active sources |
+| **Staleness Indicators** | Active/Aging/Stale badges on result cards based on last update date |
+| **Spam Detection** | Low-quality results auto-dimmed and pushed to bottom of results |
+| **Metadata Viewer** | Formatted @-directive display with syntax highlighting |
+| **Bookmarklet** | One-click "find scripts for this page" from any website (works on file:// too) |
+| **URL Parameters** | Shareable search links via `?q=` query parameter |
+| **Keyboard Navigation** | Tab/arrow key navigation, Enter to open, Escape to close modals |
+| **Accessibility** | ARIA roles, labels, live regions for screen reader support |
+| **Web Share API** | Native mobile sharing via share button on result cards |
+| **Content Security Policy** | Dynamic CSP restricting connections to known API domains (supports custom proxies) |
+| **View Transitions** | GPU-accelerated smooth transitions between search states |
+| **Themes** | Dark, Light, OLED black, and Auto (follows OS preference) |
+| **PWA** | Installable as a Progressive Web App with offline-capable service worker |
+| **Responsive Design** | Full mobile/tablet/desktop support with CSS container queries |
+| **Zero Dependencies** | Single HTML file, no build tools, no npm, no frameworks |
 
 ---
 
@@ -78,66 +89,47 @@ userscript-search.html?q=youtube+enhancer
 |--------|--------|:---:|:---:|:---:|----------|
 | **Greasy Fork** | JSON API + by-site.json | No | Native (`*`) | 100 | Installs, ratings, version, dates, license, author |
 | **Sleazy Fork** | JSON API (direct) | No | Native (`*`) | 100 | Same as Greasy Fork (adult-flagged scripts) |
-| **GitHub** | REST API v3 | No | Native CORS | 30 | Stars, forks, language, license, dates |
+| **GitHub** | REST API v3 + Code Search | Optional token | Native CORS | 30 | Stars, forks, language, license, dates |
 | **OpenUserJS** | HTML scraping via proxy | No | Via proxy | ~25 | Name, author, install URL |
 | **Userscript.Zone** | HTML scraping via proxy | No | Via proxy | ~10 | Name, description, install URL |
-
-### Source Details
-
-**Greasy Fork / Sleazy Fork**
-- Endpoint: `https://api.greasyfork.org/en/scripts.json?q={query}&page={n}`
-- Direct fetch with native CORS (`Access-Control-Allow-Origin: *`)
-- Largest userscript repository (~100,000+ scripts)
-- 100 results per page
-- Full metadata: daily/total installs, good/bad ratings, fan score, version, license, code URL
-
-**GitHub**
-- Endpoint: `https://api.github.com/search/repositories?q={query}+userscript`
-- Searches repos tagged with userscript/tampermonkey/greasemonkey keywords
-- Unauthenticated rate limit: 10 requests/minute for search
-- Returns stars, forks, language, license, owner info
-
-**OpenUserJS**
-- Endpoint: `https://openuserjs.org/?q={query}&orderBy=installs&orderDir=desc&p={n}`
-- HTML response parsed via DOMParser (no JSON API available)
-- Routed through CORS proxy (allorigins.win with codetabs fallback)
-- ~12,000 scripts indexed
+| **ScriptCat** | JSON API v2 | No | Native CORS | 30 | Installs, ratings, version, dates, author |
+| **GitHub Gists** | HTML scraping via proxy | No | Via proxy | ~10 | Name, author, install URL |
 
 ---
 
 ## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        User Search Input                        │
-│                     (450ms debounce / Enter)                    │
-└──────────────────────────┬──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        User Search Input                         │
+│                     (450ms debounce / Enter)                     │
+└──────────────────────────┬───────────────────────────────────────┘
                            │
-              ┌────────────┼────────────┬────────────┐
-              ▼            ▼            ▼            ▼
-     ┌──────────────┐ ┌──────────┐ ┌────────┐ ┌───────────┐
-     │ Greasy Fork  │ │ Sleazy   │ │ GitHub │ │ OpenUserJS│
-     │  (Direct)    │ │ (Direct) │ │(Direct)│ │  (Proxy)  │
-     └──────┬───────┘ └────┬─────┘ └───┬────┘ └─────┬─────┘
-            │              │           │             │
-            └──────────────┴─────┬─────┴─────────────┘
-                                 │
-                    Promise.allSettled()
-                                 │
-                                 ▼
-                  ┌──────────────────────────┐
-                  │  Normalize + Deduplicate  │
-                  │   (ID + name::author)     │
-                  └─────────────┬────────────┘
+         ┌────────┬────────┼────────┬──────────┬──────────┐
+         ▼        ▼        ▼        ▼          ▼          ▼
+    ┌─────────┐┌───────┐┌──────┐┌────────┐┌─────────┐┌────────┐
+    │ Greasy  ││Sleazy ││GitHub││OpenUser││Script   ││  Gists │
+    │  Fork   ││ Fork  ││ +Code││  JS    ││  Cat    ││        │
+    │(Direct) ││(Direct)││(Dir.)││(Proxy) ││(Direct) ││(Proxy) │
+    └────┬────┘└───┬───┘└──┬───┘└───┬────┘└────┬────┘└───┬────┘
+         └─────────┴───────┴────┬───┴──────────┴─────────┘
+                                │
+                   Promise.allSettled()
                                 │
                                 ▼
-                  ┌──────────────────────────┐
-                  │    Sort + Render Cards    │
-                  │  (Grid with source badges)│
-                  └──────────────────────────┘
+                 ┌──────────────────────────┐
+                 │  Normalize + Deduplicate  │
+                 │  Trust Score + Security   │
+                 └─────────────┬────────────┘
+                               │
+                               ▼
+                 ┌──────────────────────────┐
+                 │   Sort + Filter + Render  │
+                 │  (Grid with source badges)│
+                 └──────────────────────────┘
 ```
 
-All source requests fire in parallel. Results render progressively as each source responds — fast sources appear immediately while slower ones are still loading. Failed sources display an error chip but never block other results.
+All source requests fire in parallel via the **source adapter registry** — each source defines a `search()` function and `pageSize`. Results render progressively as each source responds. Failed sources show an error chip and auto-disable with exponential backoff after 3 consecutive failures.
 
 ---
 
@@ -145,21 +137,33 @@ All source requests fire in parallel. Results render progressively as each sourc
 
 ### Source Toggles
 
-Click the source chips below the search bar to enable/disable sources at runtime. Active sources have a bright dot and highlighted border. Disabled sources are skipped entirely (no requests sent).
+Click the source chips below the search bar to enable/disable sources at runtime. Preferences persist in localStorage.
 
 Default state:
 - Greasy Fork: **Enabled**
 - Sleazy Fork: **Disabled** (opt-in for adult content)
 - GitHub: **Enabled**
 - OpenUserJS: **Enabled**
+- Userscript.Zone: **Enabled**
+- ScriptCat: **Enabled**
+- GitHub Gists: **Disabled** (opt-in, uses CORS proxy)
+
+### GitHub Authenticated Search
+
+For higher rate limits and `.user.js` file-level code search, set a GitHub token:
+```javascript
+localStorage.setItem('sh_pref_ghtoken', '"ghp_your_token_here"');
+```
+This enables the code search endpoint (finds individual `.user.js` files across all repos) and increases the rate limit from 10 to 30 requests/minute.
 
 ### CORS Proxies
 
-The app uses CORS proxy services with automatic sequential fallback for **OpenUserJS and Userscript.Zone** (HTML scraping). Greasy Fork, Sleazy Fork, and GitHub all have native CORS support and are fetched directly with no proxy.
+The app uses CORS proxy services with automatic sequential fallback for sources that don't support CORS natively (OpenUserJS, Userscript.Zone, GitHub Gists).
 
 Default proxy chain:
-1. `api.allorigins.win/get` (primary — wraps HTML in JSON)
-2. `api.codetabs.com` (fallback — passes through raw content)
+1. `api.allorigins.win/get` (primary)
+2. `api.codetabs.com` (fallback)
+3. `everyorigin.jwvbremen.nl` (fallback)
 
 **Self-hosted proxy (recommended for production):**
 
@@ -170,17 +174,17 @@ npx wrangler deploy
 ```
 This gives you a private proxy with domain allowlisting on Cloudflare's free tier (100K req/day).
 
-To use your custom proxy, set it in the browser console:
+To use your custom proxy:
 ```javascript
 localStorage.setItem('sh_pref_proxy', '"https://your-proxy.workers.dev"');
 ```
-The app will try your proxy first, then fall back to the public proxies.
+The app will try your proxy first, then fall back to the public proxies. The CSP is automatically updated to allow your custom proxy domain.
 
 ### URL Parameters
 
 | Parameter | Example | Description |
 |-----------|---------|-------------|
-| `q` | `?q=dark+mode` | Pre-fills search and auto-executes on page load |
+| `q` | [`?q=dark+mode`](https://sysadmindoc.github.io/UserScriptHunt/?q=dark+mode) | Pre-fills search and auto-executes on page load |
 
 ---
 
@@ -202,51 +206,50 @@ The app will try your proxy first, then fall back to the public proxies.
 ## FAQ / Troubleshooting
 
 **GitHub results seem broad / not all are userscripts**
-GitHub source searches repositories (not individual files) using keyword matching against `userscript OR tampermonkey OR greasemonkey`. This casts a wider net but may include related tools and libraries alongside actual userscripts.
+GitHub source searches repositories (not individual files) using keyword matching against `userscript OR tampermonkey OR greasemonkey`. With a GitHub token set, code search additionally finds individual `.user.js` files for more precise results.
 
-**OpenUserJS returns no results or fails**
-OpenUserJS results depend on CORS proxy availability. If both proxies are down or rate-limited, OpenUserJS will show a "Failed" status chip. Results from other sources will still display normally.
+**OpenUserJS or Gists return no results or fail**
+These sources depend on CORS proxy availability. If all proxies are down or rate-limited, the source will show a "Failed" status chip and auto-pause with exponential backoff. Results from other sources will still display normally.
 
 **Rate limits**
-GitHub enforces 10 search requests/minute for unauthenticated users. Heavy pagination or rapid searching may trigger a 403 response — the app will surface this as an error chip.
+GitHub enforces 10 search requests/minute for unauthenticated users (30/min with a token). Heavy pagination or rapid searching may trigger a 403 response — the app tracks rate limits and auto-backs off.
 
 **Can I self-host a CORS proxy?**
-Yes. Deploy a Cloudflare Worker (free tier: 100K requests/day) as a simple CORS proxy and update the `fetchViaProxy` function.
+Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/day) and set your proxy URL in localStorage.
 
 ---
 
 ## Tech Stack
 
 - **Single-file HTML** — no build step, no bundler, no framework
-- **Vanilla JavaScript (ES2022)** — async/await, Promise.allSettled, AbortController, DOMParser
-- **CSS Custom Properties** — full theming via variables
+- **Vanilla JavaScript (ES2022)** — async/await, Promise.allSettled, AbortController, DOMParser, Popover API
+- **CSS Custom Properties** — full theming via variables with 4 theme modes
+- **Source Adapter Registry** — adding a new source requires only a `SOURCES` entry with a `search()` function
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
-- **CORS Proxy** — allorigins.win/codetabs fallback chain, only used for OpenUserJS HTML scraping
-- **localStorage** — preferences, favorites, and source toggles persist locally; no tracking, no cookies, no server-side state
+- **CORS Proxy** — allorigins.win → codetabs → everyorigin fallback chain with exponential backoff
+- **PWA** — manifest.json + service worker for installability and offline caching
+- **localStorage** — preferences, favorites, source toggles, and theme persist locally; no tracking, no cookies, no server-side state
 
 ---
 
 ## Roadmap
 
-- [ ] GitHub Gists as a search source
 - [ ] Filter panel (license, min installs, date range, @grant types)
 - [ ] URL deep-linking for all state (sources, sort, filters)
-- [ ] Trust score dimension breakdown (show popularity/security/freshness sub-scores)
-- [ ] Entropy-based obfuscation detection in security scanner
-- [ ] Search within loaded results (client-side filtering)
 
-See [ROADMAP.md](ROADMAP.md) for the full plan.
+See [ROADMAP.md](ROADMAP.md) for the full plan with research notes and architecture patterns.
 
 ---
 
 ## Contributing
 
-Issues and PRs welcome. If adding a new source, follow the existing adapter pattern:
+Issues and PRs welcome. Adding a new source is simple thanks to the adapter registry:
 
-1. Create a `searchSourceName(query, page)` async function
-2. Return an array of normalized result objects matching the schema
-3. Add the source to the `SOURCES` config object
-4. Wire it into `executeSearch()`
+1. Create a `srcYourSource(query, page)` async function that returns results
+2. Create a `normYourSource(item)` function that normalizes to the standard schema
+3. Add an entry to the `SOURCES` object with `search`, `pageSize`, colors, and default enabled state
+
+No changes to `executeSearch()` needed — the registry dispatches automatically.
 
 ---
 
