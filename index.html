@@ -216,6 +216,12 @@
         @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes toastOut{to{opacity:0;transform:translateY(12px)}}
 
+        /* Focus indicators */
+        .result-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+        .source-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+        .card-btn:focus-visible,.card-btn-icon:focus-visible,.tool-btn:focus-visible,.compare-go:focus-visible,.compare-clear:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+        .sort-select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
         @media(max-width:768px){
             .header{padding:24px 0 20px}.logo-text{font-size:22px}
             .search-input{font-size:15px;padding:14px 48px 14px 44px}
@@ -242,15 +248,15 @@
 
         <div class="search-wrap">
             <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" class="search-input" id="searchInput" placeholder="Search userscripts... (try site:youtube.com or author:user)" autocomplete="off" spellcheck="false">
-            <button class="search-clear" id="clearBtn" title="Clear">&times;</button>
+            <input type="text" class="search-input" id="searchInput" placeholder="Search userscripts... (try site:youtube.com or author:user)" autocomplete="off" spellcheck="false" role="searchbox" aria-label="Search userscripts">
+            <button class="search-clear" id="clearBtn" title="Clear" aria-label="Clear search">&times;</button>
             <div class="search-history" id="searchHistory"></div>
         </div>
 
         <div class="filter-row">
             <div class="site-filter-wrap">
                 <svg class="site-filter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <input type="text" class="site-filter" id="siteFilter" placeholder="Filter by site (youtube.com)" autocomplete="off" spellcheck="false">
+                <input type="text" class="site-filter" id="siteFilter" placeholder="Filter by site (youtube.com)" autocomplete="off" spellcheck="false" aria-label="Filter by website domain">
             </div>
             <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool">Bookmarklet</button>
             <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
@@ -262,13 +268,13 @@
             <a class="bookmarklet-link" id="bookmarkletLink" href="javascript:void(0)">ScriptHunt This Page</a>
         </div>
 
-        <div class="sources-bar" id="sourcesBar"></div>
-        <div class="source-status-bar" id="sourceStatusBar"></div>
+        <div class="sources-bar" id="sourcesBar" role="group" aria-label="Source toggles"></div>
+        <div class="source-status-bar" id="sourceStatusBar" aria-live="polite"></div>
 
         <div class="stats-bar" id="statsBar" style="display:none">
             <div class="stats-left" id="statsText"></div>
             <div class="stats-right">
-                <select class="sort-select" id="sortSelect">
+                <select class="sort-select" id="sortSelect" aria-label="Sort results by">
                     <option value="relevance">Sort: Relevance</option>
                     <option value="trust">Sort: Trust Score</option>
                     <option value="installs">Sort: Total Installs</option>
@@ -280,7 +286,7 @@
             </div>
         </div>
 
-        <div class="results-grid" id="resultsGrid">
+        <div class="results-grid" id="resultsGrid" role="list" aria-label="Search results">
             <div class="state-empty">
                 <div style="margin-bottom:16px;opacity:0.2"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
                 <h3>Search userscripts everywhere</h3>
@@ -290,17 +296,17 @@
         </div>
     </div>
 
-    <div class="compare-bar" id="compareBar">
+    <div class="compare-bar" id="compareBar" role="region" aria-label="Script comparison">
         <div class="compare-items" id="compareItems"></div>
         <button class="compare-go" id="compareGo" disabled>Compare</button>
         <button class="compare-clear" id="compareClear">Clear</button>
     </div>
 
-    <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-label="Script comparison detail">
         <div class="modal" id="modalContent"></div>
     </div>
 
-    <div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container" id="toastContainer" aria-live="assertive" role="status"></div>
 
     <script>
     /* =============================================
@@ -836,6 +842,8 @@
             card.className = 'result-card' + (item._spam ? ' spam' : '') + (state.compareIds.indexOf(item.id) >= 0 ? ' selected' : '');
             card.style.animationDelay = Math.min(i * 0.02, 0.4) + 's';
             card.dataset.idx = i;
+            card.setAttribute('role', 'listitem'); card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-label', esc(item.name) + ' by ' + esc(item.author || 'Unknown'));
             var src = SOURCES[item.source] || {};
             card.style.setProperty('--stripe-color', src.color || 'var(--accent)');
 
@@ -1091,13 +1099,18 @@
         Object.values(SOURCES).forEach(function(src) {
             var el = document.createElement('div'); el.className = 'source-toggle' + (src.enabled ? ' active' : '');
             el.style.setProperty('--src-color', src.color);
+            el.setAttribute('role', 'checkbox'); el.setAttribute('aria-checked', String(src.enabled));
+            el.setAttribute('aria-label', src.name + ' source'); el.setAttribute('tabindex', '0');
             var count = state.sourceCounts[src.id] || 0;
             el.innerHTML = '<span class="source-dot"></span>' + src.name + (count > 0 ? ' <span class="source-count">(' + count + ')</span>' : '');
-            el.addEventListener('click', function() {
+            function toggle() {
                 src.enabled = !src.enabled; el.classList.toggle('active', src.enabled);
+                el.setAttribute('aria-checked', String(src.enabled));
                 var sp = {}; Object.keys(SOURCES).forEach(function(k) { sp[k] = SOURCES[k].enabled; }); _prefSet('sources', sp);
                 if (state.rawQuery) executeSearch(state.rawQuery);
-            });
+            }
+            el.addEventListener('click', toggle);
+            el.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
             bar.appendChild(el);
         });
     }
@@ -1186,6 +1199,26 @@
     document.getElementById('compareGo').addEventListener('click', openCompareModal);
     document.getElementById('compareClear').addEventListener('click', function() { state.compareIds = []; updateCompareBar(); sortAndRender(); });
     document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('visible'); });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var modal = document.getElementById('modalOverlay');
+            if (modal.classList.contains('visible')) { modal.classList.remove('visible'); return; }
+            var hist = document.getElementById('searchHistory');
+            if (hist.classList.contains('visible')) { hist.classList.remove('visible'); return; }
+        }
+        if (e.target.closest('.result-card') && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault();
+            var cards = Array.from(grid.querySelectorAll('.result-card'));
+            var idx = cards.indexOf(e.target.closest('.result-card'));
+            var next = e.key === 'ArrowDown' ? idx + 1 : idx - 1;
+            if (cards[next]) cards[next].focus();
+        }
+        if (e.target.closest('.result-card') && e.key === 'Enter' && !e.target.closest('a, button')) {
+            var c = e.target.closest('.result-card');
+            var title = c.querySelector('.card-title');
+            if (title && title.dataset.url) window.open(title.dataset.url, '_blank');
+        }
+    });
 
     // Bookmarklet
     var bmCode = "javascript:void(window.open('" + (location.origin + location.pathname) + "?q=site:'+encodeURIComponent(location.hostname),'_blank'))";
