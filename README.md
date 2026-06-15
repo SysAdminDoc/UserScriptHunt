@@ -42,17 +42,31 @@ userscript-search.html?q=youtube+enhancer
 
 | Feature | Description |
 |---------|-------------|
-| Multi-Source Search | Queries Greasy Fork, Sleazy Fork, GitHub, and OpenUserJS simultaneously |
+| Multi-Source Search | Queries Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, and Userscript.Zone simultaneously |
 | Parallel Fetching | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
-| Cross-Source Dedup | Eliminates duplicate scripts posted to multiple platforms (matched on name + author) |
-| Native CORS | Greasy Fork, Sleazy Fork, and GitHub fetched directly — only OpenUserJS needs a proxy |
-| Source Toggles | Enable/disable individual sources per search with clickable toggle chips |
-| Live Status Chips | Real-time per-source indicators showing loading, complete, or failed states |
-| Sort Controls | Sort results by relevance, total installs, rating, last updated, or name |
-| Pagination | "Load more" fetches the next page from all active sources simultaneously |
+| Cross-Source Dedup | Eliminates duplicate scripts with multi-source trust boost for scripts found on 2+ platforms |
+| Trust Scoring | 0-100 trust score based on installs, ratings, freshness, security scan, and cross-platform presence |
+| Security Scanner | Pattern-based code analysis for dangerous APIs, obfuscation, @require chain validation, crypto mining domains |
+| Permission Risk Pills | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
+| Script Comparison | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
+| Favorites | Save scripts to localStorage with export/import as JSON and undo on removal |
+| Advanced Query Syntax | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search |
+| Source Toggles | Enable/disable sources with preferences persisted across sessions in localStorage |
+| Live Status Chips | Real-time per-source indicators with CORS proxy health info |
+| Sort Controls | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |
+| Infinite Scroll | Automatic pagination fetches next page from all active sources |
+| Staleness Indicators | Active/Aging/Stale badges on result cards based on last update date |
+| Spam Detection | Low-quality results auto-dimmed and pushed to bottom of results |
+| Metadata Viewer | Formatted @-directive display with syntax highlighting |
+| Bookmarklet | One-click "find scripts for this page" from any website |
 | URL Parameters | Shareable search links via `?q=` query parameter |
+| Keyboard Navigation | Tab/arrow key navigation, Enter to open, Escape to close modals |
+| Accessibility | ARIA roles, labels, live regions for screen reader support |
+| Web Share API | Native mobile sharing via share button on result cards |
+| Content Security Policy | CSP meta tag restricting connections to known API domains |
+| View Transitions | GPU-accelerated smooth transitions between search states |
 | Skeleton Loading | Animated placeholder cards during search |
-| Responsive Design | Full mobile/tablet/desktop support |
+| Responsive Design | Full mobile/tablet/desktop support with CSS container queries |
 | Zero Dependencies | Single HTML file, no build tools, no npm, no frameworks |
 | Dark Theme | Deep dark UI with accent-colored source badges and card stripes |
 
@@ -62,10 +76,11 @@ userscript-search.html?q=youtube+enhancer
 
 | Source | Method | Auth Required | CORS | Per-Page | Metadata |
 |--------|--------|:---:|:---:|:---:|----------|
-| **Greasy Fork** | JSON API (direct) | No | Native (`*`) | 100 | Installs, ratings, version, dates, license, author |
+| **Greasy Fork** | JSON API + by-site.json | No | Native (`*`) | 100 | Installs, ratings, version, dates, license, author |
 | **Sleazy Fork** | JSON API (direct) | No | Native (`*`) | 100 | Same as Greasy Fork (adult-flagged scripts) |
 | **GitHub** | REST API v3 | No | Native CORS | 30 | Stars, forks, language, license, dates |
 | **OpenUserJS** | HTML scraping via proxy | No | Via proxy | ~25 | Name, author, install URL |
+| **Userscript.Zone** | HTML scraping via proxy | No | Via proxy | ~10 | Name, description, install URL |
 
 ### Source Details
 
