@@ -672,6 +672,38 @@
             license: (item.license && item.license.spdx_id) || '', stars: item.stargazers_count || 0, forks: item.forks_count || 0, language: item.language || '' };
     }
 
+    /* ===== Source: GitHub Code Search (authenticated) ===== */
+    var _ghToken = _prefGet('ghtoken', '');
+    async function srcGHCode(query, page) {
+        if (!_ghToken) return { items: [], total_count: 0 };
+        if (_ghCooldown > Date.now()) throw new Error('Rate limited');
+        var ck = _ck('ghcode', query, page);
+        var cached = _cGet(ck); if (cached) return cached;
+        var q = encodeURIComponent(query + ' extension:user.js');
+        var r = await fetch('https://api.github.com/search/code?q=' + q + '&per_page=30&page=' + page, { headers: { Accept: 'application/vnd.github.v3+json', Authorization: 'token ' + _ghToken }, signal: AbortSignal.timeout(12000) });
+        if (r.status === 403 || r.status === 429) {
+            var reset = r.headers.get('x-ratelimit-reset');
+            var waitMs = reset ? Math.max(0, (parseInt(reset) * 1000) - Date.now()) : 60000;
+            _ghCooldown = Date.now() + Math.min(waitMs, 120000);
+            setTimeout(function() { _ghCooldown = 0; }, Math.min(waitMs, 120000));
+            throw new Error('Rate limited');
+        }
+        if (r.status === 401) { _ghToken = ''; _prefSet('ghtoken', ''); throw new Error('Invalid GitHub token'); }
+        if (!r.ok) throw new Error('GitHub Code HTTP ' + r.status);
+        var data = await r.json(); _cSet(ck, data); return data;
+    }
+
+    function normGHCode(item) {
+        var repo = item.repository || {};
+        return { id: 'ghcode-' + (repo.id || 0) + '-' + item.sha, source: 'github', name: item.name || item.path || 'Untitled',
+            description: (repo.description || '') + (item.path ? ' (' + item.path + ')' : ''),
+            author: (repo.owner && repo.owner.login) || 'Unknown', url: item.html_url || repo.html_url || '',
+            installUrl: item.html_url ? item.html_url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/') : '',
+            version: '', dailyInstalls: 0, totalInstalls: 0, rating: repo.stargazers_count || 0, badRating: 0,
+            createdAt: '', updatedAt: repo.pushed_at || '',
+            license: '', stars: repo.stargazers_count || 0, forks: repo.forks_count || 0, language: '' };
+    }
+
     /* ===== Source: OpenUserJS ===== */
     async function srcOUJS(query, page) {
         var ck = _ck('openuserjs', query, page);
@@ -859,6 +891,9 @@
                 } else if (srcId === 'github') {
                     var raw = await srcGH(parsed.query, page);
                     items = (raw.items || []).map(normGH);
+                    if (_ghToken && parsed.query) {
+                        try { var codeRaw = await srcGHCode(parsed.query, page); items = items.concat((codeRaw.items || []).map(normGHCode)); } catch(ce) {}
+                    }
                     if (items.length < 30 || (raw.total_count && page * 30 >= raw.total_count)) state.sourceHasMore.github = false;
                 } else if (srcId === 'openuserjs') {
                     items = await srcOUJS(parsed.query, page);
