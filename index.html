@@ -27,6 +27,35 @@
             --radius: 10px; --radius-lg: 14px;
             --shadow: 0 8px 32px rgba(0,0,0,0.5); --shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
         }
+        .theme-light {
+            --bg-void: #f0f2f5; --bg-primary: #ffffff; --bg-secondary: #f5f6f8;
+            --bg-card: #ffffff; --bg-card-hover: #f8f9fb; --bg-input: #ffffff;
+            --border: #d4d8e0; --border-focus: #3b82f6;
+            --text-primary: #1a1d23; --text-secondary: #5a6478; --text-muted: #9aa3b4;
+            --accent: #2563eb; --accent-glow: rgba(37,99,235,0.1); --accent-dim: #1d4ed8;
+            --green: #16a34a; --green-dim: rgba(22,163,74,0.08);
+            --amber: #d97706; --amber-dim: rgba(217,119,6,0.08);
+            --red: #dc2626; --red-dim: rgba(220,38,38,0.08);
+            --purple: #9333ea; --purple-dim: rgba(147,51,234,0.08);
+            --cyan: #0891b2; --cyan-dim: rgba(8,145,178,0.08);
+            --orange: #ea580c; --orange-dim: rgba(234,88,12,0.08);
+            --shadow: 0 4px 16px rgba(0,0,0,0.08); --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+        }
+        .theme-light .bg-grid{background-image:linear-gradient(rgba(59,130,246,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.04) 1px,transparent 1px)}
+        .theme-light .bg-glow{background:radial-gradient(ellipse,rgba(59,130,246,0.05) 0%,transparent 70%)}
+        .theme-light .logo-text{background:linear-gradient(135deg,#1a1d23,#5a6478);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .theme-light ::-webkit-scrollbar-thumb{background:#c4c8d0}
+
+        .theme-oled {
+            --bg-void: #000000; --bg-primary: #000000; --bg-secondary: #0a0a0a;
+            --bg-card: #0d0d0d; --bg-card-hover: #141414; --bg-input: #050505;
+            --border: #1a1a1a; --shadow: none; --shadow-lg: none;
+        }
+        .theme-oled .bg-grid{display:none}
+        .theme-oled .bg-glow{display:none}
+
+        @media (prefers-color-scheme: light) { html.theme-auto { } }
+
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Outfit',-apple-system,sans-serif;background:var(--bg-void);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
         ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
@@ -41,6 +70,8 @@
         .logo-text{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;background:linear-gradient(135deg,var(--text-primary),var(--text-secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px}
         .tagline{color:var(--text-secondary);font-size:14px;font-weight:300;letter-spacing:0.5px}
         .version{display:inline-block;margin-top:5px;padding:2px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)}
+        .theme-toggle{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:2px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;font-size:10px;color:var(--text-muted);cursor:pointer;vertical-align:middle;font-family:'JetBrains Mono',monospace;transition:border-color 0.15s}
+        .theme-toggle:hover{border-color:var(--text-muted);color:var(--text-secondary)}
 
         /* Search */
         .search-wrap{position:relative;max-width:720px;margin:0 auto 10px}
@@ -253,6 +284,7 @@
             </div>
             <p class="tagline">Unified search across every userscript source</p>
             <span class="version">v0.3.0</span>
+            <button class="theme-toggle" id="themeToggle" title="Switch theme" aria-label="Switch color theme">Auto</button>
         </header>
 
         <div class="search-wrap">
@@ -1364,6 +1396,36 @@
         };
         reader.readAsText(file); this.value = '';
     });
+
+    /* ===== Theme Toggle ===== */
+    var THEMES = ['auto', 'dark', 'light', 'oled'];
+    var THEME_LABELS = { auto: 'Auto', dark: 'Dark', light: 'Light', oled: 'OLED' };
+    var themeToggleBtn = document.getElementById('themeToggle');
+
+    function applyTheme(theme) {
+        var html = document.documentElement;
+        html.classList.remove('theme-light', 'theme-oled', 'theme-auto');
+        if (theme === 'light') html.classList.add('theme-light');
+        else if (theme === 'oled') html.classList.add('theme-oled');
+        else if (theme === 'auto') {
+            html.classList.add('theme-auto');
+            if (window.matchMedia('(prefers-color-scheme: light)').matches) html.classList.add('theme-light');
+        }
+        themeToggleBtn.textContent = THEME_LABELS[theme] || 'Auto';
+        _prefSet('theme', theme);
+    }
+
+    themeToggleBtn.addEventListener('click', function() {
+        var current = _prefGet('theme', 'auto');
+        var next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+        applyTheme(next);
+    });
+
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function() {
+        if (_prefGet('theme', 'auto') === 'auto') applyTheme('auto');
+    });
+
+    applyTheme(_prefGet('theme', 'auto'));
 
     /* ===== Init ===== */
     var savedSort = _prefGet('sort', 'relevance');
