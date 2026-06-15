@@ -937,10 +937,12 @@
         if (!item) return;
 
         if (action === 'fav') {
+            var snapshot = getFavs().slice();
             var added = toggleFav(item);
             btn.innerHTML = added ? ICO.heartFill : ICO.heart;
             btn.classList.toggle('fav-active', added);
-            showToast(added ? 'Added to favorites' : 'Removed from favorites', 'info', 2000);
+            if (added) { showToast('Added to favorites', 'info', 2000); }
+            else { showToast('Removed from favorites', 'info', 5000, function() { setFavs(snapshot); btn.innerHTML = ICO.heartFill; btn.classList.add('fav-active'); }); }
         }
         else if (action === 'share') {
             navigator.share({ title: item.name, url: item.url }).catch(function() {});
@@ -1188,8 +1190,10 @@
             card.innerHTML = h;
             card.querySelector('.card-title').addEventListener('click', function() { window.open(item.url, '_blank'); });
             card.querySelector('[data-action="unfav"]').addEventListener('click', function(e) {
-                e.stopPropagation(); toggleFav(item); showFavorites();
-                showToast('Removed from favorites', 'info', 2000);
+                e.stopPropagation();
+                var snapshot = getFavs().slice();
+                toggleFav(item); showFavorites();
+                showToast('Removed from favorites', 'info', 5000, function() { setFavs(snapshot); showFavorites(); });
             });
             grid.appendChild(card);
         });
@@ -1199,7 +1203,19 @@
     function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function fmtNum(n) { if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
     function timeAgo(d) { if (!d) return ''; var days = Math.floor((Date.now() - new Date(d)) / 864e5); if (days < 1) return 'today'; if (days === 1) return 'yesterday'; if (days < 30) return days+'d ago'; if (days < 365) return Math.floor(days/30)+'mo ago'; return Math.floor(days/365)+'y ago'; }
-    function showToast(msg, type, dur) { type = type || 'info'; dur = dur || 3000; var c = document.getElementById('toastContainer'), t = document.createElement('div'); t.className = 'toast' + (type === 'error' ? ' error' : ''); t.textContent = msg; c.appendChild(t); setTimeout(function() { t.classList.add('out'); setTimeout(function() { t.remove(); }, 300); }, dur); }
+    function showToast(msg, type, dur, undoFn) {
+        type = type || 'info'; dur = dur || 3000;
+        var c = document.getElementById('toastContainer'), t = document.createElement('div');
+        t.className = 'toast' + (type === 'error' ? ' error' : '');
+        t.textContent = msg;
+        if (undoFn) {
+            var btn = document.createElement('button');
+            btn.textContent = 'Undo'; btn.style.cssText = 'margin-left:10px;background:var(--accent);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px';
+            btn.addEventListener('click', function() { undoFn(); t.remove(); });
+            t.appendChild(btn);
+        }
+        c.appendChild(t); setTimeout(function() { t.classList.add('out'); setTimeout(function() { t.remove(); }, 300); }, dur);
+    }
 
     /* ===== Event Bindings ===== */
     var searchInput = document.getElementById('searchInput');
