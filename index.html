@@ -96,7 +96,7 @@
         @keyframes pulse-dot{0%,100%{opacity:0.4}50%{opacity:1}}
 
         /* Results grid */
-        .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;padding-bottom:80px}
+        .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;padding-bottom:80px;container-type:inline-size}
 
         /* Result card */
         .result-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;transition:all 0.2s;position:relative;overflow:hidden;animation:cardIn 0.35s ease both}
@@ -217,6 +217,14 @@
         @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes toastOut{to{opacity:0;transform:translateY(12px)}}
 
+        /* Container queries for cards */
+        @container (max-width: 400px) {
+            .result-card{padding:12px 14px}
+            .card-top-row{flex-direction:column;gap:4px}
+            .card-badges{align-self:flex-start}
+            .card-actions{flex-wrap:wrap}
+        }
+
         /* Focus indicators */
         .result-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         .source-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -328,13 +336,25 @@
     }
 
     /* -- CORS Proxy (OpenUserJS & Userscript.Zone only) -- */
+    var _proxyNames = ['allorigins', 'codetabs'];
+    var _proxyHealth = { lastUsed: '', failures: {} };
     async function fetchViaProxy(url, ms) {
         var proxies = [
             function() { return fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('allorigins ' + r.status); return r.json(); }).then(function(w) { return new Response(w.contents, { status: 200 }); }); },
             function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('codetabs ' + r.status); return r; }); },
         ];
         var lastErr;
-        for (var i = 0; i < proxies.length; i++) { try { return await proxies[i](); } catch (e) { lastErr = e; } }
+        for (var i = 0; i < proxies.length; i++) {
+            try {
+                var result = await proxies[i]();
+                _proxyHealth.lastUsed = _proxyNames[i];
+                _proxyHealth.failures[_proxyNames[i]] = 0;
+                return result;
+            } catch (e) {
+                _proxyHealth.failures[_proxyNames[i]] = (_proxyHealth.failures[_proxyNames[i]] || 0) + 1;
+                lastErr = e;
+            }
+        }
         throw lastErr || new Error('All proxies failed');
     }
 
@@ -1152,7 +1172,10 @@
             if (status === 'idle') return '';
             var count = state.sourceCounts[s] || 0;
             var label = status === 'loading' ? 'Searching...' : status === 'done' ? count + ' found' : 'Failed';
-            return '<span class="source-chip ' + status + '"><span class="chip-dot"></span>' + src.name + ': ' + label + '</span>';
+            var proxyNote = '';
+            if ((s === 'openuserjs' || s === 'uszone') && status === 'done' && _proxyHealth.lastUsed) proxyNote = ' via ' + _proxyHealth.lastUsed;
+            if ((s === 'openuserjs' || s === 'uszone') && status === 'error' && _proxyHealth.failures.allorigins && _proxyHealth.failures.codetabs) proxyNote = ' (all proxies down)';
+            return '<span class="source-chip ' + status + '"><span class="chip-dot"></span>' + src.name + ': ' + label + proxyNote + '</span>';
         }).join('');
     }
 
