@@ -450,6 +450,8 @@
             else if (scanResult.score < 40) score -= 15;
             else if (scanResult.score < 60) score -= 8;
         }
+        // Multi-source boost
+        if (item._sourceCount > 1) score += Math.min((item._sourceCount - 1) * 8, 15);
         // Spam signals
         if (item.name && item.name.length > 100) score -= 15;
         if (item.description && item.description.length < 10 && item.totalInstalls < 100) score -= 10;
@@ -770,11 +772,20 @@
         var settled = await Promise.allSettled(promises);
         var newItems = settled.flatMap(function(r) { return r.status === 'fulfilled' ? r.value : []; });
         var existing = new Set(state.results.map(function(r) { return r.id; }));
-        var nameKeys = new Set(state.results.map(function(r) { return (r.name + '::' + r.author).toLowerCase(); }));
+        var nameMap = {};
+        state.results.forEach(function(r) { nameMap[(r.name + '::' + (r.author || '')).toLowerCase()] = r; });
         var deduped = newItems.filter(function(item) {
             if (existing.has(item.id)) return false; existing.add(item.id);
             var nk = (item.name + '::' + (item.author || '')).toLowerCase();
-            if (nameKeys.has(nk)) return false; nameKeys.add(nk);
+            var orig = nameMap[nk];
+            if (orig) {
+                orig._sourceCount = (orig._sourceCount || 1) + 1;
+                orig.totalInstalls = Math.max(orig.totalInstalls || 0, item.totalInstalls || 0);
+                orig.rating = Math.max(orig.rating || 0, item.rating || 0);
+                if (!orig.installUrl && item.installUrl) orig.installUrl = item.installUrl;
+                return false;
+            }
+            nameMap[nk] = item; item._sourceCount = 1;
             return true;
         });
 
@@ -879,6 +890,7 @@
             h += '<div class="card-title" data-url="' + esc(item.url) + '">' + esc(item.name) + '</div>';
             h += '<div class="card-badges">';
             h += '<span class="trust-badge ' + tCls + '">' + trustScore + '</span>';
+            if (item._sourceCount > 1) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Multi-source</span>';
             h += '<span class="card-source-badge" style="--badge-bg:' + src.dimColor + ';--badge-color:' + src.color + '">' + esc(src.name || item.source) + '</span>';
             h += '</div></div>';
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';
