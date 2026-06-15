@@ -260,6 +260,9 @@
             </div>
             <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool">Bookmarklet</button>
             <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
+            <button class="tool-btn" id="btnExportFavs" title="Export favorites" style="display:none">Export</button>
+            <button class="tool-btn" id="btnImportFavs" title="Import favorites" style="display:none">Import</button>
+            <input type="file" id="importFavsFile" accept=".json" style="display:none">
         </div>
 
         <div class="bookmarklet-section" id="bookmarkletSection">
@@ -1234,9 +1237,40 @@
     });
 
     // Favorites button
+    var btnExport = document.getElementById('btnExportFavs'), btnImport = document.getElementById('btnImportFavs');
     document.getElementById('btnFavorites').addEventListener('click', function() {
         this.classList.toggle('active');
-        if (this.classList.contains('active')) { showFavorites(); } else { if (state.rawQuery) { state.showFavs = false; sortAndRender(); } else { clearBtn.click(); } }
+        var active = this.classList.contains('active');
+        btnExport.style.display = active ? '' : 'none'; btnImport.style.display = active ? '' : 'none';
+        if (active) { showFavorites(); } else { if (state.rawQuery) { state.showFavs = false; sortAndRender(); } else { clearBtn.click(); } }
+    });
+
+    // Export favorites
+    btnExport.addEventListener('click', function() {
+        var favs = getFavs(); if (!favs.length) { showToast('No favorites to export', 'error', 2000); return; }
+        var blob = new Blob([JSON.stringify(favs, null, 2)], { type: 'application/json' });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'scripthunt-favorites.json'; a.click();
+        URL.revokeObjectURL(a.href); showToast('Exported ' + favs.length + ' favorites', 'info', 2000);
+    });
+
+    // Import favorites
+    var importInput = document.getElementById('importFavsFile');
+    btnImport.addEventListener('click', function() { importInput.click(); });
+    importInput.addEventListener('change', function() {
+        var file = this.files[0]; if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var imported = JSON.parse(e.target.result);
+                if (!Array.isArray(imported)) throw new Error('Invalid format');
+                var existing = getFavs(), ids = new Set(existing.map(function(f) { return f.id; }));
+                var added = 0;
+                imported.forEach(function(item) { if (item.id && !ids.has(item.id)) { existing.push(item); ids.add(item.id); added++; } });
+                setFavs(existing); showFavorites();
+                showToast('Imported ' + added + ' new favorites (' + (imported.length - added) + ' duplicates skipped)', 'info', 3000);
+            } catch(err) { showToast('Invalid favorites file', 'error', 3000); }
+        };
+        reader.readAsText(file); this.value = '';
     });
 
     /* ===== Init ===== */
