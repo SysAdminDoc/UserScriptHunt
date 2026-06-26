@@ -1,0 +1,154 @@
+# Roadmap
+
+## Research-Driven Additions
+
+### P0
+- [ ] P0 — Fix proxy reliability and diagnostics
+  Why: Proxied sources fail silently enough to make cross-source search look complete when it is not.
+  Evidence: `index.html` `fetchViaProxy()`; live `youtube` search returned Greasy Fork/GitHub while OpenUserJS, Userscript.Zone, and ScriptCat failed; CodeTabs proxy docs.
+  Touches: `index.html` proxy list, `fetchViaProxy()`, `_sourceHealth`, `renderStatusChips()`, tests.
+  Acceptance: failed searches show per-source/per-proxy failure reasons, working proxy used, retry option, and no source is presented as complete after all proxy fallbacks fail.
+  Complexity: M
+
+- [ ] P0 — Expand the bundled Worker allowlist for all proxied sources
+  Why: The documented custom proxy cannot currently support GitHub Gists, even though the app routes Gist search through a proxy.
+  Evidence: `cors-proxy/worker.js`; `index.html` Gist source; README custom proxy instructions.
+  Touches: `cors-proxy/worker.js`, `README.md`, Worker tests or smoke checks.
+  Acceptance: Worker allows only the required OpenUserJS, Userscript.Zone, Gist, and raw Gist hosts; rejects unknown hosts; Gist/OpenUserJS/Userscript.Zone searches work through the Worker.
+  Complexity: S
+
+- [ ] P0 — Make `grant:` filtering real
+  Why: The app advertises advanced query syntax, but `grant:` is parsed and never applied.
+  Evidence: `index.html` `parseQuery()` and `executeSearch()`; README advanced query syntax.
+  Touches: `index.html` query parsing, metadata fetch/cache, result filtering, Playwright tests.
+  Acceptance: `grant:GM_xmlhttpRequest` filters results by parsed metadata or clearly labels sources whose metadata has not been fetched yet; tests cover positive and negative matches.
+  Complexity: M
+
+- [ ] P0 — Restore clean-checkout test execution
+  Why: A coding agent cannot verify changes reliably when the current test command fails before loading tests.
+  Evidence: `package.json`, missing lockfile, `playwright.config.js`, observed `Cannot find module '@playwright/test'`.
+  Touches: `package.json`, lockfile, test scripts, CI docs.
+  Acceptance: fresh clone can run `npm ci` and `npm test` successfully, with browsers/install steps documented or scripted.
+  Complexity: S
+
+### P1
+- [ ] P1 — Expand security scan and metadata panels to every installable source
+  Why: Trust scores are incomplete for ScriptCat, GitHub, and Gists, which weakens the app's main differentiator.
+  Evidence: `index.html` `fetchAndScan()` skips GitHub/Gists and `canScan` excludes ScriptCat; Violentmonkey metadata docs.
+  Touches: `index.html` source adapters, `fetchAndScan()`, `parseMetaBlock()`, card actions, proxy/Worker handling.
+  Acceptance: every result with a raw `.user.js` URL can show metadata and scan findings; unavailable scans explain the exact blocker.
+  Complexity: M
+
+- [ ] P1 — Add source adapter fixtures and parser tests
+  Why: HTML-scraped sources can break without warning, and the current tests mostly cover UI smoke paths.
+  Evidence: OpenUserJS/Userscript.Zone/Gist scraping functions in `index.html`; recent source additions in git history.
+  Touches: `tests/`, source adapter functions, fixture files, `playwright.config.js`.
+  Acceptance: representative Greasy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and Gist responses normalize into stable `ScriptResult` objects in automated tests.
+  Complexity: M
+
+- [ ] P1 — Add visible advanced filter controls
+  Why: Greasy Fork and Userscript.Zone set user expectations for license/date/install/grant/domain filtering, while ScriptHunt hides partial filters in query syntax.
+  Evidence: Greasy Fork search UI/API; Userscript.Zone domain search; existing roadmap filter item; `index.html` `filterResults` and `parseQuery()`.
+  Touches: `index.html` controls, state, filter functions, URL serializer, tests.
+  Acceptance: users can filter by source, license, installs, updated date, risk/grants, and applies-to domain without memorizing operators.
+  Complexity: L
+
+- [ ] P1 — Deep-link complete search state
+  Why: Searches are hard to reproduce because only `q` is restored from URL state.
+  Evidence: `index.html` URL parsing only reads `q`; existing roadmap deep-link item; GitHub issue/research workflows need shareable queries.
+  Touches: `index.html` state serializer, source toggles, sort/site/filter controls, history updates, tests.
+  Acceptance: URL restores query, enabled sources, site filter, sort, visible filters, and pagination-safe initial state.
+  Complexity: M
+
+- [ ] P1 — Add persistent source health and diagnostics export
+  Why: Users need recovery tools when source APIs or proxies fail intermittently.
+  Evidence: `index.html` `_sourceHealth` is in-memory; SearXNG engine-health pattern; Violentmonkey permission troubleshooting issue.
+  Touches: `index.html` health model, localStorage schema, status chips, diagnostics UI.
+  Acceptance: source/proxy failures persist across reloads with cooldowns, manual retry, and a copyable diagnostics payload excluding secrets.
+  Complexity: M
+
+- [ ] P1 — Sync versions, changelog, and source copy
+  Why: Version drift and stale copy reduce trust in a security-sensitive discovery tool.
+  Evidence: README/index/sw show v0.4.0; `package.json` and `CLAUDE.md` show v0.3.0; `CHANGELOG.md` predates recent Gist/source-health work; empty state omits Gists.
+  Touches: `package.json`, `CLAUDE.md`, `CHANGELOG.md`, `README.md`, `index.html`, `sw.js`.
+  Acceptance: all visible/documented versions and source lists match the shipped app; changelog includes recent public features.
+  Complexity: S
+
+- [ ] P1 — Harden accessibility of controls and modals
+  Why: The app uses custom checkbox-like source chips and icon-only card buttons in core workflows.
+  Evidence: `index.html` source toggles use `div role=checkbox`; card buttons use `title`; compare modal lacks an obvious focus trap.
+  Touches: `index.html` controls, button labels, modal focus management, Playwright accessibility assertions.
+  Acceptance: all controls have accessible names, keyboard operation is complete, modal focus is trapped/restored, and source toggles use native controls or equivalent tested semantics.
+  Complexity: M
+
+- [ ] P1 — Add offline recent-search cache
+  Why: The PWA currently opens offline but does not preserve useful recent search results.
+  Evidence: `sw.js` caches shell assets only; MDN StorageManager; existing roadmap offline item.
+  Touches: `sw.js`, `index.html` cache layer, IndexedDB wrapper, storage quota handling.
+  Acceptance: last N successful searches are browsable offline with stale labels and clear revalidation behavior when online.
+  Complexity: M
+
+### P2
+- [ ] P2 — Normalize install, update, and already-installed state
+  Why: Manager projects show install/update URL normalization and installed-script awareness as recurring user needs.
+  Evidence: quoid/userscripts installURL issue; Userscript-Plus installed-filter request; current favorites/import code.
+  Touches: `index.html` result schema, metadata parser, favorites/import/export schema, install buttons.
+  Acceptance: results expose install/update/download URLs consistently, imported installed-script lists mark matches, and exports include a versioned schema.
+  Complexity: L
+
+- [ ] P2 — Add applies-to matrix and precise site matching
+  Why: Site searches should show which scripts actually target the user's domain instead of relying only on keyword matches.
+  Evidence: Userscript.Zone URL/domain modes; Greasy Fork by-site endpoint; existing roadmap `@match` matrix item.
+  Touches: `index.html` metadata parser, site filter, result card detail, compare modal.
+  Acceptance: result details show matched `@match`/`@include` patterns for the entered domain and distinguish source-provided applies-to data from locally parsed metadata.
+  Complexity: L
+
+- [ ] P2 — Expose transparent trust-score dimensions
+  Why: Trust scoring is useful only if users can see which evidence drove the score.
+  Evidence: `index.html` `computeTrust()`; npms quality/popularity/maintenance model; OpenSSF Scorecard transparency.
+  Touches: `index.html` trust model, result cards, compare modal, docs.
+  Acceptance: each card can expand trust into popularity, freshness, security, metadata completeness, and source-health dimensions with plain labels.
+  Complexity: M
+
+- [ ] P2 — Add locale and language filters for catalog sources
+  Why: Full UI i18n is not a fit, but source-level language filtering is directly supported by catalogs.
+  Evidence: Greasy Fork language/locale search; rejected full-i18n research finding.
+  Touches: `index.html` Greasy Fork/Sleazy Fork adapters, filter UI, URL state.
+  Acceptance: users can filter Greasy Fork/Sleazy Fork results by script language/locale without affecting other sources incorrectly.
+  Complexity: S
+
+- [ ] P2 — Add GitHub token and rate-limit UI
+  Why: GitHub search has strict unauthenticated limits and the current token path is hidden in console/localStorage instructions.
+  Evidence: GitHub Search API rate-limit docs; `index.html` `_ghToken`; README token snippet.
+  Touches: `index.html` settings UI, token storage, rate-limit status, README.
+  Acceptance: users can add/remove a token in-app, see current GitHub rate-limit state, and never export the token in diagnostics.
+  Complexity: M
+
+- [ ] P2 — Add CI smoke workflow for static app and Worker
+  Why: The app is static, but source/proxy regressions need repeatable checks after every change.
+  Evidence: no `.github/` workflow in repo tree; Playwright tests exist but clean run is currently blocked.
+  Touches: `.github/workflows/`, `package.json`, `tests/`, `cors-proxy/worker.js`.
+  Acceptance: CI runs install, Playwright smoke tests, Worker allowlist tests, and artifact-free status checks on pull requests.
+  Complexity: M
+
+### P3
+- [ ] P3 — Add saved searches with update checks
+  Why: Community requests for RSS/new-script feeds show demand for monitoring new or updated userscripts, but a static app should keep it local.
+  Evidence: OpenUserJS RSS issue; existing roadmap saved queries and script-version watcher items.
+  Touches: `index.html` saved-query model, localStorage/IndexedDB schema, source polling, notifications UI.
+  Acceptance: users can save a query/domain and manually refresh it to see new/updated results since last check.
+  Complexity: L
+
+- [ ] P3 — Add custom source templates for power users
+  Why: Manager users request configurable discovery sources, and ScriptHunt's source registry can support constrained templates without a plugin marketplace.
+  Evidence: Violentmonkey custom search sources issue; `index.html` `SOURCES` registry.
+  Touches: `index.html` source registry, settings/import/export schema, validation, docs.
+  Acceptance: users can add a validated JSON/API or URL-template source that maps into `ScriptResult`, with unsafe templates rejected.
+  Complexity: XL
+
+- [ ] P3 — Add companion bookmarklet/import flow for current-site context
+  Why: Browser-context discovery is useful, but a full extension is heavier than the project needs right now.
+  Evidence: Userscript-Plus current-site discovery; existing bookmarklet; rejected extension-manager scope.
+  Touches: `index.html` bookmarklet, URL state, import/history schema.
+  Acceptance: bookmarklet opens ScriptHunt with the current URL/domain, optional installed-list import marks known scripts, and no browser extension is required.
+  Complexity: M
