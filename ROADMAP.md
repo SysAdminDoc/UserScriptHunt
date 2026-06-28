@@ -4,13 +4,6 @@
 
 ### P0
 ### P1
-- [ ] P1 — Add visible advanced filter controls
-  Why: Greasy Fork and Userscript.Zone set user expectations for license/date/install/grant/domain filtering, while ScriptHunt hides partial filters in query syntax.
-  Evidence: Greasy Fork search UI/API; Userscript.Zone domain search; existing roadmap filter item; `index.html` `filterResults` and `parseQuery()`.
-  Touches: `index.html` controls, state, filter functions, URL serializer, tests.
-  Acceptance: users can filter by source, license, installs, updated date, risk/grants, and applies-to domain without memorizing operators.
-  Complexity: L
-
 - [ ] P1 — Deep-link complete search state
   Why: Searches are hard to reproduce because only `q` is restored from URL state.
   Evidence: `index.html` URL parsing only reads `q`; existing roadmap deep-link item; GitHub issue/research workflows need shareable queries.

@@ -110,6 +110,12 @@
         .tool-btn{padding:7px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all var(--transition);display:inline-flex;align-items:center;gap:5px}
         .tool-btn:hover{border-color:var(--text-muted);color:var(--text-primary)}
         .tool-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+        .advanced-filters{display:flex;align-items:end;justify-content:center;gap:8px;max-width:960px;margin:0 auto 16px;flex-wrap:wrap}
+        .filter-field{display:flex;flex-direction:column;gap:4px}
+        .filter-label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em}
+        .filter-control{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:12px;height:32px;padding:6px 9px;outline:none;min-width:112px;transition:border-color var(--transition)}
+        .filter-control:focus{border-color:var(--accent)}
+        .filter-control::placeholder{color:var(--text-muted)}
 
         /* Source toggles */
         .sources-bar{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;max-width:680px;margin:0 auto 20px}
@@ -281,7 +287,7 @@
         .result-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--radius)}
         .source-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         .card-btn:focus-visible,.card-btn-icon:focus-visible,.tool-btn:focus-visible,.compare-go:focus-visible,.compare-clear:focus-visible,.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-        .sort-select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+        .sort-select:focus-visible,.filter-control:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
         @media(prefers-reduced-motion:reduce){
             *{animation-duration:0.01ms!important;transition-duration:0.01ms!important}
@@ -295,6 +301,7 @@
             .results-grid{grid-template-columns:1fr;gap:10px}
             .sources-bar{gap:5px}.source-toggle{padding:6px 10px;font-size:11px;min-height:36px}
             .site-filter{width:100%}.filter-row{flex-direction:column;gap:8px}
+            .advanced-filters{align-items:stretch}.filter-field{width:100%}.filter-control{width:100%}
             .tool-btn{min-height:36px}
             .card-btn{min-height:36px;padding:7px 12px}
             .card-btn-icon{min-width:36px;min-height:36px;display:inline-flex;align-items:center;justify-content:center}
@@ -344,6 +351,14 @@
             <div class="bookmarklet-title">Find Scripts for Any Page</div>
             <div class="bookmarklet-desc">Drag this button to your bookmarks bar. Click it on any webpage to search ScriptHunt for scripts that target that site.</div>
             <a class="bookmarklet-link" id="bookmarkletLink" href="javascript:void(0)">ScriptHunt This Page</a>
+        </div>
+
+        <div class="advanced-filters" aria-label="Advanced filters">
+            <label class="filter-field"><span class="filter-label">License</span><input class="filter-control" id="licenseFilter" type="text" placeholder="MIT" autocomplete="off" aria-label="License filter"></label>
+            <label class="filter-field"><span class="filter-label">Installs</span><input class="filter-control" id="minInstallsFilter" type="number" min="0" step="1" placeholder="0" aria-label="Minimum installs filter"></label>
+            <label class="filter-field"><span class="filter-label">Updated</span><select class="filter-control" id="updatedFilter" aria-label="Updated date filter"><option value="0">Any time</option><option value="30">30 days</option><option value="90">90 days</option><option value="365">1 year</option></select></label>
+            <label class="filter-field"><span class="filter-label">@grant</span><input class="filter-control" id="grantFilterInput" type="text" placeholder="GM_*" autocomplete="off" aria-label="Grant filter"></label>
+            <label class="filter-field"><span class="filter-label">Risk</span><select class="filter-control" id="riskFilter" aria-label="Risk filter"><option value="">Any risk</option><option value="safe">Safe</option><option value="warn">Warn+</option><option value="danger">Danger</option></select></label>
         </div>
 
         <div class="sources-bar" id="sourcesBar" role="group" aria-label="Source toggles"></div>
@@ -1053,9 +1068,54 @@
         return checked.filter(Boolean);
     }
 
+    function riskRank(level) {
+        return level === 'danger' ? 2 : level === 'warn' ? 1 : 0;
+    }
+
+    function scanRiskLevel(scan) {
+        var rank = 0;
+        if (scan && scan.findings) {
+            scan.findings.forEach(function(f) { rank = Math.max(rank, riskRank(f.level)); });
+        }
+        if (scan && scan.meta) {
+            getPermPills(scan.meta).forEach(function(p) { rank = Math.max(rank, riskRank(p.level)); });
+        }
+        return rank >= 2 ? 'danger' : rank === 1 ? 'warn' : 'safe';
+    }
+
+    async function applyRiskFilter(items, wanted) {
+        if (!wanted) return items;
+        var wantedRank = riskRank(wanted);
+        var checked = await Promise.all(items.map(async function(item) {
+            delete item._riskFilter;
+            var scan = await fetchAndScan(item);
+            if (!scan || scan.unavailable || !scan.meta) {
+                item._riskFilter = { status: 'unknown', reason: (scan && scan.reason) || 'risk metadata unavailable' };
+                return item;
+            }
+            var level = scanRiskLevel(scan);
+            item._riskFilter = { status: 'matched', level: level };
+            if (wanted === 'safe') return level === 'safe' ? item : null;
+            return riskRank(level) >= wantedRank ? item : null;
+        }));
+        return checked.filter(Boolean);
+    }
+
+    function getVisibleFilters(parsed) {
+        var updatedVal = parseInt(updatedFilter.value, 10) || 0;
+        return {
+            license: licenseFilter.value.trim().toLowerCase(),
+            minInstalls: Math.max(0, parseInt(minInstallsFilter.value, 10) || 0),
+            updatedDays: parsed.updatedDays || updatedVal,
+            grant: parsed.grantFilter || grantFilterInput.value.trim().toLowerCase(),
+            risk: riskFilter.value,
+        };
+    }
+
     /* ===== Search Orchestrator ===== */
     async function executeSearch(rawQuery, loadMore) {
         var parsed = parseQuery(rawQuery);
+        var filters = getVisibleFilters(parsed);
         var siteVal = document.getElementById('siteFilter').value.trim() || parsed.site;
         if (!parsed.query && !siteVal) return;
 
@@ -1063,8 +1123,11 @@
         state.query = parsed.query;
         state.siteFilter = siteVal;
         state._parsedAuthor = parsed.author;
-        state._parsedDays = parsed.updatedDays;
-        state._parsedGrant = parsed.grantFilter;
+        state._parsedDays = filters.updatedDays;
+        state._parsedGrant = filters.grant;
+        state._licenseFilter = filters.license;
+        state._minInstalls = filters.minInstalls;
+        state._riskFilter = filters.risk;
         state.showFavs = false;
 
         if (!loadMore) {
@@ -1141,8 +1204,17 @@
             var cutoff = Date.now() - state._parsedDays * 864e5;
             filtered = filtered.filter(function(i) { return i.updatedAt && new Date(i.updatedAt).getTime() > cutoff; });
         }
+        if (state._licenseFilter) {
+            filtered = filtered.filter(function(i) { return (i.license || '').toLowerCase().indexOf(state._licenseFilter) >= 0; });
+        }
+        if (state._minInstalls > 0) {
+            filtered = filtered.filter(function(i) { return (i.totalInstalls || 0) >= state._minInstalls; });
+        }
         if (state._parsedGrant) {
             filtered = await applyGrantFilter(filtered, state._parsedGrant);
+        }
+        if (state._riskFilter) {
+            filtered = await applyRiskFilter(filtered, state._riskFilter);
         }
 
         state.results = state.results.concat(filtered);
@@ -1249,6 +1321,7 @@
             if (item._sourceCount > 1) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Multi-source</span>';
             if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + esc(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
             if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + esc(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
+            if (item._riskFilter && item._riskFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + esc(item._riskFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Risk unverified</span>';
             h += '<span class="card-source-badge" style="--badge-bg:' + src.dimColor + ';--badge-color:' + src.color + '">' + esc(src.name || item.source) + '</span>';
             h += '</div></div>';
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';
@@ -1599,6 +1672,11 @@
     var clearBtn = document.getElementById('clearBtn');
     var sortSelect = document.getElementById('sortSelect');
     var siteFilter = document.getElementById('siteFilter');
+    var licenseFilter = document.getElementById('licenseFilter');
+    var minInstallsFilter = document.getElementById('minInstallsFilter');
+    var updatedFilter = document.getElementById('updatedFilter');
+    var grantFilterInput = document.getElementById('grantFilterInput');
+    var riskFilter = document.getElementById('riskFilter');
     var historyEl = document.getElementById('searchHistory');
 
     var debounceTimer = null;
@@ -1632,6 +1710,16 @@
 
     var siteDebounce = null;
     siteFilter.addEventListener('input', function() { clearTimeout(siteDebounce); siteDebounce = setTimeout(function() { if (state.rawQuery) executeSearch(state.rawQuery); }, 600); });
+    var advancedFilterDebounce = null;
+    [licenseFilter, minInstallsFilter, grantFilterInput].forEach(function(ctrl) {
+        ctrl.addEventListener('input', function() {
+            clearTimeout(advancedFilterDebounce);
+            advancedFilterDebounce = setTimeout(function() { if (state.rawQuery) executeSearch(state.rawQuery); }, 450);
+        });
+    });
+    [updatedFilter, riskFilter].forEach(function(ctrl) {
+        ctrl.addEventListener('change', function() { if (state.rawQuery) executeSearch(state.rawQuery); });
+    });
 
     // Comparison
     document.getElementById('compareGo').addEventListener('click', openCompareModal);

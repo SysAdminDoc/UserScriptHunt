@@ -25,7 +25,7 @@ const GREASY_FORK_RESULTS = [
     bad_ratings: 1,
     created_at: '2025-01-01T00:00:00Z',
     code_updated_at: '2026-01-01T00:00:00Z',
-    license: 'MIT',
+    license: 'Apache-2.0',
   },
   {
     id: 102,
@@ -214,6 +214,42 @@ test('sort select persists preference', async ({ page }) => {
   await page.selectOption('#sortSelect', 'installs');
   await page.reload();
   await expect(page.locator('#sortSelect')).toHaveValue('installs');
+});
+
+test('visible filters narrow results by license and installs', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('License filter')).toBeVisible();
+  await expect(page.getByLabel('Minimum installs filter')).toBeVisible();
+  await expect(page.getByLabel('Updated date filter')).toBeVisible();
+  await page.fill('#licenseFilter', 'Apache');
+  await page.fill('#minInstallsFilter', '1000');
+  await runSearch(page, 'youtube');
+
+  await expect(page.locator('.result-card')).toHaveCount(1);
+  await expect(page.locator('.card-title')).toContainText('YouTube Enhancer');
+});
+
+test('visible grant filter uses metadata without query operators', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('Grant filter')).toBeVisible();
+  await page.fill('#grantFilterInput', 'GM_xmlhttpRequest');
+  await runSearch(page, 'youtube');
+
+  await expect(page.locator('.result-card')).toHaveCount(2);
+  await expect(page.locator('.card-title')).toContainText(['YouTube Enhancer', 'Metadata Unavailable Script']);
+  await expect(page.locator('.card-title', { hasText: 'Dark Mode Helper' })).toHaveCount(0);
+});
+
+test('visible risk filter keeps matching and unverified results', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('Risk filter')).toBeVisible();
+  await page.selectOption('#riskFilter', 'danger');
+  await runSearch(page, 'youtube');
+
+  await expect(page.locator('.result-card')).toHaveCount(2);
+  await expect(page.locator('.card-title')).toContainText(['YouTube Enhancer', 'Metadata Unavailable Script']);
+  await expect(page.locator('.card-title', { hasText: 'Dark Mode Helper' })).toHaveCount(0);
+  await expect(page.locator('.card-source-badge', { hasText: 'Risk unverified' })).toBeVisible();
 });
 
 test('grant query filters by metadata and labels unknown metadata', async ({ page }) => {

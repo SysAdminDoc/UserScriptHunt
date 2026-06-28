@@ -57,6 +57,7 @@ npm test
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
 | **Favorites** | Save scripts to localStorage with export/import as JSON and undo on removal |
 | **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
+| **Advanced Filters** | Visible controls for source, license, minimum installs, updated date, @grant, risk, and applies-to domain |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
 | **Source Health** | Auto-disables failing sources with exponential backoff; auto-re-enables after cooldown |
 | **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
@@ -231,7 +232,6 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 
 ## Roadmap
 
-- [ ] Filter panel (license, min installs, date range, @grant types)
 - [ ] URL deep-linking for all state (sources, sort, filters)
 
 See [ROADMAP.md](ROADMAP.md) for the full plan with research notes and architecture patterns.
