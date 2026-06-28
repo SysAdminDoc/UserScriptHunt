@@ -13,6 +13,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Versioned favorites export schema with normalized install, download, update URL, and namespace fields.
 - Applies-to evidence on site-filtered result cards and comparison rows, including source site matches and parsed userscript metadata patterns.
 - Expandable trust breakdowns showing popularity, security, freshness, metadata, and source-health evidence on cards and comparison rows.
+- Catalog language filter for Greasy Fork and Sleazy Fork searches, including shareable URL state and all-languages mode.
 
 ### Changed
 - Grant and risk filters now scan scripts through a fixed concurrency pool instead of launching every raw-script fetch at once.

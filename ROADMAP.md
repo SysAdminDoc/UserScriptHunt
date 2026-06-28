@@ -2,13 +2,6 @@
 
 ## Research-Driven Additions
 
-- [ ] P2 — Add locale and language filters for catalog sources
-  Why: Full UI i18n is not a fit, but source-level language filtering is directly supported by catalogs.
-  Evidence: Greasy Fork language/locale search; rejected full-i18n research finding.
-  Touches: `index.html` Greasy Fork/Sleazy Fork adapters, filter UI, URL state.
-  Acceptance: users can filter Greasy Fork/Sleazy Fork results by script language/locale without affecting other sources incorrectly.
-  Complexity: S
-
 - [ ] P2 — Add GitHub token and rate-limit UI
   Why: GitHub search has strict unauthenticated limits and the current token path is hidden in console/localStorage instructions.
   Evidence: GitHub Search API rate-limit docs; `index.html` `_ghToken`; README token snippet.

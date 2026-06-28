@@ -58,7 +58,7 @@ npm run qa
 | **Favorites** | Save scripts to localStorage with versioned JSON export/import and undo on removal |
 | **Installed Import** | Import installed-script lists locally to mark installed scripts and available updates in search results |
 | **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
-| **Advanced Filters** | Visible controls for source, license, minimum installs, updated date, @grant, risk, and applies-to domain |
+| **Advanced Filters** | Visible controls for source, license, installs, updated date, catalog language, @grant, risk, and applies-to domain |
 | **Applies-To Evidence** | Site-filtered results show source site matches alongside parsed `@match`, `@include`, and `@exclude` metadata evidence |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
 | **Source Health** | Persists failing source cooldowns with retry controls and copyable diagnostics that omit secrets |

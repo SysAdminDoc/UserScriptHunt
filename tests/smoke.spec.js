@@ -383,7 +383,7 @@ test('visible risk filter keeps matching and unverified results', async ({ page 
 });
 
 test('URL restores complete search state', async ({ page }) => {
-  await page.goto('/?q=youtube&sources=greasyfork&site=youtube.com&sort=installs&license=Apache&min_installs=1000&updated=365&grant=GM_xmlhttpRequest&risk=danger');
+  await page.goto('/?q=youtube&sources=greasyfork&site=youtube.com&sort=installs&license=Apache&min_installs=1000&updated=365&lang=fr&grant=GM_xmlhttpRequest&risk=danger');
 
   await expect(page.locator('#searchInput')).toHaveValue('youtube');
   await expect(page.getByLabel('Greasy Fork source')).toHaveAttribute('aria-checked', 'true');
@@ -393,6 +393,7 @@ test('URL restores complete search state', async ({ page }) => {
   await expect(page.locator('#licenseFilter')).toHaveValue('Apache');
   await expect(page.locator('#minInstallsFilter')).toHaveValue('1000');
   await expect(page.locator('#updatedFilter')).toHaveValue('365');
+  await expect(page.locator('#languageFilter')).toHaveValue('fr');
   await expect(page.locator('#grantFilterInput')).toHaveValue('GM_xmlhttpRequest');
   await expect(page.locator('#riskFilter')).toHaveValue('danger');
   await expect(page.locator('.result-card')).toHaveCount(1);
@@ -405,6 +406,7 @@ test('search controls write complete state to URL', async ({ page }) => {
   await page.fill('#licenseFilter', 'Apache');
   await page.fill('#minInstallsFilter', '1000');
   await page.selectOption('#updatedFilter', '365');
+  await page.selectOption('#languageFilter', 'fr');
   await page.fill('#grantFilterInput', 'GM_xmlhttpRequest');
   await page.selectOption('#riskFilter', 'danger');
   await runSearch(page, 'youtube');
@@ -418,8 +420,41 @@ test('search controls write complete state to URL', async ({ page }) => {
   expect(params.get('license')).toBe('Apache');
   expect(params.get('min_installs')).toBe('1000');
   expect(params.get('updated')).toBe('365');
+  expect(params.get('lang')).toBe('fr');
   expect(params.get('grant')).toBe('GM_xmlhttpRequest');
   expect(params.get('risk')).toBe('danger');
+});
+
+test('catalog language filter changes Greasy Fork locale without changing GitHub search', async ({ page }) => {
+  const greasyUrls = [];
+  const githubUrls = [];
+  await page.unroute('https://api.greasyfork.org/**');
+  await page.route('https://api.greasyfork.org/**', async (route) => {
+    greasyUrls.push(route.request().url());
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(GREASY_FORK_RESULTS),
+    });
+  });
+  await page.route('https://api.github.com/search/repositories**', async (route) => {
+    githubUrls.push(route.request().url());
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [] }),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('GitHub source').click();
+  await page.selectOption('#languageFilter', 'fr');
+  await runSearch(page, 'youtube');
+
+  expect(greasyUrls.some((url) => url.includes('https://api.greasyfork.org/fr/scripts.json'))).toBe(true);
+  expect(githubUrls.some((url) => url.includes('api.github.com/search/repositories'))).toBe(true);
+  expect(githubUrls.every((url) => !url.includes('lang=') && !url.includes('/fr/'))).toBe(true);
+
+  await page.selectOption('#languageFilter', 'all');
+  await expect.poll(() => greasyUrls.some((url) => url.includes('https://api.greasyfork.org/en/scripts.json') && url.includes('filter_locale=0'))).toBe(true);
 });
 
 test('site filter shows source and metadata applies-to evidence', async ({ page }) => {
