@@ -690,6 +690,45 @@ test('diagnostics export includes health and excludes secrets', async ({ page })
   expect(payload.customProxyConfigured).toBe(false);
 });
 
+test('GitHub token settings save, check rate limit, and stay redacted', async ({ page }) => {
+  let authHeader = '';
+  await page.route('https://api.github.com/rate_limit', async (route) => {
+    authHeader = route.request().headers().authorization || '';
+    await route.fulfill({
+      contentType: 'application/json',
+      headers: {
+        'x-ratelimit-limit': '30',
+        'x-ratelimit-remaining': '28',
+        'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600),
+        'x-ratelimit-resource': 'search',
+      },
+      body: JSON.stringify({
+        resources: { search: { limit: 30, remaining: 28, reset: Math.floor(Date.now() / 1000) + 3600 } },
+      }),
+    });
+  });
+
+  await page.goto('/');
+  await page.click('#btnDiagnostics');
+  await expect(page.locator('#btnCheckGitHubRate')).toBeVisible();
+  await page.fill('#githubTokenInput', 'ghp_secret_should_not_export');
+  await page.click('#btnSaveGitHubToken');
+
+  await expect(page.locator('#githubSettingsStatus')).toContainText('Search rate 28/30');
+  expect(authHeader).toBe('token ghp_secret_should_not_export');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_secret_should_not_export');
+
+  const payloadText = await page.locator('#diagnosticsOutput').inputValue();
+  const payload = JSON.parse(payloadText);
+  expect(payload.githubTokenConfigured).toBe(true);
+  expect(payload.githubRateLimit.remaining).toBe(28);
+  expect(payloadText).not.toContain('ghp_secret_should_not_export');
+
+  await page.click('#btnRemoveGitHubToken');
+  await expect(page.locator('#githubSettingsStatus')).toContainText('GitHub token removed');
+  expect(await page.evaluate(() => localStorage.getItem('sh_pref_ghtoken'))).toBeNull();
+});
+
 test('custom proxy settings validate, self-test, and stay redacted', async ({ page }) => {
   await page.goto('/');
   await page.click('#btnDiagnostics');

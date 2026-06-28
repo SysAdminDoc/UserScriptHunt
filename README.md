@@ -152,11 +152,7 @@ Default state:
 
 ### GitHub Authenticated Search
 
-For higher rate limits and `.user.js` file-level code search, set a GitHub token:
-```javascript
-localStorage.setItem('sh_pref_ghtoken', '"ghp_your_token_here"');
-```
-This enables the code search endpoint (finds individual `.user.js` files across all repos) and increases the rate limit from 10 to 30 requests/minute.
+For higher rate limits and `.user.js` file-level code search, open **Diagnostics -> GitHub token**, save a token locally, then use **Check** to view the current GitHub search rate limit. Diagnostics exports include only whether a token is configured and the rate-limit numbers; the token value is never exported.
 
 ### CORS Proxies
 

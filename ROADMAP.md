@@ -2,13 +2,6 @@
 
 ## Research-Driven Additions
 
-- [ ] P2 — Add GitHub token and rate-limit UI
-  Why: GitHub search has strict unauthenticated limits and the current token path is hidden in console/localStorage instructions.
-  Evidence: GitHub Search API rate-limit docs; `index.html` `_ghToken`; README token snippet.
-  Touches: `index.html` settings UI, token storage, rate-limit status, README.
-  Acceptance: users can add/remove a token in-app, see current GitHub rate-limit state, and never export the token in diagnostics.
-  Complexity: M
-
 - [ ] P2 — Add CI smoke workflow for static app and Worker
   Why: The app is static, but source/proxy regressions need repeatable checks after every change.
   Evidence: no `.github/` workflow in repo tree; Playwright tests exist but clean run is currently blocked.

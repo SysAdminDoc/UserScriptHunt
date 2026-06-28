@@ -407,6 +407,16 @@
                 </div>
                 <div class="proxy-settings-status" id="proxySettingsStatus" role="status">Custom proxy URLs are stored locally and omitted from diagnostics.</div>
             </div>
+            <div class="proxy-settings" aria-label="GitHub search settings">
+                <label class="filter-label" for="githubTokenInput">GitHub token</label>
+                <div class="proxy-settings-row">
+                    <input id="githubTokenInput" type="password" inputmode="text" placeholder="ghp_... or github_pat_..." autocomplete="off" spellcheck="false" aria-label="GitHub token">
+                    <button class="tool-btn" id="btnSaveGitHubToken" type="button">Save</button>
+                    <button class="tool-btn" id="btnCheckGitHubRate" type="button">Check</button>
+                    <button class="tool-btn" id="btnRemoveGitHubToken" type="button">Remove</button>
+                </div>
+                <div class="proxy-settings-status" id="githubSettingsStatus" role="status">GitHub token is optional and stored locally.</div>
+            </div>
             <textarea class="diagnostics-output" id="diagnosticsOutput" readonly aria-label="Diagnostics payload"></textarea>
             <div class="diagnostics-actions"><button class="tool-btn" id="btnCopyDiagnostics" type="button">Copy</button></div>
         </div>
@@ -1355,14 +1365,17 @@
         var ck = _ck('github', query, page);
         var cached = _cGet(ck); if (cached) return cached;
         var q = encodeURIComponent(query + ' userscript OR tampermonkey OR greasemonkey');
-        var r = await fetch('https://api.github.com/search/repositories?q=' + q + '&per_page=30&page=' + page + '&sort=stars&order=desc', { headers: { Accept: 'application/vnd.github.v3+json' }, signal: AbortSignal.timeout(12000) });
+        var r = await fetch('https://api.github.com/search/repositories?q=' + q + '&per_page=30&page=' + page + '&sort=stars&order=desc', { headers: githubHeaders(), signal: AbortSignal.timeout(12000) });
+        updateGitHubRateFromResponse(r);
         if (r.status === 403 || r.status === 429) {
             var reset = r.headers.get('x-ratelimit-reset');
             var waitMs = reset ? Math.max(0, (parseInt(reset) * 1000) - Date.now()) : 60000;
             _ghCooldown = Date.now() + Math.min(waitMs, 120000);
-            setTimeout(function() { _ghCooldown = 0; renderStatusChips(); }, Math.min(waitMs, 120000));
+            setTimeout(function() { _ghCooldown = 0; renderStatusChips(); renderGitHubSettings(); }, Math.min(waitMs, 120000));
+            renderGitHubSettings();
             throw new Error('Rate limited — retrying in ' + Math.ceil(waitMs / 1000) + 's');
         }
+        if (r.status === 401) { _ghToken = ''; _prefRemove('ghtoken'); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
         if (!r.ok) throw new Error('GitHub HTTP ' + r.status);
         var data = await r.json(); _cSet(ck, data); return data;
     }
@@ -1377,21 +1390,95 @@
 
     /* ===== Source: GitHub Code Search (authenticated) ===== */
     var _ghToken = _prefGet('ghtoken', '');
+    var _ghRate = _prefGet('ghrate', { limit: 0, remaining: 0, reset: 0, resource: 'search', authenticated: !!_ghToken, checkedAt: 0 });
+
+    function githubHeaders() {
+        var headers = { Accept: 'application/vnd.github.v3+json' };
+        if (_ghToken) headers.Authorization = 'token ' + _ghToken;
+        return headers;
+    }
+
+    function updateGitHubRateFromResponse(r) {
+        var limit = parseInt(r.headers.get('x-ratelimit-limit') || '0', 10);
+        var remaining = parseInt(r.headers.get('x-ratelimit-remaining') || '0', 10);
+        var reset = parseInt(r.headers.get('x-ratelimit-reset') || '0', 10);
+        var resource = r.headers.get('x-ratelimit-resource') || 'search';
+        if (limit || remaining || reset) {
+            _ghRate = { limit: limit, remaining: remaining, reset: reset, resource: resource, authenticated: !!_ghToken, checkedAt: Date.now() };
+            _prefSet('ghrate', _ghRate);
+            renderGitHubSettings();
+        }
+    }
+
+    function updateGitHubRateFromBody(body) {
+        var search = body && body.resources && body.resources.search ? body.resources.search : body && body.rate;
+        if (!search) return;
+        _ghRate = {
+            limit: search.limit || 0,
+            remaining: search.remaining || 0,
+            reset: search.reset || 0,
+            resource: 'search',
+            authenticated: !!_ghToken,
+            checkedAt: Date.now(),
+        };
+        _prefSet('ghrate', _ghRate);
+        renderGitHubSettings();
+    }
+
+    function githubRateText() {
+        var tokenState = _ghToken ? 'Token configured' : 'No token configured';
+        if (!_ghRate || !_ghRate.limit) return tokenState + '. GitHub rate limit not checked yet.';
+        var reset = _ghRate.reset ? new Date(_ghRate.reset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'unknown reset';
+        var cooldown = _ghCooldown > Date.now() ? ' Cooldown ' + Math.ceil((_ghCooldown - Date.now()) / 1000) + 's.' : '';
+        return tokenState + '. Search rate ' + _ghRate.remaining + '/' + _ghRate.limit + ' until ' + reset + '.' + cooldown;
+    }
+
+    function setGitHubStatus(msg, cls) {
+        var el = document.getElementById('githubSettingsStatus');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'proxy-settings-status' + (cls ? ' ' + cls : '');
+    }
+
+    function renderGitHubSettings() {
+        var input = document.getElementById('githubTokenInput');
+        if (input && document.activeElement !== input) input.value = '';
+        setGitHubStatus(githubRateText(), _ghCooldown > Date.now() ? 'error' : 'ok');
+        renderDiagnostics();
+    }
+
+    async function refreshGitHubRate() {
+        setGitHubStatus('Checking GitHub rate limit...', '');
+        var r = await fetch('https://api.github.com/rate_limit', { headers: githubHeaders(), signal: AbortSignal.timeout(12000) });
+        updateGitHubRateFromResponse(r);
+        if (r.status === 401) {
+            _ghToken = '';
+            _prefRemove('ghtoken');
+            renderGitHubSettings();
+            throw new Error('GitHub token rejected');
+        }
+        if (!r.ok) throw new Error('GitHub HTTP ' + r.status);
+        updateGitHubRateFromBody(await r.json());
+        setGitHubStatus(githubRateText(), 'ok');
+    }
+
     async function srcGHCode(query, page) {
         if (!_ghToken) return { items: [], total_count: 0 };
         if (_ghCooldown > Date.now()) throw new Error('Rate limited');
         var ck = _ck('ghcode', query, page);
         var cached = _cGet(ck); if (cached) return cached;
         var q = encodeURIComponent(query + ' extension:user.js');
-        var r = await fetch('https://api.github.com/search/code?q=' + q + '&per_page=30&page=' + page, { headers: { Accept: 'application/vnd.github.v3+json', Authorization: 'token ' + _ghToken }, signal: AbortSignal.timeout(12000) });
+        var r = await fetch('https://api.github.com/search/code?q=' + q + '&per_page=30&page=' + page, { headers: githubHeaders(), signal: AbortSignal.timeout(12000) });
+        updateGitHubRateFromResponse(r);
         if (r.status === 403 || r.status === 429) {
             var reset = r.headers.get('x-ratelimit-reset');
             var waitMs = reset ? Math.max(0, (parseInt(reset) * 1000) - Date.now()) : 60000;
             _ghCooldown = Date.now() + Math.min(waitMs, 120000);
-            setTimeout(function() { _ghCooldown = 0; }, Math.min(waitMs, 120000));
+            setTimeout(function() { _ghCooldown = 0; renderStatusChips(); renderGitHubSettings(); }, Math.min(waitMs, 120000));
+            renderGitHubSettings();
             throw new Error('Rate limited');
         }
-        if (r.status === 401) { _ghToken = ''; _prefSet('ghtoken', ''); throw new Error('Invalid GitHub token'); }
+        if (r.status === 401) { _ghToken = ''; _prefRemove('ghtoken'); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
         if (!r.ok) throw new Error('GitHub Code HTTP ' + r.status);
         var data = await r.json(); _cSet(ck, data); return data;
     }
@@ -2690,11 +2777,11 @@
         bmBtn.classList.toggle('active', e.newState === 'open');
     });
     var diagBtn = document.getElementById('btnDiagnostics');
-    diagBtn.addEventListener('click', renderDiagnostics);
+    diagBtn.addEventListener('click', renderGitHubSettings);
     document.getElementById('diagnosticsSection').addEventListener('toggle', function(e) {
         var open = e.newState === 'open';
         diagBtn.classList.toggle('active', open);
-        if (open) renderDiagnostics();
+        if (open) renderGitHubSettings();
     });
     var proxyInput = document.getElementById('customProxyInput');
     var proxyStatus = document.getElementById('proxySettingsStatus');
@@ -2755,6 +2842,37 @@
             renderDiagnostics();
         }
     });
+    var githubTokenInput = document.getElementById('githubTokenInput');
+    var githubSaveBtn = document.getElementById('btnSaveGitHubToken');
+    var githubCheckBtn = document.getElementById('btnCheckGitHubRate');
+    var githubRemoveBtn = document.getElementById('btnRemoveGitHubToken');
+    githubSaveBtn.addEventListener('click', async function() {
+        var token = githubTokenInput.value.trim();
+        if (!token) { setGitHubStatus('Enter a GitHub token before saving.', 'error'); return; }
+        _ghToken = token;
+        _prefSet('ghtoken', token);
+        githubTokenInput.value = '';
+        setGitHubStatus('GitHub token saved locally. Checking rate limit...', 'ok');
+        try { await refreshGitHubRate(); }
+        catch(err) { setGitHubStatus('GitHub token saved, but rate check failed: ' + ((err && err.message) || 'unknown error'), 'error'); }
+        renderDiagnostics();
+    });
+    githubCheckBtn.addEventListener('click', async function() {
+        githubCheckBtn.disabled = true;
+        try { await refreshGitHubRate(); }
+        catch(err) { setGitHubStatus('GitHub rate check failed: ' + ((err && err.message) || 'unknown error'), 'error'); }
+        finally { githubCheckBtn.disabled = false; renderDiagnostics(); }
+    });
+    githubRemoveBtn.addEventListener('click', function() {
+        _ghToken = '';
+        _ghRate = { limit: 0, remaining: 0, reset: 0, resource: 'search', authenticated: false, checkedAt: 0 };
+        _prefRemove('ghtoken');
+        _prefRemove('ghrate');
+        githubTokenInput.value = '';
+        setGitHubStatus('GitHub token removed. Unauthenticated search limits apply.', 'ok');
+        renderDiagnostics();
+    });
+    renderGitHubSettings();
     document.getElementById('btnCopyDiagnostics').addEventListener('click', function() {
         renderDiagnostics();
         var out = document.getElementById('diagnosticsOutput');
@@ -2892,6 +3010,8 @@
             online: navigator.onLine,
             userAgent: navigator.userAgent,
             customProxyConfigured: !!_customProxy,
+            githubTokenConfigured: !!_ghToken,
+            githubRateLimit: _ghRate,
             sources: Object.keys(SOURCES).map(function(id) {
                 return { id: id, name: SOURCES[id].name, enabled: SOURCES[id].enabled, status: state.sourceStatus[id] || 'idle', count: state.sourceCounts[id] || 0, error: state.sourceErrors[id] || '' };
             }),
