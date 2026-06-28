@@ -1019,6 +1019,30 @@
         return { query: q, site: site, author: author, updatedDays: updatedDays, grantFilter: grantFilter };
     }
 
+    function grantMatches(meta, wanted) {
+        var grants = meta && meta.grant;
+        if (!Array.isArray(grants)) grants = grants ? [grants] : [];
+        return grants.some(function(g) { return String(g).toLowerCase() === wanted; });
+    }
+
+    async function applyGrantFilter(items, wanted) {
+        if (!wanted) return items;
+        var checked = await Promise.all(items.map(async function(item) {
+            delete item._grantFilter;
+            var scan = await fetchAndScan(item);
+            if (!scan || !scan.meta) {
+                item._grantFilter = { status: 'unknown', reason: item.installUrl ? 'metadata fetch failed' : 'metadata unavailable' };
+                return item;
+            }
+            if (grantMatches(scan.meta, wanted)) {
+                item._grantFilter = { status: 'matched', reason: 'matched @grant ' + wanted };
+                return item;
+            }
+            return null;
+        }));
+        return checked.filter(Boolean);
+    }
+
     /* ===== Search Orchestrator ===== */
     async function executeSearch(rawQuery, loadMore) {
         var parsed = parseQuery(rawQuery);
@@ -1106,6 +1130,9 @@
         if (state._parsedDays > 0) {
             var cutoff = Date.now() - state._parsedDays * 864e5;
             filtered = filtered.filter(function(i) { return i.updatedAt && new Date(i.updatedAt).getTime() > cutoff; });
+        }
+        if (state._parsedGrant) {
+            filtered = await applyGrantFilter(filtered, state._parsedGrant);
         }
 
         state.results = state.results.concat(filtered);
@@ -1210,6 +1237,8 @@
             h += '<div class="card-badges">';
             h += '<span class="trust-badge ' + tCls + '">' + trustScore + '</span>';
             if (item._sourceCount > 1) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Multi-source</span>';
+            if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + esc(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
+            if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + esc(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
             h += '<span class="card-source-badge" style="--badge-bg:' + src.dimColor + ';--badge-color:' + src.color + '">' + esc(src.name || item.source) + '</span>';
             h += '</div></div>';
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';

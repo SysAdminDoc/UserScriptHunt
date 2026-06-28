@@ -56,7 +56,7 @@ npm test
 | **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
 | **Favorites** | Save scripts to localStorage with export/import as JSON and undo on removal |
-| **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search |
+| **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
 | **Source Health** | Auto-disables failing sources with exponential backoff; auto-re-enables after cooldown |
 | **Source Toggles** | Enable/disable sources with preferences persisted across sessions |

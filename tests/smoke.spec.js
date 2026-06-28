@@ -43,7 +43,37 @@ const GREASY_FORK_RESULTS = [
     code_updated_at: '2026-02-01T00:00:00Z',
     license: 'MIT',
   },
+  {
+    id: 103,
+    name: 'Metadata Unavailable Script',
+    description: 'Represents a source result without fetchable metadata.',
+    users: [{ name: 'tester' }],
+    url: 'https://greasyfork.org/en/scripts/103-metadata-unavailable-script',
+    code_url: '',
+    version: '1.0.0',
+    daily_installs: 1,
+    total_installs: 100,
+    good_ratings: 5,
+    bad_ratings: 0,
+    created_at: '2025-03-01T00:00:00Z',
+    code_updated_at: '2026-03-01T00:00:00Z',
+    license: 'MIT',
+  },
 ];
+
+const MATCHING_USER_SCRIPT = `// ==UserScript==
+// @name YouTube Enhancer
+// @grant GM_xmlhttpRequest
+// ==/UserScript==
+console.log('match');
+`;
+
+const NONMATCHING_USER_SCRIPT = `// ==UserScript==
+// @name Dark Mode Helper
+// @grant GM_setValue
+// ==/UserScript==
+console.log('no match');
+`;
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((sourcePrefs) => {
@@ -55,6 +85,12 @@ test.beforeEach(async ({ page }) => {
       contentType: 'application/json',
       body: JSON.stringify(GREASY_FORK_RESULTS),
     });
+  });
+  await page.route(/https:\/\/greasyfork\.org\/scripts\/101-.*/, async (route) => {
+    await route.fulfill({ contentType: 'text/javascript', body: MATCHING_USER_SCRIPT });
+  });
+  await page.route(/https:\/\/greasyfork\.org\/scripts\/102-.*/, async (route) => {
+    await route.fulfill({ contentType: 'text/javascript', body: NONMATCHING_USER_SCRIPT });
   });
 });
 
@@ -156,6 +192,17 @@ test('sort select persists preference', async ({ page }) => {
   await page.selectOption('#sortSelect', 'installs');
   await page.reload();
   await expect(page.locator('#sortSelect')).toHaveValue('installs');
+});
+
+test('grant query filters by metadata and labels unknown metadata', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'grant:GM_xmlhttpRequest youtube');
+
+  await expect(page.locator('.result-card')).toHaveCount(2);
+  await expect(page.locator('.card-title')).toContainText(['YouTube Enhancer', 'Metadata Unavailable Script']);
+  await expect(page.locator('.card-title', { hasText: 'Dark Mode Helper' })).toHaveCount(0);
+  await expect(page.locator('.card-source-badge', { hasText: 'Grant match' })).toBeVisible();
+  await expect(page.locator('.card-source-badge', { hasText: 'Grant unverified' })).toBeVisible();
 });
 
 test('proxy failures show per-proxy reasons and retry control', async ({ page }) => {

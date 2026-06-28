@@ -3,13 +3,6 @@
 ## Research-Driven Additions
 
 ### P0
-- [ ] P0 — Make `grant:` filtering real
-  Why: The app advertises advanced query syntax, but `grant:` is parsed and never applied.
-  Evidence: `index.html` `parseQuery()` and `executeSearch()`; README advanced query syntax.
-  Touches: `index.html` query parsing, metadata fetch/cache, result filtering, Playwright tests.
-  Acceptance: `grant:GM_xmlhttpRequest` filters results by parsed metadata or clearly labels sources whose metadata has not been fetched yet; tests cover positive and negative matches.
-  Complexity: M
-
 ### P1
 - [ ] P1 — Expand security scan and metadata panels to every installable source
   Why: Trust scores are incomplete for ScriptCat, GitHub, and Gists, which weakens the app's main differentiator.
