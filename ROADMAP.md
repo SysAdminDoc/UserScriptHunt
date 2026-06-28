@@ -2,13 +2,6 @@
 
 ## Research-Driven Additions
 
-- [ ] P2 — Add applies-to matrix and precise site matching
-  Why: Site searches should show which scripts actually target the user's domain instead of relying only on keyword matches.
-  Evidence: Userscript.Zone URL/domain modes; Greasy Fork by-site endpoint; existing roadmap `@match` matrix item.
-  Touches: `index.html` metadata parser, site filter, result card detail, compare modal.
-  Acceptance: result details show matched `@match`/`@include` patterns for the entered domain and distinguish source-provided applies-to data from locally parsed metadata.
-  Complexity: L
-
 - [ ] P2 — Expose transparent trust-score dimensions
   Why: Trust scoring is useful only if users can see which evidence drove the score.
   Evidence: `index.html` `computeTrust()`; npms quality/popularity/maintenance model; OpenSSF Scorecard transparency.

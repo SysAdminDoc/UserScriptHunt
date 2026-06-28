@@ -64,6 +64,8 @@ const GREASY_FORK_RESULTS = [
 
 const MATCHING_USER_SCRIPT = `// ==UserScript==
 // @name YouTube Enhancer
+// @match https://*.youtube.com/*
+// @include https://music.youtube.com/*
 // @grant GM_xmlhttpRequest
 // ==/UserScript==
 console.log('match');
@@ -71,6 +73,7 @@ console.log('match');
 
 const NONMATCHING_USER_SCRIPT = `// ==UserScript==
 // @name Dark Mode Helper
+// @match https://example.com/*
 // @grant GM_setValue
 // ==/UserScript==
 console.log('no match');
@@ -382,6 +385,36 @@ test('search controls write complete state to URL', async ({ page }) => {
   expect(params.get('updated')).toBe('365');
   expect(params.get('grant')).toBe('GM_xmlhttpRequest');
   expect(params.get('risk')).toBe('danger');
+});
+
+test('site filter shows source and metadata applies-to evidence', async ({ page }) => {
+  await page.goto('/');
+  await page.fill('#siteFilter', 'youtube.com');
+  await runSearch(page, 'youtube');
+
+  const youtube = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await expect(youtube.locator('.applies-matrix')).toContainText('Metadata match');
+  await expect(youtube.locator('.applies-matrix')).toContainText('Greasy Fork site match');
+  await expect(youtube.locator('.applies-matrix')).toContainText('@match https://*.youtube.com/*');
+
+  const darkMode = page.locator('.result-card').filter({ hasText: 'Dark Mode Helper' });
+  await expect(darkMode.locator('.applies-matrix')).toContainText('Source match; metadata not matched');
+  await expect(darkMode.locator('.applies-matrix')).toContainText('No @match/@include hit');
+});
+
+test('comparison modal includes applies-to summary for site-filtered results', async ({ page }) => {
+  await page.goto('/');
+  await page.fill('#siteFilter', 'youtube.com');
+  await runSearch(page, 'youtube');
+
+  const cards = page.locator('.result-card');
+  await cards.nth(0).locator('[data-action="compare"]').click();
+  await cards.nth(1).locator('[data-action="compare"]').click();
+  await page.click('.compare-go');
+
+  await expect(page.locator('.modal-overlay')).toHaveClass(/visible/);
+  await expect(page.locator('.compare-label', { hasText: 'Applies to youtube.com' })).toHaveCount(2);
+  await expect(page.locator('.compare-value', { hasText: 'Metadata match' })).toBeVisible();
 });
 
 test('grant query filters by metadata and labels unknown metadata', async ({ page }) => {

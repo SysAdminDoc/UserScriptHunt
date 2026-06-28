@@ -11,6 +11,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - In-app custom proxy settings with HTTPS validation, Worker allowlist self-test, remove flow, and diagnostics redaction.
 - Installed-script import for local already-installed and update-available result badges.
 - Versioned favorites export schema with normalized install, download, update URL, and namespace fields.
+- Applies-to evidence on site-filtered result cards and comparison rows, including source site matches and parsed userscript metadata patterns.
 
 ### Changed
 - Grant and risk filters now scan scripts through a fixed concurrency pool instead of launching every raw-script fetch at once.

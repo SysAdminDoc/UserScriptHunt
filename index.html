@@ -190,6 +190,12 @@
         .script-url-list{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
         .script-url-link{font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;background:var(--bg-secondary)}
         .script-url-link:hover{border-color:var(--accent);color:var(--text-primary)}
+        .applies-matrix{margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-secondary);font-size:11px;color:var(--text-muted);line-height:1.45}
+        .applies-matrix strong{color:var(--text-primary);font-weight:600}
+        .applies-pill{display:inline-flex;margin:3px 4px 0 0;padding:2px 6px;border-radius:4px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:10px}
+        .applies-pill.source{color:var(--green);border-color:var(--green-dim)}
+        .applies-pill.miss{color:var(--amber);border-color:var(--amber-dim)}
+        .applies-pill.exclude{color:var(--red);border-color:var(--red-dim)}
 
         /* Staleness indicator */
         .stale-badge{font-size:9.5px;padding:2px 6px;border-radius:4px;font-weight:500}
@@ -967,9 +973,9 @@
     var _savedSrc = _prefGet('sources', {});
     var SOURCES = {
         greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true, pageSize: 100,
-            search: function(q, p, site) { return srcGF(q, p, 'greasyfork.org', site).then(function(d) { return d.map(function(i) { return normGF(i, 'greasyfork'); }); }); } },
+            search: function(q, p, site) { return srcGF(q, p, 'greasyfork.org', site).then(function(d) { return d.map(function(i) { var item = normGF(i, 'greasyfork'); if (site) item._appliesSource = { label: 'Greasy Fork site match', domain: site }; return item; }); }); } },
         sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false, pageSize: 100,
-            search: function(q, p, site) { return srcGF(q, p, 'sleazyfork.org', site).then(function(d) { return d.map(function(i) { return normGF(i, 'sleazyfork'); }); }); } },
+            search: function(q, p, site) { return srcGF(q, p, 'sleazyfork.org', site).then(function(d) { return d.map(function(i) { var item = normGF(i, 'sleazyfork'); if (site) item._appliesSource = { label: 'Sleazy Fork site match', domain: site }; return item; }); }); } },
         github: { id: 'github', name: 'GitHub', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true, pageSize: 30,
             search: function(q, p) {
                 return srcGH(q, p).then(function(raw) {
@@ -1552,6 +1558,105 @@
         return { query: q, site: site, author: author, updatedDays: updatedDays, grantFilter: grantFilter };
     }
 
+    function normalizeSiteHost(site) {
+        var raw = (site || '').trim().toLowerCase();
+        if (!raw) return '';
+        try {
+            if (!/^https?:\/\//.test(raw)) raw = 'https://' + raw;
+            return new URL(raw).hostname.replace(/^www\./, '');
+        } catch(e) {
+            return raw.replace(/^www\./, '').replace(/\/.*/, '');
+        }
+    }
+
+    function hostMatchesPattern(host, patternHost) {
+        host = normalizeSiteHost(host);
+        patternHost = (patternHost || '').toLowerCase().replace(/^www\./, '');
+        if (!host || !patternHost) return false;
+        if (patternHost === '*' || patternHost === host) return true;
+        if (patternHost.startsWith('*.')) {
+            var root = patternHost.slice(2);
+            return host === root || host.endsWith('.' + root);
+        }
+        return false;
+    }
+
+    function globToRegex(glob) {
+        return new RegExp('^' + String(glob).replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$', 'i');
+    }
+
+    function matchDirectiveTargetsHost(pattern, host) {
+        if (!pattern) return false;
+        if (pattern === '<all_urls>') return true;
+        var m = String(pattern).match(/^(?:\*|https?|file):\/\/([^/]+)\//i);
+        if (m) return hostMatchesPattern(host, m[1]);
+        return false;
+    }
+
+    function includeDirectiveTargetsHost(pattern, host) {
+        if (!pattern) return false;
+        var candidates = ['https://' + host + '/', 'http://' + host + '/', host];
+        var rx = globToRegex(pattern);
+        return candidates.some(function(c) { return rx.test(c); });
+    }
+
+    function metaArray(meta, key) {
+        var val = meta && meta[key];
+        if (!val) return [];
+        return Array.isArray(val) ? val : [val];
+    }
+
+    function buildAppliesToEvidence(item, site, meta) {
+        var host = normalizeSiteHost(site);
+        if (!host) return null;
+        var matches = [];
+        var excludes = [];
+        metaArray(meta, 'match').forEach(function(p) { if (matchDirectiveTargetsHost(p, host)) matches.push('@match ' + p); });
+        metaArray(meta, 'include').forEach(function(p) { if (includeDirectiveTargetsHost(p, host)) matches.push('@include ' + p); });
+        metaArray(meta, 'exclude').forEach(function(p) { if (includeDirectiveTargetsHost(p, host) || matchDirectiveTargetsHost(p, host)) excludes.push('@exclude ' + p); });
+        return {
+            host: host,
+            source: item._appliesSource || null,
+            checkedMeta: !!meta,
+            matchedPatterns: matches,
+            excludedPatterns: excludes,
+        };
+    }
+
+    async function applyAppliesToEvidence(items, site) {
+        if (!site) return items;
+        return mapWithConcurrency(items, SCAN_CONCURRENCY, async function(item) {
+            item._appliesTo = buildAppliesToEvidence(item, site, item._meta);
+            if ((!item._appliesTo || (!item._appliesTo.checkedMeta && item.installUrl)) && item.installUrl) {
+                var scan = await fetchAndScan(item);
+                item._appliesTo = buildAppliesToEvidence(item, site, scan && scan.meta);
+            }
+            if (!item._appliesTo && item._appliesSource) item._appliesTo = buildAppliesToEvidence(item, site, null);
+            return item;
+        });
+    }
+
+    function appliesSummary(applies) {
+        if (!applies) return 'Not checked';
+        if (applies.excludedPatterns && applies.excludedPatterns.length) return 'Excluded by metadata';
+        if (applies.matchedPatterns && applies.matchedPatterns.length) return 'Metadata match';
+        if (applies.source && applies.checkedMeta) return 'Source match; metadata not matched';
+        if (applies.source) return 'Source site match';
+        if (applies.checkedMeta) return 'No metadata match';
+        return 'Metadata unavailable';
+    }
+
+    function renderAppliesToEvidence(applies) {
+        if (!applies) return '';
+        var html = '<div class="applies-matrix"><strong>Applies to ' + esc(applies.host) + ':</strong> ' + esc(appliesSummary(applies));
+        if (applies.source) html += '<div><span class="applies-pill source">' + esc(applies.source.label) + '</span></div>';
+        if (applies.matchedPatterns && applies.matchedPatterns.length) html += '<div>' + applies.matchedPatterns.map(function(p) { return '<span class="applies-pill">' + esc(p) + '</span>'; }).join('') + '</div>';
+        if (applies.excludedPatterns && applies.excludedPatterns.length) html += '<div>' + applies.excludedPatterns.map(function(p) { return '<span class="applies-pill exclude">' + esc(p) + '</span>'; }).join('') + '</div>';
+        if (applies.checkedMeta && !applies.matchedPatterns.length && !applies.excludedPatterns.length) html += '<div><span class="applies-pill miss">No @match/@include hit</span></div>';
+        if (!applies.source && !applies.checkedMeta) html += '<div><span class="applies-pill miss">Metadata unavailable</span></div>';
+        return html + '</div>';
+    }
+
     function grantMatches(meta, wanted) {
         var grants = meta && meta.grant;
         if (!Array.isArray(grants)) grants = grants ? [grants] : [];
@@ -1733,6 +1838,9 @@
         if (state._riskFilter) {
             filtered = await applyRiskFilter(filtered, state._riskFilter);
         }
+        if (state.siteFilter) {
+            filtered = await applyAppliesToEvidence(filtered, state.siteFilter);
+        }
 
         state.results = state.results.concat(filtered);
         state.searching = false; state.loadingMore = false;
@@ -1853,6 +1961,7 @@
             h += '<div class="card-meta">' + meta.join('') + '</div>';
             var urlLinks = renderScriptUrlLinks(item);
             if (urlLinks) h += '<div class="script-url-list">' + urlLinks + '</div>';
+            h += renderAppliesToEvidence(item._appliesTo);
 
             h += '<div class="card-actions">';
             if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + attr(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' ' + (installed.updateAvailable ? 'Update' : installed.installed ? 'Installed' : 'Install') + '</a>';
@@ -2041,6 +2150,7 @@
             h += '<div class="compare-row"><span class="compare-label">License</span><span class="compare-value">' + esc(item.license || 'N/A') + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Freshness</span><span class="compare-value">' + (stale ? stale.label : 'N/A') + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Updated</span><span class="compare-value">' + (item.updatedAt ? timeAgo(item.updatedAt) : 'N/A') + '</span></div>';
+            if (state.siteFilter) h += '<div class="compare-row"><span class="compare-label">Applies to ' + esc(normalizeSiteHost(state.siteFilter)) + '</span><span class="compare-value">' + esc(appliesSummary(item._appliesTo)) + '</span></div>';
             if (item._scan) {
                 h += '<div class="compare-row"><span class="compare-label">Security</span><span class="compare-value">' + item._scan.score + '/100</span></div>';
                 h += '<div class="compare-row"><span class="compare-label">Code Size</span><span class="compare-value">' + fmtNum(item._scan.codeSize || 0) + 'B</span></div>';
