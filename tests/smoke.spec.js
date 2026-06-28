@@ -64,13 +64,19 @@ const GREASY_FORK_RESULTS = [
 
 const MATCHING_USER_SCRIPT = `// ==UserScript==
 // @name YouTube Enhancer
+// @name:fr Ameliorateur YouTube
+// @description:fr Options video avancees.
 // @match *://*/*
 // @match https://*.youtube.com/*
 // @include https://music.youtube.com/*
+// @exclude-match https://ads.youtube.com/*
 // @connect api.youtube.com
 // @connect *
 // @require https://cdn.jsdelivr.net/npm/pinned-lib@1.2.3/dist/index.js
 // @require https://unpkg.com/floating-lib/dist/index.js
+// @compatible firefox
+// @compatible chrome
+// @incompatible safari
 // @downloadURL https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js
 // @updateURL https://updates.example.net/youtube-enhancer.meta.js
 // @grant GM_xmlhttpRequest
@@ -403,6 +409,25 @@ test('security scan reports manager metadata risks', async ({ page }) => {
   await expect(panel).toContainText('Pinned @require dependency: cdn.jsdelivr.net');
   await expect(panel).toContainText('Floating @require version: unpkg.com');
   await expect(panel).toContainText('updateURL host differs from install host');
+});
+
+test('metadata viewer preserves localized and variant directives', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await card.getByRole('button', { name: /Metadata for YouTube Enhancer/ }).click();
+  const metadata = card.locator('.card-metadata.visible');
+
+  await expect(metadata).toContainText('@name:fr');
+  await expect(metadata).toContainText('Ameliorateur YouTube');
+  await expect(metadata).toContainText('@description:fr');
+  await expect(metadata).toContainText('@exclude-match');
+  await expect(metadata).toContainText('@compatible');
+  await expect(metadata).toContainText('firefox');
+  await expect(metadata).toContainText('chrome');
+  await expect(metadata).toContainText('@incompatible');
+  await expect(metadata).toContainText('@updateURL');
 });
 
 test('URL restores complete search state', async ({ page }) => {

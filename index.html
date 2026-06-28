@@ -1761,13 +1761,14 @@
     function parseMetaBlock(code) {
         var m = code.match(/\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/);
         if (!m) return null;
-        var meta = {}, arrayKeys = ['match','include','exclude','grant','require','resource','connect','antifeature'];
+        var meta = {}, arrayKeys = ['match','include','exclude','exclude-match','grant','require','resource','connect','antifeature','compatible','incompatible'];
         var lines = m[1].split('\n');
         for (var i = 0; i < lines.length; i++) {
             var p = lines[i].match(/\/\/\s*@(\S+)\s+(.*)/);
             if (!p) continue;
             var key = p[1], val = p[2].trim();
             if (arrayKeys.indexOf(key) >= 0) { if (!meta[key]) meta[key] = []; meta[key].push(val); }
+            else if (meta[key] !== undefined) { if (!Array.isArray(meta[key])) meta[key] = [meta[key]]; meta[key].push(val); }
             else meta[key] = val;
         }
         return meta;
@@ -1844,6 +1845,7 @@
         metaArray(meta, 'match').forEach(function(p) { if (matchDirectiveTargetsHost(p, host)) matches.push('@match ' + p); });
         metaArray(meta, 'include').forEach(function(p) { if (includeDirectiveTargetsHost(p, host)) matches.push('@include ' + p); });
         metaArray(meta, 'exclude').forEach(function(p) { if (includeDirectiveTargetsHost(p, host) || matchDirectiveTargetsHost(p, host)) excludes.push('@exclude ' + p); });
+        metaArray(meta, 'exclude-match').forEach(function(p) { if (matchDirectiveTargetsHost(p, host)) excludes.push('@exclude-match ' + p); });
         return {
             host: host,
             source: item._appliesSource || null,
@@ -2315,7 +2317,7 @@
             var sc = await fetchAndScan(item);
             if (!sc || sc.unavailable) { mp.innerHTML = '<span class="meta-loading">' + esc((sc && sc.reason) || 'Metadata unavailable: script fetch failed') + '</span>'; return; }
             if (!sc.meta) { mp.innerHTML = '<span class="meta-loading">Metadata unavailable: no userscript metadata block found</span>'; return; }
-            var mh = '', order = ['name','namespace','version','description','author','license','match','include','exclude','grant','require','connect','run-at','noframes','icon','homepageURL','supportURL','downloadURL','updateURL'];
+            var mh = '', order = ['name','name:en','name:fr','namespace','version','description','description:en','description:fr','author','license','match','include','exclude','exclude-match','grant','require','connect','compatible','incompatible','run-at','noframes','icon','homepageURL','supportURL','downloadURL','updateURL'];
             var shown = {};
             for (var k = 0; k < order.length; k++) {
                 var key = order[k]; if (sc.meta[key] === undefined) continue; shown[key] = true;

@@ -69,7 +69,7 @@ npm run qa
 | **Infinite Scroll** | Automatic pagination fetches next page from all active sources |
 | **Staleness Indicators** | Active/Aging/Stale badges on result cards based on last update date |
 | **Spam Detection** | Low-quality results auto-dimmed and pushed to bottom of results |
-| **Metadata Viewer** | Formatted @-directive display with syntax highlighting |
+| **Metadata Viewer** | Formatted @-directive display with localized keys, compatibility variants, duplicate directives, and syntax highlighting |
 | **Install URL Normalization** | Result cards expose normalized install, download, and update URLs for manager handoff checks |
 | **Bookmarklet** | One-click "find scripts for this page" from any website (works on file:// too) |
 | **URL Parameters** | Shareable search links for query, sources, site/domain, sort order, and visible filters |

@@ -27,13 +27,6 @@
 ## Research-Driven Additions
 
 ### P2
-- [ ] P2 - Normalize metadata variants and localized keys
-  Why: Manager metadata supports localized names/descriptions and additional directive variants that the current parser does not normalize.
-  Evidence: `index.html:1258`, Violentmonkey metadata docs, Tampermonkey metadata docs, quoid/userscripts metadata-block proposal.
-  Touches: `index.html` `parseMetaBlock()`, metadata viewer, adapter fixtures, grant/risk filters.
-  Acceptance: metadata parsing preserves `@name:locale`, `@description:locale`, `@exclude-match`, `@compatible`, `@incompatible`, `@updateURL`, and duplicate array keys, with fixture coverage for each.
-  Complexity: M
-
 - [ ] P2 - Version and validate all import/export payloads
   Why: Favorites import currently accepts arbitrary arrays and can persist malformed records or inconsistent URLs.
   Evidence: `index.html:637`, `index.html:647`, `index.html:2237`, quoid/userscripts installURL issue, ScriptCat migration/backup issues.
