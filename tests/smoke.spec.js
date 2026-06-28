@@ -75,6 +75,28 @@ const NONMATCHING_USER_SCRIPT = `// ==UserScript==
 console.log('no match');
 `;
 
+const SCRIPT_CAT_USER_SCRIPT = `// ==UserScript==
+// @name ScriptCat Helper
+// @grant GM_setValue
+// ==/UserScript==
+console.log('scriptcat');
+`;
+
+const GIST_SEARCH_HTML = `
+<div class="gist-snippet">
+  <a href="/tester/abc123">Gist Helper</a>
+  <a href="/tester/abc123/raw/file.user.js">file.user.js</a>
+  <span class="author">tester</span>
+  <div class="f6">A gist-hosted userscript.</div>
+</div>`;
+
+const GIST_USER_SCRIPT = `// ==UserScript==
+// @name Gist Helper
+// @grant GM_xmlhttpRequest
+// ==/UserScript==
+console.log('gist');
+`;
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((sourcePrefs) => {
     localStorage.setItem('sh_pref_sources', JSON.stringify(sourcePrefs));
@@ -203,6 +225,99 @@ test('grant query filters by metadata and labels unknown metadata', async ({ pag
   await expect(page.locator('.card-title', { hasText: 'Dark Mode Helper' })).toHaveCount(0);
   await expect(page.locator('.card-source-badge', { hasText: 'Grant match' })).toBeVisible();
   await expect(page.locator('.card-source-badge', { hasText: 'Grant unverified' })).toBeVisible();
+});
+
+test('ScriptCat raw install URLs expose scan and metadata panels', async ({ page }) => {
+  await page.route('https://scriptcat.org/api/v2/scripts**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        data: {
+          total: 1,
+          list: [{
+            id: 555,
+            name: 'ScriptCat Helper',
+            description: 'ScriptCat fixture result.',
+            username: 'tester',
+            script: { version: '1.0.0' },
+            today_install: 2,
+            total_install: 50,
+            score: 4,
+            createtime: 1735689600,
+            updatetime: 1767225600,
+          }],
+        },
+      }),
+    });
+  });
+  await page.route('https://scriptcat.org/scripts/code/555/**', async (route) => {
+    await route.fulfill({ contentType: 'text/javascript', body: SCRIPT_CAT_USER_SCRIPT });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Greasy Fork source').click();
+  await page.getByLabel('ScriptCat source').click();
+  await runSearch(page, 'scriptcat');
+
+  const card = page.locator('.result-card').filter({ hasText: 'ScriptCat Helper' });
+  await card.locator('[data-action="scan"]').click();
+  await expect(card.locator('.scan-results')).toContainText('No dangerous patterns detected');
+  await card.locator('[data-action="meta"]').click();
+  await expect(card.locator('.card-metadata')).toContainText('@grant');
+});
+
+test('GitHub repository results explain missing raw script scans', async ({ page }) => {
+  await page.route('https://api.github.com/search/repositories**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        total_count: 1,
+        items: [{
+          id: 77,
+          name: 'repo-userscript',
+          full_name: 'tester/repo-userscript',
+          description: 'Repository fixture without a raw userscript URL.',
+          owner: { login: 'tester' },
+          html_url: 'https://github.com/tester/repo-userscript',
+          stargazers_count: 3,
+          forks_count: 1,
+          created_at: '2025-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          license: { spdx_id: 'MIT' },
+        }],
+      }),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Greasy Fork source').click();
+  await page.getByLabel('GitHub source').click();
+  await runSearch(page, 'github');
+
+  const card = page.locator('.result-card').filter({ hasText: 'repo-userscript' });
+  await card.locator('[data-action="scan"]').click();
+  await expect(card.locator('.scan-results')).toContainText('no raw .user.js URL is available');
+});
+
+test('Gist raw userscript URLs scan through the proxy chain', async ({ page }) => {
+  await page.route('https://api.allorigins.win/**', async (route) => {
+    const target = new URL(route.request().url()).searchParams.get('url') || '';
+    const decoded = decodeURIComponent(target);
+    const contents = decoded.includes('gist.githubusercontent.com') ? GIST_USER_SCRIPT : GIST_SEARCH_HTML;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ contents }) });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Greasy Fork source').click();
+  await page.getByLabel('GitHub Gists source').click();
+  await runSearch(page, 'gist');
+
+  const card = page.locator('.result-card').filter({ hasText: 'Gist Helper' });
+  await card.locator('[data-action="scan"]').click();
+  await expect(card.locator('.scan-results')).toContainText('Cross-origin requests');
+  await card.locator('[data-action="meta"]').click();
+  await expect(card.locator('.card-metadata')).toContainText('@grant');
 });
 
 test('proxy failures show per-proxy reasons and retry control', async ({ page }) => {

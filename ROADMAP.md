@@ -4,13 +4,6 @@
 
 ### P0
 ### P1
-- [ ] P1 — Expand security scan and metadata panels to every installable source
-  Why: Trust scores are incomplete for ScriptCat, GitHub, and Gists, which weakens the app's main differentiator.
-  Evidence: `index.html` `fetchAndScan()` skips GitHub/Gists and `canScan` excludes ScriptCat; Violentmonkey metadata docs.
-  Touches: `index.html` source adapters, `fetchAndScan()`, `parseMetaBlock()`, card actions, proxy/Worker handling.
-  Acceptance: every result with a raw `.user.js` URL can show metadata and scan findings; unavailable scans explain the exact blocker.
-  Complexity: M
-
 - [ ] P1 — Add source adapter fixtures and parser tests
   Why: HTML-scraped sources can break without warning, and the current tests mostly cover UI smoke paths.
   Evidence: OpenUserJS/Userscript.Zone/Gist scraping functions in `index.html`; recent source additions in git history.

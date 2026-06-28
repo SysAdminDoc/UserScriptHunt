@@ -52,7 +52,7 @@ npm test
 | **Parallel Fetching** | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
 | **Cross-Source Dedup** | Eliminates duplicate scripts with trust boost for scripts found on 2+ platforms |
 | **Trust Scoring** | Three-axis scoring (Popularity 40%, Security 35%, Freshness 25%) with visible dimension breakdown |
-| **Security Scanner** | Pattern-based code analysis for dangerous APIs, obfuscation detection (entropy + JSFuck), @require chain validation, @connect wildcard warning, crypto mining domain blocklist |
+| **Security Scanner** | Pattern-based code analysis for any result with a raw `.user.js` URL, with clear blocker messages when metadata cannot be fetched |
 | **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
 | **Favorites** | Save scripts to localStorage with export/import as JSON and undo on removal |
