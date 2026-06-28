@@ -1,11 +1,14 @@
 {
   "name": "scripthunt",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "scripts": {
-    "test": "npx playwright test"
+    "test": "playwright test",
+    "test:install": "playwright install chromium",
+    "serve:test": "serve -l 3000 -s ."
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "^1.49.0",
+    "serve": "^14.2.4"
   }
 }

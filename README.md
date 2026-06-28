@@ -30,6 +30,13 @@ cd UserScriptHunt
 open index.html
 ```
 
+**Local verification:**
+```bash
+npm ci
+npm run test:install
+npm test
+```
+
 **GitHub Pages deploy:**
 1. Fork or push to a GitHub repository
 2. Go to **Settings → Pages → Source → Deploy from branch** (main, root)

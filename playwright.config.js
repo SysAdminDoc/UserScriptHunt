@@ -8,7 +8,7 @@ module.exports = defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'npx serve -l 3000 -s .',
+    command: 'npm run serve:test',
     port: 3000,
     reuseExistingServer: true,
   },

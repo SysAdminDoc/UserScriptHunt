@@ -1,17 +1,79 @@
 const { test, expect } = require('@playwright/test');
 
+const SOURCE_PREFS = {
+  greasyfork: true,
+  sleazyfork: false,
+  github: false,
+  openuserjs: false,
+  uszone: false,
+  scriptcat: false,
+  gists: false,
+};
+
+const GREASY_FORK_RESULTS = [
+  {
+    id: 101,
+    name: 'YouTube Enhancer',
+    description: 'Adds player controls and quality-of-life options.',
+    users: [{ name: 'tester' }],
+    url: 'https://greasyfork.org/en/scripts/101-youtube-enhancer',
+    code_url: 'https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js',
+    version: '1.0.0',
+    daily_installs: 12,
+    total_installs: 1200,
+    good_ratings: 42,
+    bad_ratings: 1,
+    created_at: '2025-01-01T00:00:00Z',
+    code_updated_at: '2026-01-01T00:00:00Z',
+    license: 'MIT',
+  },
+  {
+    id: 102,
+    name: 'Dark Mode Helper',
+    description: 'Applies dark mode tweaks to common websites.',
+    users: [{ name: 'tester' }],
+    url: 'https://greasyfork.org/en/scripts/102-dark-mode-helper',
+    code_url: 'https://greasyfork.org/scripts/102-dark-mode-helper/code/Dark%20Mode%20Helper.user.js',
+    version: '1.1.0',
+    daily_installs: 7,
+    total_installs: 850,
+    good_ratings: 25,
+    bad_ratings: 0,
+    created_at: '2025-02-01T00:00:00Z',
+    code_updated_at: '2026-02-01T00:00:00Z',
+    license: 'MIT',
+  },
+];
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((sourcePrefs) => {
+    localStorage.setItem('sh_pref_sources', JSON.stringify(sourcePrefs));
+  }, SOURCE_PREFS);
+
+  await page.route('https://api.greasyfork.org/**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(GREASY_FORK_RESULTS),
+    });
+  });
+});
+
+async function runSearch(page, query = 'youtube') {
+  await page.fill('#searchInput', query);
+  await page.press('#searchInput', 'Enter');
+  await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 5000 });
+}
+
 test('page loads with search input and source toggles', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#searchInput')).toBeVisible();
-  await expect(page.locator('.source-toggle')).toHaveCount({ minimum: 6 });
+  expect(await page.locator('.source-toggle').count()).toBeGreaterThanOrEqual(6);
   await expect(page.locator('.version')).toContainText('v0.');
 });
 
 test('search returns results from at least one source', async ({ page }) => {
   await page.goto('/');
-  await page.fill('#searchInput', 'youtube');
-  await page.press('#searchInput', 'Enter');
-  await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 15000 });
+  await runSearch(page);
   const count = await page.locator('.result-card').count();
   expect(count).toBeGreaterThan(0);
 });
@@ -39,9 +101,7 @@ test('theme toggle cycles through modes', async ({ page }) => {
 
 test('favorites: add, verify badge, remove with undo', async ({ page }) => {
   await page.goto('/');
-  await page.fill('#searchInput', 'youtube');
-  await page.press('#searchInput', 'Enter');
-  await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 15000 });
+  await runSearch(page);
   const favBtn = page.locator('.result-card').first().locator('[data-action="fav"]');
   await favBtn.click();
   await expect(favBtn).toHaveClass(/fav-active/);
@@ -70,9 +130,7 @@ test('favorites view shows saved scripts', async ({ page }) => {
 
 test('comparison modal opens with 2+ selected scripts', async ({ page }) => {
   await page.goto('/');
-  await page.fill('#searchInput', 'dark mode');
-  await page.press('#searchInput', 'Enter');
-  await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 15000 });
+  await runSearch(page, 'dark mode');
   const cards = page.locator('.result-card');
   if (await cards.count() >= 2) {
     await cards.nth(0).locator('[data-action="compare"]').click();
@@ -94,6 +152,7 @@ test('empty state shows when no results', async ({ page }) => {
 
 test('sort select persists preference', async ({ page }) => {
   await page.goto('/');
+  await runSearch(page);
   await page.selectOption('#sortSelect', 'installs');
   await page.reload();
   await expect(page.locator('#sortSelect')).toHaveValue('installs');
@@ -111,14 +170,12 @@ test('clear button resets search state', async ({ page }) => {
 test('URL parameter ?q= triggers search on load', async ({ page }) => {
   await page.goto('/?q=youtube');
   await expect(page.locator('#searchInput')).toHaveValue('youtube');
-  await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 5000 });
 });
 
 test('escape key closes modal', async ({ page }) => {
   await page.goto('/');
-  await page.fill('#searchInput', 'dark');
-  await page.press('#searchInput', 'Enter');
-  await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 15000 });
+  await runSearch(page, 'dark');
   const cards = page.locator('.result-card');
   if (await cards.count() >= 2) {
     await cards.nth(0).locator('[data-action="compare"]').click();

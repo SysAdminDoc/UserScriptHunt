@@ -24,13 +24,6 @@
   Acceptance: `grant:GM_xmlhttpRequest` filters results by parsed metadata or clearly labels sources whose metadata has not been fetched yet; tests cover positive and negative matches.
   Complexity: M
 
-- [ ] P0 — Restore clean-checkout test execution
-  Why: A coding agent cannot verify changes reliably when the current test command fails before loading tests.
-  Evidence: `package.json`, missing lockfile, `playwright.config.js`, observed `Cannot find module '@playwright/test'`.
-  Touches: `package.json`, lockfile, test scripts, CI docs.
-  Acceptance: fresh clone can run `npm ci` and `npm test` successfully, with browsers/install steps documented or scripted.
-  Complexity: S
-
 ### P1
 - [ ] P1 — Expand security scan and metadata panels to every installable source
   Why: Trust scores are incomplete for ScriptCat, GitHub, and Gists, which weakens the app's main differentiator.
@@ -66,13 +59,6 @@
   Touches: `index.html` health model, localStorage schema, status chips, diagnostics UI.
   Acceptance: source/proxy failures persist across reloads with cooldowns, manual retry, and a copyable diagnostics payload excluding secrets.
   Complexity: M
-
-- [ ] P1 — Sync versions, changelog, and source copy
-  Why: Version drift and stale copy reduce trust in a security-sensitive discovery tool.
-  Evidence: README/index/sw show v0.4.0; `package.json` and `CLAUDE.md` show v0.3.0; `CHANGELOG.md` predates recent Gist/source-health work; empty state omits Gists.
-  Touches: `package.json`, `CLAUDE.md`, `CHANGELOG.md`, `README.md`, `index.html`, `sw.js`.
-  Acceptance: all visible/documented versions and source lists match the shipped app; changelog includes recent public features.
-  Complexity: S
 
 - [ ] P1 — Harden accessibility of controls and modals
   Why: The app uses custom checkbox-like source chips and icon-only card buttons in core workflows.

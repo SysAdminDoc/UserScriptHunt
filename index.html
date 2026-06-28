@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Unified search engine for userscripts — query Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, and ScriptCat from a single interface.">
+    <meta name="description" content="Unified search engine for userscripts — query Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and GitHub Gists from a single interface.">
     <meta property="og:image" content="https://raw.githubusercontent.com/SysAdminDoc/UserScriptHunt/main/banner.png">
     <meta name="theme-color" content="#1e1e2e">
     <meta id="csp-meta" http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; connect-src https://api.greasyfork.org https://api.sleazyfork.org https://api.github.com https://gist.github.com https://gist.githubusercontent.com https://openuserjs.org https://www.userscript.zone https://scriptcat.org https://api.allorigins.win https://api.codetabs.com https://everyorigin.jwvbremen.nl https://greasyfork.org https://sleazyfork.org; font-src https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:;">
@@ -366,7 +366,7 @@
             <div class="state-empty" id="defaultEmpty">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <h3>Search userscripts everywhere</h3>
-                <p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat</p>
+                <p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, GitHub Gists</p>
                 <p style="margin-top:10px">Try: <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p>
             </div>
         </div>
@@ -1493,7 +1493,7 @@
     }
 
     /* -- Shared empty state -- */
-    var EMPTY_HOME = '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><h3>Search userscripts everywhere</h3><p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat</p><p style="margin-top:10px">Try: <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p></div>';
+    var EMPTY_HOME = '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><h3>Search userscripts everywhere</h3><p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, GitHub Gists</p><p style="margin-top:10px">Try: <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p></div>';
     var EMPTY_NORESULT = '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/></svg><h3>No results found</h3><p>Try different terms or enable more sources</p></div>';
 
     /* -- Utilities -- */
