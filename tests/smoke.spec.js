@@ -280,6 +280,46 @@ test('installed import marks matching scripts and update state', async ({ page }
   const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
   await expect(card).toContainText('Update available');
   await expect(card.locator('.card-btn-install')).toContainText('Update');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.click('#btnExportInstalled');
+  const download = await downloadPromise;
+  const text = await fs.readFile(await download.path(), 'utf8');
+  const payload = JSON.parse(text);
+  expect(payload.schema).toBe('scripthunt-installed');
+  expect(payload.version).toBe(1);
+  expect(payload.installed[0]).toMatchObject({
+    name: 'YouTube Enhancer',
+    version: '0.9.0',
+    installUrl: 'https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js',
+  });
+});
+
+test('script imports skip invalid rows without aborting valid rows', async ({ page }) => {
+  await page.goto('/');
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.click('#btnImportInstalled');
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: 'installed-mixed.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      schema: 'scripthunt-installed',
+      version: 1,
+      installed: [
+        { name: 'YouTube Enhancer', version: '1.0.0', installUrl: 'https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js' },
+        { name: 'Bad URL', installUrl: 'javascript:alert(1)' },
+        { description: 'missing identity' },
+      ],
+    })),
+  });
+
+  await expect(page.locator('.toast').last()).toContainText('Imported 1 installed scripts (2 invalid skipped)');
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sh_installed_scripts')));
+  expect(stored.schema).toBe('scripthunt-installed');
+  expect(stored.version).toBe(1);
+  expect(stored.installed).toHaveLength(1);
+  expect(JSON.stringify(stored)).not.toContain('javascript:');
 });
 
 test('result icon buttons have accessible names', async ({ page }) => {

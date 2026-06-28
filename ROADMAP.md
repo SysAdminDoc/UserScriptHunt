@@ -27,13 +27,6 @@
 ## Research-Driven Additions
 
 ### P2
-- [ ] P2 - Version and validate all import/export payloads
-  Why: Favorites import currently accepts arbitrary arrays and can persist malformed records or inconsistent URLs.
-  Evidence: `index.html:637`, `index.html:647`, `index.html:2237`, quoid/userscripts installURL issue, ScriptCat migration/backup issues.
-  Touches: `index.html` favorites export/import, installed-script import model, README import/export docs, Playwright import tests.
-  Acceptance: favorites and installed-script exports include schema/version fields, imports validate and normalize records before persistence, invalid rows are reported without aborting valid rows, and legacy array exports still import through a migration path.
-  Complexity: M
-
 - [ ] P2 - Add PWA update and cache recovery controls
   Why: The service worker uses cache-first shell behavior without telling users when a new shell is available or when cache recovery was used.
   Evidence: `sw.js`, README PWA feature, MDN StorageManager/offline guidance.

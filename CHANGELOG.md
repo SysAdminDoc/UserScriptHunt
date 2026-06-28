@@ -17,6 +17,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - GitHub token settings in Diagnostics with save/remove controls, rate-limit checks, authenticated search headers, and redacted diagnostics.
 - Manager-aware security scan findings for broad `@match`/`@include`, enumerated `@connect`, pinned vs floating `@require`, and update/download URL host drift.
 - Metadata parsing now preserves localized `@name`/`@description`, `@exclude-match`, compatibility directives, and repeated keys without overwriting values.
+- Installed-script exports with `scripthunt-installed` schema v1 plus stricter import validation that skips bad rows without aborting valid rows.
 
 ### Fixed
 - Metadata scan cache keys now stay stable when a script declares a different `@updateURL`.

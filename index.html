@@ -382,6 +382,7 @@
             <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection">Bookmarklet</button>
             <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
             <button class="tool-btn" id="btnImportInstalled" title="Import installed scripts">Installed</button>
+            <button class="tool-btn" id="btnExportInstalled" title="Export installed scripts">Export Installed</button>
             <button class="tool-btn" id="btnDiagnostics" title="Source diagnostics" popovertarget="diagnosticsSection">Diagnostics</button>
             <button class="tool-btn" id="btnExportFavs" title="Export favorites" style="display:none">Export</button>
             <button class="tool-btn" id="btnImportFavs" title="Import favorites" style="display:none">Import</button>
@@ -835,6 +836,13 @@
     function isFav(id) { return getFavs().some(function(f) { return f.id === id; }); }
 
     function cleanUrl(u) { return (u || '').trim(); }
+    function validImportUrl(u) {
+        if (!u) return true;
+        try {
+            var url = new URL(String(u).trim());
+            return url.protocol === 'http:' || url.protocol === 'https:';
+        } catch(e) { return false; }
+    }
     function normalizeScriptUrls(item) {
         item.installUrl = cleanUrl(item.installUrl || item.downloadUrl || item.updateUrl || '');
         item.downloadUrl = cleanUrl(item.downloadUrl || item.installUrl || '');
@@ -863,6 +871,8 @@
 
     function normalizeImportedScript(item) {
         if (!item || typeof item !== 'object') return null;
+        var rawUrls = [item.url, item.homepageURL, item.homepage, item.installUrl, item.install_url, item.downloadURL, item.downloadUrl, item.download_url, item.updateUrl, item.updateURL, item.update_url];
+        if (rawUrls.some(function(u) { return u && !validImportUrl(u); })) return null;
         var out = exportScriptRecord({
             id: item.id || item.uuid || '',
             name: item.name || item.title || '',
@@ -944,14 +954,25 @@
         };
     }
 
+    function buildInstalledExport() {
+        return {
+            schema: 'scripthunt-installed',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            installed: getInstalledScripts().map(normalizeImportedScript).filter(Boolean),
+        };
+    }
+
     function parseScriptImportPayload(payload, preferredType) {
         var type = preferredType || 'favorites';
         var rows = [];
         if (Array.isArray(payload)) {
             rows = payload;
         } else if (payload && typeof payload === 'object') {
+            if (payload.schema && payload.version !== 1) throw new Error('Unsupported import version');
             if (payload.schema === 'scripthunt-installed') { type = 'installed'; rows = payload.installed || payload.scripts || []; }
             else if (payload.schema === 'scripthunt-favorites') { type = 'favorites'; rows = payload.favorites || []; }
+            else if (payload.schema) throw new Error('Unsupported import schema');
             else if (Array.isArray(payload.installed) || Array.isArray(payload.scripts)) { type = 'installed'; rows = payload.installed || payload.scripts; }
             else if (Array.isArray(payload.favorites)) { type = 'favorites'; rows = payload.favorites; }
         }
@@ -2937,7 +2958,7 @@
     });
 
     // Favorites button
-    var btnExport = document.getElementById('btnExportFavs'), btnImport = document.getElementById('btnImportFavs'), btnImportInstalled = document.getElementById('btnImportInstalled');
+    var btnExport = document.getElementById('btnExportFavs'), btnImport = document.getElementById('btnImportFavs'), btnImportInstalled = document.getElementById('btnImportInstalled'), btnExportInstalled = document.getElementById('btnExportInstalled');
     document.getElementById('btnFavorites').addEventListener('click', function() {
         this.classList.toggle('active');
         var active = this.classList.contains('active');
@@ -2945,12 +2966,21 @@
         if (active) { showFavorites(); } else { if (state.rawQuery) { state.showFavs = false; sortAndRender(); } else { clearBtn.click(); } }
     });
 
+    function downloadJson(payload, filename) {
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
     // Export favorites
     btnExport.addEventListener('click', function() {
         var favs = getFavs(); if (!favs.length) { showToast('No favorites to export', 'error', 2000); return; }
-        var blob = new Blob([JSON.stringify(buildFavoritesExport(), null, 2)], { type: 'application/json' });
-        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'scripthunt-favorites.json'; a.click();
-        URL.revokeObjectURL(a.href); showToast('Exported ' + favs.length + ' favorites', 'info', 2000);
+        downloadJson(buildFavoritesExport(), 'scripthunt-favorites.json'); showToast('Exported ' + favs.length + ' favorites', 'info', 2000);
+    });
+
+    btnExportInstalled.addEventListener('click', function() {
+        var installed = getInstalledScripts(); if (!installed.length) { showToast('No installed scripts to export', 'error', 2000); return; }
+        downloadJson(buildInstalledExport(), 'scripthunt-installed.json'); showToast('Exported ' + installed.length + ' installed scripts', 'info', 2000);
     });
 
     // Import favorites
