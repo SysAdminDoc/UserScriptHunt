@@ -2,13 +2,6 @@
 
 ## Research-Driven Additions
 
-- [ ] P2 — Add CI smoke workflow for static app and Worker
-  Why: The app is static, but source/proxy regressions need repeatable checks after every change.
-  Evidence: no `.github/` workflow in repo tree; Playwright tests exist but clean run is currently blocked.
-  Touches: `.github/workflows/`, `package.json`, `tests/`, `cors-proxy/worker.js`.
-  Acceptance: CI runs install, Playwright smoke tests, Worker allowlist tests, and artifact-free status checks on pull requests.
-  Complexity: M
-
 ### P3
 - [ ] P3 — Add saved searches with update checks
   Why: Community requests for RSS/new-script feeds show demand for monitoring new or updated userscripts, but a static app should keep it local.

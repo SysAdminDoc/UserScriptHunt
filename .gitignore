@@ -6,6 +6,7 @@ CLAUDE.md
 # Markdown files local-only (except README)
 *.md
 !README.md
+!Roadmap_Blocked.md
 
 # Dependencies
 node_modules/
