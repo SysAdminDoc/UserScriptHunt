@@ -143,6 +143,10 @@ test('source toggles are keyboard accessible', async ({ page }) => {
   const toggle = page.locator('.source-toggle').first();
   await expect(toggle).toHaveAttribute('role', 'checkbox');
   await expect(toggle).toHaveAttribute('tabindex', '0');
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await toggle.focus();
+  await page.keyboard.press('Space');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
 });
 
 test('theme toggle cycles through modes', async ({ page }) => {
@@ -188,6 +192,16 @@ test('favorites view shows saved scripts', async ({ page }) => {
   await expect(page.locator('.card-title')).toContainText('Test Script');
 });
 
+test('result icon buttons have accessible names', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page);
+  const card = page.locator('.result-card').first();
+  await expect(card.getByRole('button', { name: /Security scan for YouTube Enhancer/ })).toBeVisible();
+  await expect(card.getByRole('button', { name: /Metadata for YouTube Enhancer/ })).toBeVisible();
+  await expect(card.getByRole('button', { name: /Add favorite YouTube Enhancer/ })).toBeVisible();
+  await expect(card.getByRole('button', { name: /Compare YouTube Enhancer/ })).toBeVisible();
+});
+
 test('comparison modal opens with 2+ selected scripts', async ({ page }) => {
   await page.goto('/');
   await runSearch(page, 'dark mode');
@@ -198,9 +212,11 @@ test('comparison modal opens with 2+ selected scripts', async ({ page }) => {
     await expect(page.locator('.compare-bar')).toHaveClass(/visible/);
     await page.click('.compare-go');
     await expect(page.locator('.modal-overlay')).toHaveClass(/visible/);
+    await expect(page.getByRole('button', { name: 'Close comparison' })).toBeFocused();
     await expect(page.locator('.compare-col')).toHaveCount(2);
     await page.click('.modal-close');
     await expect(page.locator('.modal-overlay')).not.toHaveClass(/visible/);
+    await expect(page.locator('.compare-go')).toBeFocused();
   }
 });
 
@@ -459,6 +475,7 @@ test('diagnostics export includes health and excludes secrets', async ({ page })
     localStorage.setItem('sh_pref_proxy', JSON.stringify('https://secret-proxy.example'));
   });
   await page.click('#btnDiagnostics');
+  await expect(page.locator('#diagnosticsOutput')).toHaveValue(/ScriptHunt/);
   const payloadText = await page.locator('#diagnosticsOutput').inputValue();
   const payload = JSON.parse(payloadText);
 
@@ -494,7 +511,11 @@ test('escape key closes modal', async ({ page }) => {
     await cards.nth(1).locator('[data-action="compare"]').click();
     await page.click('.compare-go');
     await expect(page.locator('.modal-overlay')).toHaveClass(/visible/);
+    await expect(page.getByRole('button', { name: 'Close comparison' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Close comparison' })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.locator('.modal-overlay')).not.toHaveClass(/visible/);
+    await expect(page.locator('.compare-go')).toBeFocused();
   }
 });

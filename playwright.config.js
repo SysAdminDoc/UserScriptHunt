@@ -5,12 +5,12 @@ module.exports = defineConfig({
   testMatch: '**/*.spec.js',
   timeout: 30000,
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3217',
     headless: true,
   },
   webServer: {
     command: 'npm run serve:test',
-    port: 3000,
-    reuseExistingServer: true,
+    port: 3217,
+    reuseExistingServer: false,
   },
 });

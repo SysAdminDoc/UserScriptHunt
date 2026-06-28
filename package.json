@@ -5,7 +5,7 @@
   "scripts": {
     "test": "node --test tests/worker.test.js && playwright test",
     "test:install": "playwright install chromium",
-    "serve:test": "serve -l 3000 -s ."
+    "serve:test": "serve -l 3217 -s ."
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

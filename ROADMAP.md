@@ -4,13 +4,6 @@
 
 ### P0
 ### P1
-- [ ] P1 — Harden accessibility of controls and modals
-  Why: The app uses custom checkbox-like source chips and icon-only card buttons in core workflows.
-  Evidence: `index.html` source toggles use `div role=checkbox`; card buttons use `title`; compare modal lacks an obvious focus trap.
-  Touches: `index.html` controls, button labels, modal focus management, Playwright accessibility assertions.
-  Acceptance: all controls have accessible names, keyboard operation is complete, modal focus is trapped/restored, and source toggles use native controls or equivalent tested semantics.
-  Complexity: M
-
 - [ ] P1 — Add offline recent-search cache
   Why: The PWA currently opens offline but does not preserve useful recent search results.
   Evidence: `sw.js` caches shell assets only; MDN StorageManager; existing roadmap offline item.

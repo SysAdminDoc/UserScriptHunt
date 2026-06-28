@@ -1306,7 +1306,7 @@
             card.style.animationDelay = Math.min(i * 0.02, 0.4) + 's';
             card.dataset.idx = i;
             card.setAttribute('role', 'listitem'); card.setAttribute('tabindex', '0');
-            card.setAttribute('aria-label', esc(item.name) + ' by ' + esc(item.author || 'Unknown'));
+            card.setAttribute('aria-label', (item.name || '') + ' by ' + (item.author || 'Unknown'));
             var src = SOURCES[item.source] || {};
             card.style.setProperty('--stripe-color', src.color || 'var(--accent)');
 
@@ -1331,13 +1331,13 @@
 
             var h = '<div class="card-source-stripe"></div>';
             h += '<div class="card-top-row">';
-            h += '<div class="card-title" data-url="' + esc(item.url) + '">' + esc(item.name) + '</div>';
+            h += '<div class="card-title" data-url="' + attr(item.url) + '">' + esc(item.name) + '</div>';
             h += '<div class="card-badges">';
             h += '<span class="trust-badge ' + tCls + '">' + trustScore + '</span>';
             if (item._sourceCount > 1) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Multi-source</span>';
-            if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + esc(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
-            if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + esc(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
-            if (item._riskFilter && item._riskFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + esc(item._riskFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Risk unverified</span>';
+            if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
+            if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
+            if (item._riskFilter && item._riskFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._riskFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Risk unverified</span>';
             h += '<span class="card-source-badge" style="--badge-bg:' + src.dimColor + ';--badge-color:' + src.color + '">' + esc(src.name || item.source) + '</span>';
             h += '</div></div>';
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';
@@ -1345,13 +1345,13 @@
             h += '<div class="card-meta">' + meta.join('') + '</div>';
 
             h += '<div class="card-actions">';
-            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + esc(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' Install</a>';
-            h += '<a class="card-btn card-btn-view" href="' + esc(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
-            if (canScan) h += '<button class="card-btn card-btn-icon" data-action="scan" data-idx="' + i + '" title="Security scan">' + ICO.shield + '</button>';
-            if (canScan) h += '<button class="card-btn card-btn-icon" data-action="meta" data-idx="' + i + '" title="Metadata">' + ICO.code + '</button>';
-            h += '<button class="card-btn card-btn-icon' + (fav ? ' fav-active' : '') + '" data-action="fav" data-idx="' + i + '" title="Favorite">' + (fav ? ICO.heartFill : ICO.heart) + '</button>';
-            if (navigator.share) h += '<button class="card-btn card-btn-icon" data-action="share" data-idx="' + i + '" title="Share">' + ICO.share + '</button>';
-            h += '<button class="card-btn card-btn-icon' + (state.compareIds.indexOf(item.id) >= 0 ? ' active' : '') + '" data-action="compare" data-idx="' + i + '" title="Compare">' + ICO.compare + '</button>';
+            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + attr(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' Install</a>';
+            h += '<a class="card-btn card-btn-view" href="' + attr(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
+            if (canScan) h += '<button class="card-btn card-btn-icon" data-action="scan" data-idx="' + i + '" title="Security scan" aria-label="Security scan for ' + attr(item.name) + '">' + ICO.shield + '</button>';
+            if (canScan) h += '<button class="card-btn card-btn-icon" data-action="meta" data-idx="' + i + '" title="Metadata" aria-label="Metadata for ' + attr(item.name) + '">' + ICO.code + '</button>';
+            h += '<button class="card-btn card-btn-icon' + (fav ? ' fav-active' : '') + '" data-action="fav" data-idx="' + i + '" title="Favorite" aria-label="' + (fav ? 'Remove favorite ' : 'Add favorite ') + attr(item.name) + '">' + (fav ? ICO.heartFill : ICO.heart) + '</button>';
+            if (navigator.share) h += '<button class="card-btn card-btn-icon" data-action="share" data-idx="' + i + '" title="Share" aria-label="Share ' + attr(item.name) + '">' + ICO.share + '</button>';
+            h += '<button class="card-btn card-btn-icon' + (state.compareIds.indexOf(item.id) >= 0 ? ' active' : '') + '" data-action="compare" data-idx="' + i + '" title="Compare" aria-label="Compare ' + attr(item.name) + '">' + ICO.compare + '</button>';
             h += '</div>';
 
             if (canScan) h += '<div class="scan-results" id="' + scanId + '"></div>';
@@ -1490,12 +1490,31 @@
         goBtn.disabled = state.compareIds.length < 2;
     }
 
+    var modalReturnFocus = null;
+    function closeCompareModal() {
+        var overlay = document.getElementById('modalOverlay');
+        overlay.classList.remove('visible');
+        if (modalReturnFocus && document.contains(modalReturnFocus)) modalReturnFocus.focus();
+        modalReturnFocus = null;
+    }
+
+    function trapCompareFocus(e) {
+        var overlay = document.getElementById('modalOverlay');
+        if (!overlay.classList.contains('visible') || e.key !== 'Tab') return;
+        var focusables = Array.from(overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(function(el) { return !el.disabled && el.offsetParent !== null; });
+        if (!focusables.length) return;
+        var first = focusables[0], last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
     function openCompareModal() {
         var items = state.compareIds.map(function(id) { return state.results.find(function(r) { return r.id === id; }); }).filter(Boolean);
         if (items.length < 2) return;
+        modalReturnFocus = document.activeElement;
         var modal = document.getElementById('modalContent');
         var colW = items.length === 2 ? '1fr 1fr' : '1fr 1fr 1fr';
-        var h = '<div class="modal-header"><div class="modal-title">Script Comparison</div><button class="modal-close" id="modalCloseBtn">&times;</button></div>';
+        var h = '<div class="modal-header"><div class="modal-title">Script Comparison</div><button class="modal-close" id="modalCloseBtn" aria-label="Close comparison">&times;</button></div>';
         h += '<div class="compare-grid" style="grid-template-columns:' + colW + '">';
         items.forEach(function(item) {
             var trust = item._trust || computeTrust(item, null);
@@ -1522,7 +1541,8 @@
         // Highlight best values
         modal.innerHTML = h;
         document.getElementById('modalOverlay').classList.add('visible');
-        document.getElementById('modalCloseBtn').addEventListener('click', function() { document.getElementById('modalOverlay').classList.remove('visible'); });
+        document.getElementById('modalCloseBtn').addEventListener('click', closeCompareModal);
+        document.getElementById('modalCloseBtn').focus();
         // Highlight best per row
         highlightBest(modal);
     }
@@ -1667,6 +1687,7 @@
 
     /* -- Utilities -- */
     function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function attr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmtNum(n) { if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
     function timeAgo(d) { if (!d) return ''; var days = Math.floor((Date.now() - new Date(d)) / 864e5); if (days < 1) return 'today'; if (days === 1) return 'yesterday'; if (days < 30) return days+'d ago'; if (days < 365) return Math.floor(days/30)+'mo ago'; return Math.floor(days/365)+'y ago'; }
     function showToast(msg, type, dur, undoFn) {
@@ -1741,11 +1762,12 @@
     // Comparison
     document.getElementById('compareGo').addEventListener('click', openCompareModal);
     document.getElementById('compareClear').addEventListener('click', function() { state.compareIds = []; updateCompareBar(); sortAndRender(); });
-    document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('visible'); });
+    document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) closeCompareModal(); });
     document.addEventListener('keydown', function(e) {
+        trapCompareFocus(e);
         if (e.key === 'Escape') {
             var modal = document.getElementById('modalOverlay');
-            if (modal.classList.contains('visible')) { modal.classList.remove('visible'); return; }
+            if (modal.classList.contains('visible')) { closeCompareModal(); return; }
             var hist = document.getElementById('searchHistory');
             if (hist.classList.contains('visible')) { hist.classList.remove('visible'); return; }
         }
@@ -1772,6 +1794,7 @@
         bmBtn.classList.toggle('active', e.newState === 'open');
     });
     var diagBtn = document.getElementById('btnDiagnostics');
+    diagBtn.addEventListener('click', renderDiagnostics);
     document.getElementById('diagnosticsSection').addEventListener('toggle', function(e) {
         var open = e.newState === 'open';
         diagBtn.classList.toggle('active', open);

@@ -68,9 +68,9 @@ npm test
 | **Spam Detection** | Low-quality results auto-dimmed and pushed to bottom of results |
 | **Metadata Viewer** | Formatted @-directive display with syntax highlighting |
 | **Bookmarklet** | One-click "find scripts for this page" from any website (works on file:// too) |
-| **URL Parameters** | Shareable search links via `?q=` query parameter |
+| **URL Parameters** | Shareable search links for query, sources, site/domain, sort order, and visible filters |
 | **Keyboard Navigation** | Tab/arrow key navigation, Enter to open, Escape to close modals |
-| **Accessibility** | ARIA roles, labels, live regions for screen reader support |
+| **Accessibility** | Labeled controls, tested source-toggle keyboard semantics, live regions, and trapped/restored modal focus |
 | **Web Share API** | Native mobile sharing via share button on result cards |
 | **Content Security Policy** | Dynamic CSP restricting connections to known API domains (supports custom proxies) |
 | **View Transitions** | GPU-accelerated smooth transitions between search states |
