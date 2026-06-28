@@ -187,6 +187,9 @@
         .meta-item{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--text-muted);font-weight:400}
         .meta-item svg{flex-shrink:0;opacity:0.7}.meta-item strong{color:var(--text-secondary);font-weight:600}
         .card-author{font-size:11px;color:var(--text-muted);margin-bottom:5px}.card-author span{color:var(--text-secondary);font-weight:500}
+        .script-url-list{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+        .script-url-link{font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;background:var(--bg-secondary)}
+        .script-url-link:hover{border-color:var(--accent);color:var(--text-primary)}
 
         /* Staleness indicator */
         .stale-badge{font-size:9.5px;padding:2px 6px;border-radius:4px;font-weight:500}
@@ -359,6 +362,7 @@
             </div>
             <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection">Bookmarklet</button>
             <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
+            <button class="tool-btn" id="btnImportInstalled" title="Import installed scripts">Installed</button>
             <button class="tool-btn" id="btnDiagnostics" title="Source diagnostics" popovertarget="diagnosticsSection">Diagnostics</button>
             <button class="tool-btn" id="btnExportFavs" title="Export favorites" style="display:none">Export</button>
             <button class="tool-btn" id="btnImportFavs" title="Import favorites" style="display:none">Import</button>
@@ -790,8 +794,14 @@
     }
 
     /* -- Favorites (localStorage) -- */
-    function getFavs() { try { return JSON.parse(localStorage.getItem('sh_favs') || '[]'); } catch(e) { return []; } }
-    function setFavs(favs) { localStorage.setItem('sh_favs', JSON.stringify(favs)); }
+    function getFavs() {
+        try {
+            var raw = JSON.parse(localStorage.getItem('sh_favs') || '[]');
+            var list = Array.isArray(raw) ? raw : (raw.favorites || []);
+            return list.map(normalizeImportedScript).filter(Boolean);
+        } catch(e) { return []; }
+    }
+    function setFavs(favs) { localStorage.setItem('sh_favs', JSON.stringify((favs || []).map(normalizeImportedScript).filter(Boolean))); }
     function isFav(id) { return getFavs().some(function(f) { return f.id === id; }); }
 
     function cleanUrl(u) { return (u || '').trim(); }
@@ -888,6 +898,61 @@
             }
         }
         return { installed: false, updateAvailable: false, record: null };
+    }
+
+    function scriptRecordKey(item) {
+        normalizeScriptUrls(item);
+        return urlKey(item.updateUrl || item.downloadUrl || item.installUrl || item.url || item.id || item.name || '');
+    }
+
+    function buildFavoritesExport() {
+        return {
+            schema: 'scripthunt-favorites',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            favorites: getFavs().map(normalizeImportedScript).filter(Boolean),
+        };
+    }
+
+    function parseScriptImportPayload(payload, preferredType) {
+        var type = preferredType || 'favorites';
+        var rows = [];
+        if (Array.isArray(payload)) {
+            rows = payload;
+        } else if (payload && typeof payload === 'object') {
+            if (payload.schema === 'scripthunt-installed') { type = 'installed'; rows = payload.installed || payload.scripts || []; }
+            else if (payload.schema === 'scripthunt-favorites') { type = 'favorites'; rows = payload.favorites || []; }
+            else if (Array.isArray(payload.installed) || Array.isArray(payload.scripts)) { type = 'installed'; rows = payload.installed || payload.scripts; }
+            else if (Array.isArray(payload.favorites)) { type = 'favorites'; rows = payload.favorites; }
+        }
+        if (!Array.isArray(rows)) throw new Error('Invalid import format');
+        var invalid = 0;
+        var items = rows.map(function(row) {
+            var normalized = normalizeImportedScript(row);
+            if (!normalized) invalid++;
+            return normalized;
+        }).filter(Boolean);
+        if (!items.length && rows.length) throw new Error('No valid script records');
+        return { type: type, items: items, invalid: invalid };
+    }
+
+    function renderScriptUrlLinks(item) {
+        normalizeScriptUrls(item);
+        var grouped = {};
+        [
+            { label: 'Install', url: item.installUrl },
+            { label: 'Download', url: item.downloadUrl },
+            { label: 'Update', url: item.updateUrl },
+        ].forEach(function(entry) {
+            var key = urlKey(entry.url);
+            if (!key) return;
+            if (!grouped[key]) grouped[key] = { url: entry.url, labels: [] };
+            if (grouped[key].labels.indexOf(entry.label) < 0) grouped[key].labels.push(entry.label);
+        });
+        return Object.keys(grouped).map(function(key) {
+            var row = grouped[key];
+            return '<a class="script-url-link" href="' + attr(row.url) + '" target="_blank" rel="noopener">' + esc(row.labels.join(' / ') + ' URL') + '</a>';
+        }).join('');
     }
 
     function toggleFav(item) {
@@ -1740,6 +1805,7 @@
         statsText.innerHTML = '<strong>' + items.length + '</strong> results from <strong>' + srcCount + '</strong> source' + (srcCount !== 1 ? 's' : '') + (spamCount > 0 ? ' <span style="color:var(--text-muted)">(' + spamCount + ' low quality)</span>' : '') + stale;
 
         items.forEach(function(item, i) {
+            normalizeScriptUrls(item);
             var card = document.createElement('div');
             card.className = 'result-card' + (item._spam ? ' spam' : '') + (state.compareIds.indexOf(item.id) >= 0 ? ' selected' : '');
             card.style.animationDelay = Math.min(i * 0.02, 0.4) + 's';
@@ -1752,6 +1818,7 @@
             var trustScore = item._trust || computeTrust(item, null);
             var tCls = trustClass(trustScore);
             var stale = stalenessInfo(item.updatedAt);
+            var installed = installedState(item);
 
             var meta = [];
             if (item.totalInstalls > 0) meta.push('<span class="meta-item">' + ICO.dl + '<strong>' + fmtNum(item.totalInstalls) + '</strong></span>');
@@ -1777,14 +1844,18 @@
             if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
             if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
             if (item._riskFilter && item._riskFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._riskFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Risk unverified</span>';
+            if (installed.updateAvailable) h += '<span class="card-source-badge" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Update available</span>';
+            else if (installed.installed) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Installed</span>';
             h += '<span class="card-source-badge" style="--badge-bg:' + src.dimColor + ';--badge-color:' + src.color + '">' + esc(src.name || item.source) + '</span>';
             h += '</div></div>';
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';
             if (item.description) h += '<div class="card-desc">' + esc(item.description) + '</div>';
             h += '<div class="card-meta">' + meta.join('') + '</div>';
+            var urlLinks = renderScriptUrlLinks(item);
+            if (urlLinks) h += '<div class="script-url-list">' + urlLinks + '</div>';
 
             h += '<div class="card-actions">';
-            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + attr(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' Install</a>';
+            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + attr(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' ' + (installed.updateAvailable ? 'Update' : installed.installed ? 'Installed' : 'Install') + '</a>';
             h += '<a class="card-btn card-btn-view" href="' + attr(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
             if (canScan) h += '<button class="card-btn card-btn-icon" data-action="scan" data-idx="' + i + '" title="Security scan" aria-label="Security scan for ' + attr(item.name) + '">' + ICO.shield + '</button>';
             if (canScan) h += '<button class="card-btn card-btn-icon" data-action="meta" data-idx="' + i + '" title="Metadata" aria-label="Metadata for ' + attr(item.name) + '">' + ICO.code + '</button>';
@@ -1892,7 +1963,7 @@
             var sc = await fetchAndScan(item);
             if (!sc || sc.unavailable) { mp.innerHTML = '<span class="meta-loading">' + esc((sc && sc.reason) || 'Metadata unavailable: script fetch failed') + '</span>'; return; }
             if (!sc.meta) { mp.innerHTML = '<span class="meta-loading">Metadata unavailable: no userscript metadata block found</span>'; return; }
-            var mh = '', order = ['name','namespace','version','description','author','license','match','include','exclude','grant','require','connect','run-at','noframes','icon','homepageURL','supportURL','downloadURL'];
+            var mh = '', order = ['name','namespace','version','description','author','license','match','include','exclude','grant','require','connect','run-at','noframes','icon','homepageURL','supportURL','downloadURL','updateURL'];
             var shown = {};
             for (var k = 0; k < order.length; k++) {
                 var key = order[k]; if (sc.meta[key] === undefined) continue; shown[key] = true;
@@ -2474,7 +2545,7 @@
     });
 
     // Favorites button
-    var btnExport = document.getElementById('btnExportFavs'), btnImport = document.getElementById('btnImportFavs');
+    var btnExport = document.getElementById('btnExportFavs'), btnImport = document.getElementById('btnImportFavs'), btnImportInstalled = document.getElementById('btnImportInstalled');
     document.getElementById('btnFavorites').addEventListener('click', function() {
         this.classList.toggle('active');
         var active = this.classList.contains('active');
@@ -2485,27 +2556,37 @@
     // Export favorites
     btnExport.addEventListener('click', function() {
         var favs = getFavs(); if (!favs.length) { showToast('No favorites to export', 'error', 2000); return; }
-        var blob = new Blob([JSON.stringify(favs, null, 2)], { type: 'application/json' });
+        var blob = new Blob([JSON.stringify(buildFavoritesExport(), null, 2)], { type: 'application/json' });
         var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'scripthunt-favorites.json'; a.click();
         URL.revokeObjectURL(a.href); showToast('Exported ' + favs.length + ' favorites', 'info', 2000);
     });
 
     // Import favorites
     var importInput = document.getElementById('importFavsFile');
-    btnImport.addEventListener('click', function() { importInput.click(); });
+    var importMode = 'favorites';
+    btnImport.addEventListener('click', function() { importMode = 'favorites'; importInput.click(); });
+    btnImportInstalled.addEventListener('click', function() { importMode = 'installed'; importInput.click(); });
     importInput.addEventListener('change', function() {
         var file = this.files[0]; if (!file) return;
         var reader = new FileReader();
         reader.onload = function(e) {
             try {
-                var imported = JSON.parse(e.target.result);
-                if (!Array.isArray(imported)) throw new Error('Invalid format');
-                var existing = getFavs(), ids = new Set(existing.map(function(f) { return f.id; }));
+                var parsed = parseScriptImportPayload(JSON.parse(e.target.result), importMode);
+                if (parsed.type === 'installed') {
+                    setInstalledScripts(parsed.items);
+                    if (state.results.length) sortAndRender();
+                    showToast('Imported ' + parsed.items.length + ' installed scripts' + (parsed.invalid ? ' (' + parsed.invalid + ' invalid skipped)' : ''), 'info', 3000);
+                    return;
+                }
+                var existing = getFavs(), ids = new Set(existing.map(scriptRecordKey));
                 var added = 0;
-                imported.forEach(function(item) { if (item.id && !ids.has(item.id)) { existing.push(item); ids.add(item.id); added++; } });
+                parsed.items.forEach(function(item) {
+                    var key = scriptRecordKey(item);
+                    if (key && !ids.has(key)) { existing.push(item); ids.add(key); added++; }
+                });
                 setFavs(existing); showFavorites();
-                showToast('Imported ' + added + ' new favorites (' + (imported.length - added) + ' duplicates skipped)', 'info', 3000);
-            } catch(err) { showToast('Invalid favorites file', 'error', 3000); }
+                showToast('Imported ' + added + ' new favorites (' + (parsed.items.length - added) + ' duplicates skipped' + (parsed.invalid ? ', ' + parsed.invalid + ' invalid skipped' : '') + ')', 'info', 3000);
+            } catch(err) { showToast('Invalid import file', 'error', 3000); }
         };
         reader.readAsText(file); this.value = '';
     });

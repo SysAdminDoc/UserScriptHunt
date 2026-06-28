@@ -55,7 +55,8 @@ npm run qa
 | **Security Scanner** | Pattern-based code analysis for any result with a raw `.user.js` URL, with clear blocker messages when metadata cannot be fetched |
 | **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
-| **Favorites** | Save scripts to localStorage with export/import as JSON and undo on removal |
+| **Favorites** | Save scripts to localStorage with versioned JSON export/import and undo on removal |
+| **Installed Import** | Import installed-script lists locally to mark installed scripts and available updates in search results |
 | **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
 | **Advanced Filters** | Visible controls for source, license, minimum installs, updated date, @grant, risk, and applies-to domain |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
@@ -68,6 +69,7 @@ npm run qa
 | **Staleness Indicators** | Active/Aging/Stale badges on result cards based on last update date |
 | **Spam Detection** | Low-quality results auto-dimmed and pushed to bottom of results |
 | **Metadata Viewer** | Formatted @-directive display with syntax highlighting |
+| **Install URL Normalization** | Result cards expose normalized install, download, and update URLs for manager handoff checks |
 | **Bookmarklet** | One-click "find scripts for this page" from any website (works on file:// too) |
 | **URL Parameters** | Shareable search links for query, sources, site/domain, sort order, and visible filters |
 | **Keyboard Navigation** | Tab/arrow key navigation, Enter to open, Escape to close modals |
@@ -232,6 +234,7 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **CORS Proxy** — allorigins.win → codetabs → everyorigin fallback chain with exponential backoff
 - **PWA** — manifest.json + service worker for installability, offline shell loading, and local recent-search recovery
 - **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; no tracking, no cookies, no server-side state
+- **Versioned JSON payloads** - favorites exports use `scripthunt-favorites` schema v1; installed imports accept `scripthunt-installed` schema v1, manager-style `scripts` arrays, and legacy arrays
 - **Local QA** - npm run qa runs npm audit, Worker tests, and Playwright smoke/adapter tests against the repo-local static server
 
 ---

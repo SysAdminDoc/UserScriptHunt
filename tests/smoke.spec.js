@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('node:fs/promises');
 
 const SOURCE_PREFS = {
   greasyfork: true,
@@ -160,6 +161,7 @@ test('search returns results from at least one source', async ({ page }) => {
   await runSearch(page);
   const count = await page.locator('.result-card').count();
   expect(count).toBeGreaterThan(0);
+  await expect(page.locator('.result-card').first().locator('.script-url-list')).toContainText('Install / Download / Update URL');
 });
 
 test('source toggles are keyboard accessible', async ({ page }) => {
@@ -214,6 +216,54 @@ test('favorites view shows saved scripts', async ({ page }) => {
   await page.click('#btnFavorites');
   await expect(page.locator('.result-card')).toHaveCount(1);
   await expect(page.locator('.card-title')).toContainText('Test Script');
+});
+
+test('favorites export uses versioned schema', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page);
+  await page.locator('.result-card').first().locator('[data-action="fav"]').click();
+  await page.click('#btnFavorites');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.click('#btnExportFavs');
+  const download = await downloadPromise;
+  const text = await fs.readFile(await download.path(), 'utf8');
+  const payload = JSON.parse(text);
+
+  expect(payload.schema).toBe('scripthunt-favorites');
+  expect(payload.version).toBe(1);
+  expect(payload.favorites[0]).toMatchObject({
+    name: 'YouTube Enhancer',
+    installUrl: 'https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js',
+    downloadUrl: 'https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js',
+    updateUrl: 'https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js',
+  });
+});
+
+test('installed import marks matching scripts and update state', async ({ page }) => {
+  await page.goto('/');
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.click('#btnImportInstalled');
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: 'installed.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      schema: 'scripthunt-installed',
+      version: 1,
+      installed: [{
+        name: 'YouTube Enhancer',
+        version: '0.9.0',
+        installUrl: 'https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js',
+      }],
+    })),
+  });
+  await expect(page.locator('.toast').last()).toContainText('Imported 1 installed scripts');
+
+  await runSearch(page);
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await expect(card).toContainText('Update available');
+  await expect(card.locator('.card-btn-install')).toContainText('Update');
 });
 
 test('result icon buttons have accessible names', async ({ page }) => {

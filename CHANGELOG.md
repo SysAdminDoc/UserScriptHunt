@@ -9,12 +9,15 @@ All notable changes to ScriptHunt will be documented in this file.
 - Repo-local static test server plus `npm run qa` for deterministic local audit, Worker, and Playwright verification.
 - Regression coverage for cached metadata filtering across page reloads.
 - In-app custom proxy settings with HTTPS validation, Worker allowlist self-test, remove flow, and diagnostics redaction.
+- Installed-script import for local already-installed and update-available result badges.
+- Versioned favorites export schema with normalized install, download, update URL, and namespace fields.
 
 ### Changed
 - Grant and risk filters now scan scripts through a fixed concurrency pool instead of launching every raw-script fetch at once.
 - Favorite/offline script records now preserve normalized install, download, update URL, and namespace fields for later installed-script matching.
 - Playwright no longer depends on the external `serve` binary for its web server.
 - Custom proxy CSP allowlisting now uses a validated parser-inserted policy instead of mutating an already-parsed meta tag.
+- Result cards now expose normalized install/download/update URL links and relabel install actions as updates when imported installed versions differ.
 
 ## [v0.4.0]
 

@@ -2,14 +2,6 @@
 
 ## Research-Driven Additions
 
-### P2
-- [ ] P2 — Normalize install, update, and already-installed state
-  Why: Manager projects show install/update URL normalization and installed-script awareness as recurring user needs.
-  Evidence: quoid/userscripts installURL issue; Userscript-Plus installed-filter request; current favorites/import code.
-  Touches: `index.html` result schema, metadata parser, favorites/import/export schema, install buttons.
-  Acceptance: results expose install/update/download URLs consistently, imported installed-script lists mark matches, and exports include a versioned schema.
-  Complexity: L
-
 - [ ] P2 — Add applies-to matrix and precise site matching
   Why: Site searches should show which scripts actually target the user's domain instead of relying only on keyword matches.
   Evidence: Userscript.Zone URL/domain modes; Greasy Fork by-site endpoint; existing roadmap `@match` matrix item.
