@@ -3,13 +3,6 @@
 ## Research-Driven Additions
 
 ### P3
-- [ ] P3 — Add saved searches with update checks
-  Why: Community requests for RSS/new-script feeds show demand for monitoring new or updated userscripts, but a static app should keep it local.
-  Evidence: OpenUserJS RSS issue; existing roadmap saved queries and script-version watcher items.
-  Touches: `index.html` saved-query model, localStorage/IndexedDB schema, source polling, notifications UI.
-  Acceptance: users can save a query/domain and manually refresh it to see new/updated results since last check.
-  Complexity: L
-
 - [ ] P3 — Add custom source templates for power users
   Why: Manager users request configurable discovery sources, and ScriptHunt's source registry can support constrained templates without a plugin marketplace.
   Evidence: Violentmonkey custom search sources issue; `index.html` `SOURCES` registry.

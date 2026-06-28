@@ -286,6 +286,11 @@
         .bookmarklet-desc{font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5}
         .bookmarklet-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);color:#fff;font-size:12px;font-weight:600;text-decoration:none;cursor:grab;transition:all var(--transition)}
         .bookmarklet-link:hover{background:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,0.25)}
+        .saved-search-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+        .saved-search-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px;background:var(--bg-primary)}
+        .saved-search-name{font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:3px}
+        .saved-search-meta{font-size:11px;color:var(--text-muted);line-height:1.45}
+        .saved-search-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
         .diagnostics-output{width:100%;min-height:180px;resize:vertical;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.5;padding:10px}
         .diagnostics-actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end}
         .proxy-settings{display:grid;gap:8px;margin-bottom:12px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-primary)}
@@ -380,6 +385,7 @@
                 <input type="text" class="site-filter" id="siteFilter" placeholder="Filter by site (youtube.com)" autocomplete="off" spellcheck="false" aria-label="Filter by website domain">
             </div>
             <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection">Bookmarklet</button>
+            <button class="tool-btn" id="btnSavedSearches" title="Saved searches" popovertarget="savedSearchSection">Saved</button>
             <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
             <button class="tool-btn" id="btnImportInstalled" title="Import installed scripts">Installed</button>
             <button class="tool-btn" id="btnExportInstalled" title="Export installed scripts">Export Installed</button>
@@ -393,6 +399,13 @@
             <div class="bookmarklet-title">Find Scripts for Any Page</div>
             <div class="bookmarklet-desc">Drag this button to your bookmarks bar. Click it on any webpage to search ScriptHunt for scripts that target that site.</div>
             <a class="bookmarklet-link" id="bookmarkletLink" href="javascript:void(0)">ScriptHunt This Page</a>
+        </div>
+
+        <div class="bookmarklet-section" id="savedSearchSection" popover="auto">
+            <div class="bookmarklet-title">Saved Searches</div>
+            <div class="bookmarklet-desc">Save the current query and filters, then refresh it later to surface new or updated results locally.</div>
+            <button class="tool-btn" id="btnSaveCurrentSearch" type="button">Save Current</button>
+            <div class="saved-search-list" id="savedSearchList"></div>
         </div>
 
         <div class="bookmarklet-section" id="diagnosticsSection" popover="auto">
@@ -2208,6 +2221,7 @@
             if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
             if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
             if (item._riskFilter && item._riskFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._riskFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Risk unverified</span>';
+            if (item._savedDelta) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Saved ' + (item._savedDelta === 'updated' ? 'updated' : 'new') + '</span>';
             if (installed.updateAvailable) h += '<span class="card-source-badge" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Update available</span>';
             else if (installed.installed) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Installed</span>';
             h += '<span class="card-source-badge" style="--badge-bg:' + src.dimColor + ';--badge-color:' + src.color + '">' + esc(src.name || item.source) + '</span>';
@@ -2524,6 +2538,164 @@
             acc[item.source] = (acc[item.source] || 0) + 1;
             return acc;
         }, {});
+    }
+
+    function getSavedSearches() {
+        try { return JSON.parse(localStorage.getItem('sh_saved_searches') || '[]'); } catch(e) { return []; }
+    }
+
+    function setSavedSearches(items) {
+        localStorage.setItem('sh_saved_searches', JSON.stringify((items || []).slice(0, 20)));
+    }
+
+    function searchSnapshot(items) {
+        var out = {};
+        (items || []).forEach(function(item) {
+            var key = scriptRecordKey(item);
+            if (!key) return;
+            out[key] = {
+                name: item.name || '',
+                version: item.version || '',
+                updatedAt: item.updatedAt || '',
+                updateUrl: item.updateUrl || '',
+            };
+        });
+        return out;
+    }
+
+    function currentSavedSearchDraft() {
+        var rawQuery = state.rawQuery || searchInput.value.trim();
+        var site = siteFilter.value.trim();
+        if (!rawQuery && !site) return null;
+        var parsed = parseQuery(rawQuery || '');
+        var filters = getVisibleFilters(parsed);
+        return {
+            rawQuery: rawQuery,
+            site: site || parsed.site || '',
+            filters: filters,
+            sort: sortSelect.value,
+            sources: sourceSnapshot(),
+        };
+    }
+
+    function savedSearchId(draft) {
+        return 'saved-' + hashString(JSON.stringify({
+            q: draft.rawQuery || '',
+            site: draft.site || '',
+            filters: draft.filters || {},
+            sources: draft.sources || {},
+        }));
+    }
+
+    function savedSearchLabel(entry) {
+        return (entry.rawQuery || 'Site search') + (entry.site ? ' @ ' + entry.site : '');
+    }
+
+    function markSavedDeltas(entry, items) {
+        var previous = entry.lastRecords || {};
+        var count = 0;
+        (items || []).forEach(function(item) {
+            delete item._savedDelta;
+            var key = scriptRecordKey(item);
+            if (!key) return;
+            var before = previous[key];
+            if (!before) { item._savedDelta = 'new'; count++; return; }
+            if ((before.version || '') !== (item.version || '') || (before.updatedAt || '') !== (item.updatedAt || '') || (before.updateUrl || '') !== (item.updateUrl || '')) {
+                item._savedDelta = 'updated';
+                count++;
+            }
+        });
+        return count;
+    }
+
+    function applySavedSearchControls(entry) {
+        searchInput.value = entry.rawQuery || '';
+        clearBtn.classList.toggle('visible', searchInput.value.length > 0);
+        siteFilter.value = entry.site || '';
+        if (entry.sort && hasOption(sortSelect, entry.sort)) { sortSelect.value = entry.sort; state.sortBy = entry.sort; }
+        var f = entry.filters || {};
+        licenseFilter.value = f.license || '';
+        minInstallsFilter.value = f.minInstalls || '';
+        updatedFilter.value = String(f.updatedDays || 0);
+        languageFilter.value = hasOption(languageFilter, f.language || 'en') ? (f.language || 'en') : 'en';
+        grantFilterInput.value = f.grant || '';
+        riskFilter.value = f.risk || '';
+        applySourceSnapshot(entry.sources);
+        renderSourceToggles();
+    }
+
+    function renderSavedSearches() {
+        var list = document.getElementById('savedSearchList');
+        if (!list) return;
+        var saved = getSavedSearches();
+        if (!saved.length) {
+            list.innerHTML = '<div class="saved-search-item"><div class="saved-search-meta">No saved searches yet.</div></div>';
+            return;
+        }
+        list.innerHTML = saved.map(function(entry) {
+            var checked = entry.lastCheckedAt ? timeAgo(entry.lastCheckedAt) : 'never';
+            return '<div class="saved-search-item" data-saved-id="' + attr(entry.id) + '">' +
+                '<div class="saved-search-name">' + esc(savedSearchLabel(entry)) + '</div>' +
+                '<div class="saved-search-meta">' + esc(String(entry.lastResultCount || 0)) + ' tracked results; checked ' + esc(checked) + '</div>' +
+                '<div class="saved-search-actions"><button class="offline-cache-btn" data-saved-action="run" type="button">Run</button><button class="offline-cache-btn" data-saved-action="refresh" type="button">Refresh</button><button class="offline-cache-btn" data-saved-action="remove" type="button">Remove</button></div>' +
+            '</div>';
+        }).join('');
+        list.querySelectorAll('[data-saved-action]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var item = btn.closest('[data-saved-id]');
+                if (!item) return;
+                handleSavedSearchAction(item.getAttribute('data-saved-id'), btn.getAttribute('data-saved-action'));
+            });
+        });
+    }
+
+    function saveCurrentSearch() {
+        var draft = currentSavedSearchDraft();
+        if (!draft) { showToast('Run a search before saving it', 'error', 2500); return; }
+        var saved = getSavedSearches();
+        var id = savedSearchId(draft);
+        var existing = saved.find(function(entry) { return entry.id === id; });
+        var entry = Object.assign(existing || {}, draft, {
+            id: id,
+            savedAt: existing && existing.savedAt || Date.now(),
+            lastCheckedAt: Date.now(),
+            lastRecords: searchSnapshot(state.results),
+            lastResultCount: state.results.length,
+        });
+        saved = [entry].concat(saved.filter(function(old) { return old.id !== id; })).slice(0, 20);
+        setSavedSearches(saved);
+        renderSavedSearches();
+        showToast('Saved search', 'info', 2000);
+    }
+
+    async function refreshSavedSearch(entry, markDeltas) {
+        applySavedSearchControls(entry);
+        if (markDeltas) _cache.clear();
+        await executeSearch(entry.rawQuery || '');
+        var changed = markDeltas ? markSavedDeltas(entry, state.results) : 0;
+        entry.lastCheckedAt = Date.now();
+        entry.lastRecords = searchSnapshot(state.results);
+        entry.lastResultCount = state.results.length;
+        var saved = getSavedSearches().map(function(old) { return old.id === entry.id ? entry : old; });
+        setSavedSearches(saved);
+        renderSavedSearches();
+        if (markDeltas) {
+            sortAndRender();
+            showToast(changed + ' new or updated result' + (changed === 1 ? '' : 's'), 'info', 3000);
+        }
+    }
+
+    function handleSavedSearchAction(id, action) {
+        var saved = getSavedSearches();
+        var entry = saved.find(function(item) { return item.id === id; });
+        if (!entry) return;
+        if (action === 'remove') {
+            setSavedSearches(saved.filter(function(item) { return item.id !== id; }));
+            renderSavedSearches();
+            showToast('Removed saved search', 'info', 2000);
+            return;
+        }
+        refreshSavedSearch(entry, action === 'refresh').catch(function(err) { showToast('Saved search failed: ' + ((err && err.message) || 'unknown error'), 'error', 3000); });
     }
 
     function applyOfflineControls(entry) {
@@ -2850,6 +3022,14 @@
     document.getElementById('bookmarkletSection').addEventListener('toggle', function(e) {
         bmBtn.classList.toggle('active', e.newState === 'open');
     });
+    var savedBtn = document.getElementById('btnSavedSearches');
+    savedBtn.addEventListener('click', renderSavedSearches);
+    document.getElementById('savedSearchSection').addEventListener('toggle', function(e) {
+        var open = e.newState === 'open';
+        savedBtn.classList.toggle('active', open);
+        if (open) renderSavedSearches();
+    });
+    document.getElementById('btnSaveCurrentSearch').addEventListener('click', saveCurrentSearch);
     var diagBtn = document.getElementById('btnDiagnostics');
     diagBtn.addEventListener('click', renderGitHubSettings);
     document.getElementById('diagnosticsSection').addEventListener('toggle', function(e) {

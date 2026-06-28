@@ -545,6 +545,49 @@ test('catalog language filter changes Greasy Fork locale without changing GitHub
   await expect.poll(() => greasyUrls.some((url) => url.includes('https://api.greasyfork.org/en/scripts.json') && url.includes('filter_locale=0'))).toBe(true);
 });
 
+test('saved searches refresh and badge new or updated results', async ({ page }) => {
+  let results = GREASY_FORK_RESULTS.slice(0, 2);
+  await page.unroute('https://api.greasyfork.org/**');
+  await page.route('https://api.greasyfork.org/**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(results),
+    });
+  });
+
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+  await page.click('#btnSavedSearches');
+  await page.click('#btnSaveCurrentSearch');
+  await expect(page.locator('#savedSearchList')).toContainText('2 tracked results');
+
+  results = [
+    { ...GREASY_FORK_RESULTS[0], version: '1.0.1', code_updated_at: '2026-04-01T00:00:00Z' },
+    GREASY_FORK_RESULTS[1],
+    {
+      id: 104,
+      name: 'YouTube New Helper',
+      description: 'New saved-search result.',
+      users: [{ name: 'tester' }],
+      url: 'https://greasyfork.org/en/scripts/104-youtube-new-helper',
+      code_url: '',
+      version: '1.0.0',
+      daily_installs: 2,
+      total_installs: 20,
+      good_ratings: 1,
+      bad_ratings: 0,
+      created_at: '2026-04-01T00:00:00Z',
+      code_updated_at: '2026-04-01T00:00:00Z',
+      license: 'MIT',
+    },
+  ];
+
+  await page.locator('#savedSearchList [data-saved-action="refresh"]').click();
+  await expect(page.locator('.toast').last()).toContainText('2 new or updated results');
+  await expect(page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' })).toContainText('Saved updated');
+  await expect(page.locator('.result-card').filter({ hasText: 'YouTube New Helper' })).toContainText('Saved new');
+});
+
 test('site filter shows source and metadata applies-to evidence', async ({ page }) => {
   await page.goto('/');
   await page.fill('#siteFilter', 'youtube.com');

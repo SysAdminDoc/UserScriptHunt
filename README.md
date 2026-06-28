@@ -56,6 +56,7 @@ npm run qa
 | **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
 | **Favorites** | Save scripts to localStorage with versioned JSON export/import and undo on removal |
+| **Saved Searches** | Save query/filter/source combinations locally and manually refresh them to badge new or updated results |
 | **Installed Import/Export** | Import and export installed-script lists locally to mark installed scripts and available updates in search results |
 | **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
 | **Advanced Filters** | Visible controls for source, license, installs, updated date, catalog language, @grant, risk, and applies-to domain |
