@@ -851,6 +851,40 @@ test('custom proxy settings validate, self-test, and stay redacted', async ({ pa
   expect(await page.evaluate(() => localStorage.getItem('sh_pref_proxy'))).toBeNull();
 });
 
+test('service worker update and cache fallback prompts are visible', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__swMessages = [];
+    const swEvents = new EventTarget();
+    const worker = new EventTarget();
+    worker.state = 'installed';
+    worker.postMessage = (message) => window.__swMessages.push(message);
+    const registration = new EventTarget();
+    registration.waiting = worker;
+    Object.defineProperty(registration, 'installing', { get: () => worker });
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        controller: {},
+        register: () => Promise.resolve(registration).then((reg) => {
+          setTimeout(() => reg.dispatchEvent(new Event('updatefound')), 0);
+          return reg;
+        }),
+        addEventListener: (type, handler) => swEvents.addEventListener(type, handler),
+        __dispatchMessage: (data) => swEvents.dispatchEvent(new MessageEvent('message', { data })),
+      },
+    });
+    window.__dispatchSwMessage = (data) => navigator.serviceWorker.__dispatchMessage(data);
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.toast')).toContainText('ScriptHunt update available');
+  await page.getByRole('button', { name: 'Refresh' }).click();
+  expect(await page.evaluate(() => window.__swMessages)).toEqual([{ type: 'SKIP_WAITING' }]);
+
+  await page.evaluate(() => window.__dispatchSwMessage({ type: 'CACHE_FALLBACK', url: './index.html' }));
+  await expect(page.locator('.toast').last()).toContainText('Cached shell served while offline');
+});
+
 test('offline cache restores recent successful search', async ({ page, context }) => {
   await page.goto('/');
   await runSearch(page, 'youtube');

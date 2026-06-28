@@ -2746,14 +2746,14 @@
     function attr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmtNum(n) { if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
     function timeAgo(d) { if (!d) return ''; var days = Math.floor((Date.now() - new Date(d)) / 864e5); if (days < 1) return 'today'; if (days === 1) return 'yesterday'; if (days < 30) return days+'d ago'; if (days < 365) return Math.floor(days/30)+'mo ago'; return Math.floor(days/365)+'y ago'; }
-    function showToast(msg, type, dur, undoFn) {
+    function showToast(msg, type, dur, undoFn, actionLabel) {
         type = type || 'info'; dur = dur || 3000;
         var c = document.getElementById('toastContainer'), t = document.createElement('div');
         t.className = 'toast' + (type === 'error' ? ' error' : '');
         t.textContent = msg;
         if (undoFn) {
             var btn = document.createElement('button');
-            btn.textContent = 'Undo'; btn.style.cssText = 'background:none;border:none;color:var(--accent);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:0;text-decoration:underline;text-underline-offset:2px';
+            btn.textContent = actionLabel || 'Undo'; btn.style.cssText = 'background:none;border:none;color:var(--accent);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:0;text-decoration:underline;text-underline-offset:2px';
             btn.addEventListener('click', function() { undoFn(); t.remove(); });
             t.appendChild(btn);
         }
@@ -3122,6 +3122,44 @@
         document.getElementById('diagnosticsOutput').value = JSON.stringify(buildDiagnosticsPayload(), null, 2);
     }
 
+    function showPwaUpdateToast(registration) {
+        if (!registration) return;
+        if (window.__pwaUpdateToastShown) return;
+        window.__pwaUpdateToastShown = true;
+        showToast('ScriptHunt update available', 'info', 12000, function() {
+            if (registration.waiting && registration.waiting.postMessage) {
+                window.__pwaRefreshPending = true;
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            } else {
+                location.reload();
+            }
+        }, 'Refresh');
+    }
+
+    function setupServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.register('sw.js').then(function(registration) {
+            function watchWorker(worker) {
+                if (!worker) return;
+                function maybeReady() {
+                    if (worker.state === 'installed' && navigator.serviceWorker.controller) showPwaUpdateToast(registration);
+                }
+                worker.addEventListener('statechange', maybeReady);
+                maybeReady();
+            }
+            if (registration.waiting && navigator.serviceWorker.controller) showPwaUpdateToast(registration);
+            registration.addEventListener('updatefound', function() { watchWorker(registration.installing); });
+            if (!navigator.onLine && navigator.serviceWorker.controller) showToast('Offline shell loaded from cache', 'info', 4000);
+        }).catch(function() {});
+        navigator.serviceWorker.addEventListener('message', function(e) {
+            if (!e.data) return;
+            if (e.data.type === 'CACHE_FALLBACK') showToast('Cached shell served while offline', 'info', 4000);
+        });
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+            if (window.__pwaRefreshPending) location.reload();
+        });
+    }
+
     /* ===== Init ===== */
     var savedSort = _prefGet('sort', 'relevance');
     if (savedSort) { sortSelect.value = savedSort; state.sortBy = savedSort; }
@@ -3145,7 +3183,7 @@
         }
     } catch(e) {}
 
-    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function() {}); }
+    setupServiceWorker();
     </script>
 </body>
 </html>

@@ -79,7 +79,7 @@ npm run qa
 | **Content Security Policy** | Dynamic CSP restricting connections to known API domains (supports custom proxies) |
 | **View Transitions** | GPU-accelerated smooth transitions between search states |
 | **Themes** | Dark, Light, OLED black, and Auto (follows OS preference) |
-| **PWA** | Installable as a Progressive Web App with an offline shell and recent-search cache |
+| **PWA** | Installable Progressive Web App with update prompts, offline shell fallback notices, and recent-search cache |
 | **Responsive Design** | Full mobile/tablet/desktop support with CSS container queries |
 | **Runtime Zero Dependencies** | Single HTML file, no app runtime dependencies; npm is used only for local tests via `npm run qa` |
 
@@ -229,7 +229,7 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **Source Adapter Registry** — adding a new source requires only a `SOURCES` entry with a `search()` function
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
 - **CORS Proxy** — allorigins.win → codetabs → everyorigin fallback chain with exponential backoff
-- **PWA** — manifest.json + service worker for installability, offline shell loading, and local recent-search recovery
+- **PWA** — manifest.json + service worker for installability, explicit update prompts, offline shell fallback notices, and local recent-search recovery
 - **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; no tracking, no cookies, no server-side state
 - **Versioned JSON payloads** - favorites and installed-list exports use schema v1; imports validate URLs, report skipped invalid rows, and still accept manager-style `scripts` arrays plus legacy arrays
 - **Local QA** - npm run qa runs npm audit, Worker tests, and Playwright smoke/adapter tests against the repo-local static server

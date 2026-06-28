@@ -27,13 +27,6 @@
 ## Research-Driven Additions
 
 ### P2
-- [ ] P2 - Add PWA update and cache recovery controls
-  Why: The service worker uses cache-first shell behavior without telling users when a new shell is available or when cache recovery was used.
-  Evidence: `sw.js`, README PWA feature, MDN StorageManager/offline guidance.
-  Touches: `sw.js`, `index.html` toast/status handling, Playwright offline/update smoke tests.
-  Acceptance: users see an update-available toast when a new service worker activates, can refresh to the new shell immediately, stale caches are cleared by version, and offline fallback clearly indicates when cached shell content is being served.
-  Complexity: M
-
 ### P3
 - [ ] P3 - Add optional live source canaries for adapter drift
   Why: HTML-scraped sources can change markup without breaking deterministic fixtures, leaving failures visible only to users.

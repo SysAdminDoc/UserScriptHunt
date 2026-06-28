@@ -18,6 +18,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Manager-aware security scan findings for broad `@match`/`@include`, enumerated `@connect`, pinned vs floating `@require`, and update/download URL host drift.
 - Metadata parsing now preserves localized `@name`/`@description`, `@exclude-match`, compatibility directives, and repeated keys without overwriting values.
 - Installed-script exports with `scripthunt-installed` schema v1 plus stricter import validation that skips bad rows without aborting valid rows.
+- PWA update prompts with explicit refresh control plus cached-shell fallback notices when the service worker serves stale content offline.
 
 ### Fixed
 - Metadata scan cache keys now stay stable when a script declares a different `@updateURL`.
