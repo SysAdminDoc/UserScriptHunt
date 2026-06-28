@@ -4,13 +4,6 @@
 
 ### P0
 ### P1
-- [ ] P1 — Deep-link complete search state
-  Why: Searches are hard to reproduce because only `q` is restored from URL state.
-  Evidence: `index.html` URL parsing only reads `q`; existing roadmap deep-link item; GitHub issue/research workflows need shareable queries.
-  Touches: `index.html` state serializer, source toggles, sort/site/filter controls, history updates, tests.
-  Acceptance: URL restores query, enabled sources, site filter, sort, visible filters, and pagination-safe initial state.
-  Complexity: M
-
 - [ ] P1 — Add persistent source health and diagnostics export
   Why: Users need recovery tools when source APIs or proxies fail intermittently.
   Evidence: `index.html` `_sourceHealth` is in-memory; SearXNG engine-health pattern; Violentmonkey permission troubleshooting issue.

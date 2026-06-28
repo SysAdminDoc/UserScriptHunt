@@ -1129,6 +1129,7 @@
         state._minInstalls = filters.minInstalls;
         state._riskFilter = filters.risk;
         state.showFavs = false;
+        if (!loadMore) syncUrlState();
 
         if (!loadMore) {
             _hAdd(state.rawQuery);
@@ -1697,10 +1698,11 @@
         grid.innerHTML = EMPTY_HOME;
         statsBar.style.display = 'none'; document.getElementById('sourceStatusBar').innerHTML = '';
         document.title = 'ScriptHunt - Unified Userscript Search';
+        syncUrlState();
         renderSourceToggles(); searchInput.focus();
     });
 
-    sortSelect.addEventListener('change', function() { state.sortBy = sortSelect.value; _prefSet('sort', state.sortBy); if (state.results.length) sortAndRender(); });
+    sortSelect.addEventListener('change', function() { state.sortBy = sortSelect.value; _prefSet('sort', state.sortBy); syncUrlState(); if (state.results.length) sortAndRender(); });
 
     var filterDebounce = null;
     document.getElementById('filterResults').addEventListener('input', function() {
@@ -1822,12 +1824,52 @@
 
     applyTheme(_prefGet('theme', 'auto'));
 
+    function syncUrlState() {
+        var params = new URLSearchParams();
+        var q = searchInput.value.trim();
+        var site = siteFilter.value.trim();
+        var sources = Object.keys(SOURCES).filter(function(id) { return SOURCES[id].enabled; });
+        if (q) params.set('q', q);
+        if (sources.length) params.set('sources', sources.join(','));
+        if (site) params.set('site', site);
+        if (sortSelect.value && sortSelect.value !== 'relevance') params.set('sort', sortSelect.value);
+        if (licenseFilter.value.trim()) params.set('license', licenseFilter.value.trim());
+        if (minInstallsFilter.value.trim()) params.set('min_installs', minInstallsFilter.value.trim());
+        if (updatedFilter.value !== '0') params.set('updated', updatedFilter.value);
+        if (grantFilterInput.value.trim()) params.set('grant', grantFilterInput.value.trim());
+        if (riskFilter.value) params.set('risk', riskFilter.value);
+        var next = location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash;
+        history.replaceState(null, '', next);
+    }
+
+    function hasOption(select, value) {
+        return Array.from(select.options).some(function(opt) { return opt.value === value; });
+    }
+
+    function restoreUrlState(params) {
+        var sourceParam = params.get('sources');
+        if (sourceParam) {
+            var enabled = new Set(sourceParam.split(',').map(function(s) { return s.trim(); }).filter(Boolean));
+            Object.keys(SOURCES).forEach(function(id) { SOURCES[id].enabled = enabled.has(id); });
+        }
+        var site = params.get('site');
+        if (site) siteFilter.value = site;
+        var sort = params.get('sort');
+        if (sort && hasOption(sortSelect, sort)) { sortSelect.value = sort; state.sortBy = sort; }
+        if (params.get('license')) licenseFilter.value = params.get('license');
+        if (params.get('min_installs')) minInstallsFilter.value = params.get('min_installs');
+        if (params.get('updated') && hasOption(updatedFilter, params.get('updated'))) updatedFilter.value = params.get('updated');
+        if (params.get('grant')) grantFilterInput.value = params.get('grant');
+        if (params.get('risk') && hasOption(riskFilter, params.get('risk'))) riskFilter.value = params.get('risk');
+        return params.get('q') || '';
+    }
+
     /* ===== Init ===== */
     var savedSort = _prefGet('sort', 'relevance');
     if (savedSort) { sortSelect.value = savedSort; state.sortBy = savedSort; }
-    renderSourceToggles(); searchInput.focus();
     var urlParams = new URLSearchParams(window.location.search);
-    var initQ = urlParams.get('q');
+    var initQ = restoreUrlState(urlParams);
+    renderSourceToggles(); searchInput.focus();
     if (initQ) { searchInput.value = initQ; clearBtn.classList.add('visible'); executeSearch(initQ); }
 
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function() {}); }

@@ -252,6 +252,46 @@ test('visible risk filter keeps matching and unverified results', async ({ page 
   await expect(page.locator('.card-source-badge', { hasText: 'Risk unverified' })).toBeVisible();
 });
 
+test('URL restores complete search state', async ({ page }) => {
+  await page.goto('/?q=youtube&sources=greasyfork&site=youtube.com&sort=installs&license=Apache&min_installs=1000&updated=365&grant=GM_xmlhttpRequest&risk=danger');
+
+  await expect(page.locator('#searchInput')).toHaveValue('youtube');
+  await expect(page.getByLabel('Greasy Fork source')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByLabel('GitHub source')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.locator('#siteFilter')).toHaveValue('youtube.com');
+  await expect(page.locator('#sortSelect')).toHaveValue('installs');
+  await expect(page.locator('#licenseFilter')).toHaveValue('Apache');
+  await expect(page.locator('#minInstallsFilter')).toHaveValue('1000');
+  await expect(page.locator('#updatedFilter')).toHaveValue('365');
+  await expect(page.locator('#grantFilterInput')).toHaveValue('GM_xmlhttpRequest');
+  await expect(page.locator('#riskFilter')).toHaveValue('danger');
+  await expect(page.locator('.result-card')).toHaveCount(1);
+  await expect(page.locator('.card-title')).toContainText('YouTube Enhancer');
+});
+
+test('search controls write complete state to URL', async ({ page }) => {
+  await page.goto('/');
+  await page.fill('#siteFilter', 'youtube.com');
+  await page.fill('#licenseFilter', 'Apache');
+  await page.fill('#minInstallsFilter', '1000');
+  await page.selectOption('#updatedFilter', '365');
+  await page.fill('#grantFilterInput', 'GM_xmlhttpRequest');
+  await page.selectOption('#riskFilter', 'danger');
+  await runSearch(page, 'youtube');
+  await page.selectOption('#sortSelect', 'installs');
+
+  const params = new URL(page.url()).searchParams;
+  expect(params.get('q')).toBe('youtube');
+  expect(params.get('sources')).toBe('greasyfork');
+  expect(params.get('site')).toBe('youtube.com');
+  expect(params.get('sort')).toBe('installs');
+  expect(params.get('license')).toBe('Apache');
+  expect(params.get('min_installs')).toBe('1000');
+  expect(params.get('updated')).toBe('365');
+  expect(params.get('grant')).toBe('GM_xmlhttpRequest');
+  expect(params.get('risk')).toBe('danger');
+});
+
 test('grant query filters by metadata and labels unknown metadata', async ({ page }) => {
   await page.goto('/');
   await runSearch(page, 'grant:GM_xmlhttpRequest youtube');

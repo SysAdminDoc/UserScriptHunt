@@ -183,6 +183,14 @@ The app will try your proxy first, then fall back to the public proxies. The CSP
 | Parameter | Example | Description |
 |-----------|---------|-------------|
 | `q` | [`?q=dark+mode`](https://sysadmindoc.github.io/UserScriptHunt/?q=dark+mode) | Pre-fills search and auto-executes on page load |
+| `sources` | `greasyfork,github,scriptcat` | Restores enabled source toggles |
+| `site` | `youtube.com` | Restores applies-to domain filter |
+| `sort` | `installs` | Restores sort order |
+| `license` | `MIT` | Restores license filter |
+| `min_installs` | `1000` | Restores minimum total installs filter |
+| `updated` | `90` | Restores updated-within-days filter |
+| `grant` | `GM_xmlhttpRequest` | Restores @grant metadata filter |
+| `risk` | `danger` | Restores risk filter |
 
 ---
 
@@ -231,8 +239,6 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 ---
 
 ## Roadmap
-
-- [ ] URL deep-linking for all state (sources, sort, filters)
 
 See [ROADMAP.md](ROADMAP.md) for the full plan with research notes and architecture patterns.
 
