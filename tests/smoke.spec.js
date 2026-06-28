@@ -99,7 +99,9 @@ console.log('gist');
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((sourcePrefs) => {
-    localStorage.setItem('sh_pref_sources', JSON.stringify(sourcePrefs));
+    if (!localStorage.getItem('sh_pref_sources')) {
+      localStorage.setItem('sh_pref_sources', JSON.stringify(sourcePrefs));
+    }
   }, SOURCE_PREFS);
 
   await page.route('https://api.greasyfork.org/**', async (route) => {
@@ -418,6 +420,54 @@ test('proxy failures show per-proxy reasons and retry control', async ({ page })
   await expect(chip).toContainText('codetabs: HTTP 502');
   await expect(chip).toContainText('everyorigin: HTTP 502');
   await expect(chip.getByRole('button', { name: 'Retry OpenUserJS' })).toBeVisible();
+});
+
+test('source health cooldown persists across reloads', async ({ page }) => {
+  await page.route('https://api.allorigins.win/**', async (route) => {
+    await route.fulfill({ status: 502, body: 'allorigins down' });
+  });
+  await page.route('https://api.codetabs.com/**', async (route) => {
+    await route.fulfill({ status: 502, body: 'codetabs down' });
+  });
+  await page.route('https://everyorigin.jwvbremen.nl/**', async (route) => {
+    await route.fulfill({ status: 502, body: 'everyorigin down' });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Greasy Fork source').click();
+  await page.getByLabel('OpenUserJS source').click();
+  for (const query of ['dark-one', 'dark-two', 'dark-three']) {
+    await page.fill('#searchInput', query);
+    await page.press('#searchInput', 'Enter');
+    await expect(page.locator('.source-chip.error').filter({ hasText: 'OpenUserJS' })).toBeVisible();
+  }
+
+  const storedHealth = await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_sourceHealth')));
+  expect(storedHealth.openuserjs.fails).toBeGreaterThanOrEqual(3);
+  expect(storedHealth.openuserjs.until).toBeGreaterThan(Date.now());
+
+  await page.reload();
+  await page.fill('#searchInput', 'dark-four');
+  await page.press('#searchInput', 'Enter');
+  await expect(page.locator('.source-chip.suspended').filter({ hasText: 'OpenUserJS' })).toContainText('Paused');
+});
+
+test('diagnostics export includes health and excludes secrets', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.setItem('sh_pref_ghtoken', JSON.stringify('ghp_secret_should_not_export'));
+    localStorage.setItem('sh_pref_proxy', JSON.stringify('https://secret-proxy.example'));
+  });
+  await page.click('#btnDiagnostics');
+  const payloadText = await page.locator('#diagnosticsOutput').inputValue();
+  const payload = JSON.parse(payloadText);
+
+  expect(payload.app).toBe('ScriptHunt');
+  expect(payload.sources.length).toBeGreaterThan(0);
+  expect(payload.proxyHealth).toBeTruthy();
+  expect(payloadText).not.toContain('ghp_secret_should_not_export');
+  expect(payloadText).not.toContain('secret-proxy.example');
+  expect(payload.customProxyConfigured).toBe(false);
 });
 
 test('clear button resets search state', async ({ page }) => {

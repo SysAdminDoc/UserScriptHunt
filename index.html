@@ -254,6 +254,8 @@
         .bookmarklet-desc{font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5}
         .bookmarklet-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);color:#fff;font-size:12px;font-weight:600;text-decoration:none;cursor:grab;transition:all var(--transition)}
         .bookmarklet-link:hover{background:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,0.25)}
+        .diagnostics-output{width:100%;min-height:180px;resize:vertical;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.5;padding:10px}
+        .diagnostics-actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end}
 
         /* Empty / loading */
         .state-empty{text-align:center;padding:72px 20px;grid-column:1/-1}
@@ -342,6 +344,7 @@
             </div>
             <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection">Bookmarklet</button>
             <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
+            <button class="tool-btn" id="btnDiagnostics" title="Source diagnostics" popovertarget="diagnosticsSection">Diagnostics</button>
             <button class="tool-btn" id="btnExportFavs" title="Export favorites" style="display:none">Export</button>
             <button class="tool-btn" id="btnImportFavs" title="Import favorites" style="display:none">Import</button>
             <input type="file" id="importFavsFile" accept=".json" style="display:none">
@@ -351,6 +354,13 @@
             <div class="bookmarklet-title">Find Scripts for Any Page</div>
             <div class="bookmarklet-desc">Drag this button to your bookmarks bar. Click it on any webpage to search ScriptHunt for scripts that target that site.</div>
             <a class="bookmarklet-link" id="bookmarkletLink" href="javascript:void(0)">ScriptHunt This Page</a>
+        </div>
+
+        <div class="bookmarklet-section" id="diagnosticsSection" popover="auto">
+            <div class="bookmarklet-title">Source Diagnostics</div>
+            <div class="bookmarklet-desc">Copy current source health, proxy failures, and filter state for troubleshooting.</div>
+            <textarea class="diagnostics-output" id="diagnosticsOutput" readonly aria-label="Diagnostics payload"></textarea>
+            <div class="diagnostics-actions"><button class="tool-btn" id="btnCopyDiagnostics" type="button">Copy</button></div>
         </div>
 
         <div class="advanced-filters" aria-label="Advanced filters">
@@ -514,12 +524,15 @@
     };
 
     /* -- Source Health (auto-disable on repeated failures) -- */
-    var _sourceHealth = {};
+    var _sourceHealth = _prefGet('sourceHealth', {});
+    function persistSourceHealth() { _prefSet('sourceHealth', _sourceHealth); }
     function srcSuspended(srcId) {
         var h = _sourceHealth[srcId];
         if (!h || !h.until) return false;
         if (Date.now() < h.until) return true;
         h.until = 0;
+        h.fails = 0;
+        persistSourceHealth();
         return false;
     }
     function srcFail(srcId) {
@@ -528,12 +541,13 @@
         if (h.fails >= 3) {
             var cooldown = Math.min(15000 * Math.pow(2, h.fails - 3), 120000);
             h.until = Date.now() + cooldown;
-            setTimeout(function() { h.until = 0; h.fails = 0; renderStatusChips(); }, cooldown);
+            setTimeout(function() { h.until = 0; h.fails = 0; persistSourceHealth(); renderStatusChips(); }, cooldown);
         }
+        persistSourceHealth();
     }
     function srcOk(srcId) {
         var h = _sourceHealth[srcId];
-        if (h) { h.fails = 0; h.until = 0; }
+        if (h) { h.fails = 0; h.until = 0; persistSourceHealth(); }
     }
     function srcRetry(srcId) {
         var h = _sourceHealth[srcId] || (_sourceHealth[srcId] = { fails: 0, until: 0 });
@@ -542,6 +556,7 @@
         state.sourceHasMore[srcId] = true;
         delete state.sourceErrors[srcId];
         if (_proxyHealth.errorsBySource[srcId]) _proxyHealth.errorsBySource[srcId] = [];
+        persistSourceHealth();
         if (state.rawQuery) executeSearch(state.rawQuery);
         else renderStatusChips();
     }
@@ -1756,6 +1771,21 @@
     document.getElementById('bookmarkletSection').addEventListener('toggle', function(e) {
         bmBtn.classList.toggle('active', e.newState === 'open');
     });
+    var diagBtn = document.getElementById('btnDiagnostics');
+    document.getElementById('diagnosticsSection').addEventListener('toggle', function(e) {
+        var open = e.newState === 'open';
+        diagBtn.classList.toggle('active', open);
+        if (open) renderDiagnostics();
+    });
+    document.getElementById('btnCopyDiagnostics').addEventListener('click', function() {
+        renderDiagnostics();
+        var out = document.getElementById('diagnosticsOutput');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(out.value).then(function() { showToast('Diagnostics copied', 'info', 2000); }).catch(function() { out.select(); showToast('Select and copy diagnostics manually', 'error', 3000); });
+        } else {
+            out.select(); showToast('Select and copy diagnostics manually', 'info', 3000);
+        }
+    });
 
     // Favorites button
     var btnExport = document.getElementById('btnExportFavs'), btnImport = document.getElementById('btnImportFavs');
@@ -1862,6 +1892,40 @@
         if (params.get('grant')) grantFilterInput.value = params.get('grant');
         if (params.get('risk') && hasOption(riskFilter, params.get('risk'))) riskFilter.value = params.get('risk');
         return params.get('q') || '';
+    }
+
+    function buildDiagnosticsPayload() {
+        return {
+            app: 'ScriptHunt',
+            version: document.querySelector('.version').textContent,
+            generatedAt: new Date().toISOString(),
+            online: navigator.onLine,
+            userAgent: navigator.userAgent,
+            customProxyConfigured: !!_customProxy,
+            sources: Object.keys(SOURCES).map(function(id) {
+                return { id: id, name: SOURCES[id].name, enabled: SOURCES[id].enabled, status: state.sourceStatus[id] || 'idle', count: state.sourceCounts[id] || 0, error: state.sourceErrors[id] || '' };
+            }),
+            sourceHealth: _sourceHealth,
+            proxyHealth: {
+                lastUsedBySource: _proxyHealth.lastUsedBySource,
+                failures: _proxyHealth.failures,
+                errorsBySource: _proxyHealth.errorsBySource,
+            },
+            filters: {
+                q: searchInput.value.trim(),
+                site: siteFilter.value.trim(),
+                sort: sortSelect.value,
+                license: licenseFilter.value.trim(),
+                minInstalls: minInstallsFilter.value.trim(),
+                updated: updatedFilter.value,
+                grant: grantFilterInput.value.trim(),
+                risk: riskFilter.value,
+            },
+        };
+    }
+
+    function renderDiagnostics() {
+        document.getElementById('diagnosticsOutput').value = JSON.stringify(buildDiagnosticsPayload(), null, 2);
     }
 
     /* ===== Init ===== */

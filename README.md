@@ -59,7 +59,7 @@ npm test
 | **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
 | **Advanced Filters** | Visible controls for source, license, minimum installs, updated date, @grant, risk, and applies-to domain |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
-| **Source Health** | Auto-disables failing sources with exponential backoff; auto-re-enables after cooldown |
+| **Source Health** | Persists failing source cooldowns with retry controls and copyable diagnostics that omit secrets |
 | **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
 | **Live Status Chips** | Real-time per-source indicators with CORS proxy health and suspension status |
 | **Sort Controls** | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |

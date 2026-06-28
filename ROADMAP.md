@@ -4,13 +4,6 @@
 
 ### P0
 ### P1
-- [ ] P1 — Add persistent source health and diagnostics export
-  Why: Users need recovery tools when source APIs or proxies fail intermittently.
-  Evidence: `index.html` `_sourceHealth` is in-memory; SearXNG engine-health pattern; Violentmonkey permission troubleshooting issue.
-  Touches: `index.html` health model, localStorage schema, status chips, diagnostics UI.
-  Acceptance: source/proxy failures persist across reloads with cooldowns, manual retry, and a copyable diagnostics payload excluding secrets.
-  Complexity: M
-
 - [ ] P1 — Harden accessibility of controls and modals
   Why: The app uses custom checkbox-like source chips and icon-only card buttons in core workflows.
   Evidence: `index.html` source toggles use `div role=checkbox`; card buttons use `title`; compare modal lacks an obvious focus trap.
