@@ -149,6 +149,17 @@
         .chip-retry:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
         @keyframes pulse-dot{0%,100%{opacity:0.3}50%{opacity:1}}
 
+        /* Offline cache */
+        .offline-cache-panel{display:none;margin:-4px auto 18px;max-width:680px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-secondary);padding:12px 14px;color:var(--text-secondary)}
+        .offline-cache-panel.visible{display:block}
+        .offline-cache-title{font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:3px}
+        .offline-cache-copy{font-size:12px;line-height:1.5;color:var(--text-muted);margin-bottom:8px}
+        .offline-cache-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+        .offline-cache-btn{border:1px solid var(--border);background:var(--bg-primary);color:var(--text-secondary);border-radius:var(--radius-sm);padding:6px 10px;font:inherit;font-size:11.5px;cursor:pointer;transition:all var(--transition)}
+        .offline-cache-btn:hover:not(:disabled){border-color:var(--accent);color:var(--text-primary)}
+        .offline-cache-btn:disabled{opacity:0.45;cursor:default}
+        .offline-cache-note{font-size:11px;color:var(--text-muted)}
+
         /* Results grid */
         .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;padding-bottom:80px;container-type:inline-size}
 
@@ -373,6 +384,7 @@
 
         <div class="sources-bar" id="sourcesBar" role="group" aria-label="Source toggles"></div>
         <div class="source-status-bar" id="sourceStatusBar" aria-live="polite"></div>
+        <div class="offline-cache-panel" id="offlineCachePanel" aria-live="polite"></div>
 
         <div class="stats-bar" id="statsBar" style="display:none">
             <div class="stats-left" id="statsText"></div>
@@ -486,6 +498,119 @@
     function _hAdd(q) { if (!q) return; var h = _hGet().filter(function(x) { return x !== q; }); h.unshift(q); sessionStorage.setItem('sh_h', JSON.stringify(h.slice(0, 12))); }
     function _hClear() { sessionStorage.removeItem('sh_h'); }
 
+    /* -- Offline recent-search cache (IndexedDB with localStorage fallback) -- */
+    var OFFLINE_DB = 'scripthunt-offline-v1';
+    var OFFLINE_STORE = 'searches';
+    var OFFLINE_LIMIT = 12;
+    var OFFLINE_RESULT_LIMIT = 120;
+    var _offlineDbPromise = null;
+
+    function offlineKey(rawQuery, siteVal, filters) {
+        return JSON.stringify({
+            q: (rawQuery || '').trim().toLowerCase(),
+            site: (siteVal || '').trim().toLowerCase(),
+            license: (filters.license || '').toLowerCase(),
+            minInstalls: filters.minInstalls || 0,
+            updatedDays: filters.updatedDays || 0,
+            grant: (filters.grant || '').toLowerCase(),
+            risk: filters.risk || '',
+        });
+    }
+
+    function offlineDb() {
+        if (!('indexedDB' in window)) return Promise.reject(new Error('IndexedDB unavailable'));
+        if (_offlineDbPromise) return _offlineDbPromise;
+        _offlineDbPromise = new Promise(function(resolve, reject) {
+            var req = indexedDB.open(OFFLINE_DB, 1);
+            req.onupgradeneeded = function() {
+                var db = req.result;
+                if (!db.objectStoreNames.contains(OFFLINE_STORE)) db.createObjectStore(OFFLINE_STORE, { keyPath: 'key' });
+            };
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() { reject(req.error || new Error('IndexedDB open failed')); };
+        });
+        return _offlineDbPromise;
+    }
+
+    function offlineReq(req) {
+        return new Promise(function(resolve, reject) {
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() { reject(req.error || new Error('IndexedDB request failed')); };
+        });
+    }
+
+    async function idbEntries() {
+        var db = await offlineDb();
+        return offlineReq(db.transaction(OFFLINE_STORE, 'readonly').objectStore(OFFLINE_STORE).getAll());
+    }
+
+    async function idbPut(entry) {
+        var db = await offlineDb();
+        await offlineReq(db.transaction(OFFLINE_STORE, 'readwrite').objectStore(OFFLINE_STORE).put(entry));
+    }
+
+    async function idbDelete(key) {
+        var db = await offlineDb();
+        await offlineReq(db.transaction(OFFLINE_STORE, 'readwrite').objectStore(OFFLINE_STORE).delete(key));
+    }
+
+    function lsOfflineEntries() {
+        try { return JSON.parse(localStorage.getItem('sh_offline_searches') || '[]'); } catch(e) { return []; }
+    }
+
+    function lsWriteOfflineEntries(entries) {
+        localStorage.setItem('sh_offline_searches', JSON.stringify(entries));
+    }
+
+    function compactOfflineItem(item) {
+        return {
+            id: item.id, source: item.source, name: item.name, description: item.description, author: item.author,
+            url: item.url, installUrl: item.installUrl, version: item.version, dailyInstalls: item.dailyInstalls || 0,
+            totalInstalls: item.totalInstalls || 0, rating: item.rating || 0, badRating: item.badRating || 0,
+            stars: item.stars || 0, createdAt: item.createdAt || '', updatedAt: item.updatedAt || '', license: item.license || '',
+            _sourceCount: item._sourceCount || 1, _trust: item._trust, _spam: item._spam,
+            _grantFilter: item._grantFilter || null, _riskFilter: item._riskFilter || null,
+        };
+    }
+
+    function compactOfflineEntry(entry, limit) {
+        entry.results = (entry.results || []).slice(0, limit || OFFLINE_RESULT_LIMIT).map(compactOfflineItem);
+        entry.resultCount = entry.results.length;
+        return entry;
+    }
+
+    async function offlineEntries() {
+        var merged = {};
+        try {
+            (await idbEntries()).forEach(function(e) { merged[e.key] = e; });
+        } catch(e) {}
+        lsOfflineEntries().forEach(function(e) { if (!merged[e.key] || e.savedAt > merged[e.key].savedAt) merged[e.key] = e; });
+        return Object.keys(merged).map(function(k) { return merged[k]; }).sort(function(a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
+    }
+
+    async function saveOfflineEntry(entry) {
+        entry = compactOfflineEntry(entry, OFFLINE_RESULT_LIMIT);
+        var all = [entry].concat((await offlineEntries()).filter(function(e) { return e.key !== entry.key; }));
+        var keep = all.slice(0, OFFLINE_LIMIT);
+        try {
+            await idbPut(entry);
+            for (var i = OFFLINE_LIMIT; i < all.length; i++) await idbDelete(all[i].key);
+        } catch(e) {
+            try {
+                lsWriteOfflineEntries(keep);
+            } catch(qe) {
+                var tiny = keep.slice(0, 4).map(function(en) { return compactOfflineEntry(en, 25); });
+                try { lsWriteOfflineEntries(tiny); }
+                catch(finalErr) { console.warn('[offline-cache]', finalErr.message || finalErr); }
+            }
+        }
+    }
+
+    async function findOfflineEntry(key) {
+        var entries = await offlineEntries();
+        return entries.find(function(e) { return e.key === key; }) || null;
+    }
+
     /* -- Favorites (localStorage) -- */
     function getFavs() { try { return JSON.parse(localStorage.getItem('sh_favs') || '[]'); } catch(e) { return []; } }
     function setFavs(favs) { localStorage.setItem('sh_favs', JSON.stringify(favs)); }
@@ -562,7 +687,7 @@
     }
 
     /* -- State -- */
-    var state = { query: '', rawQuery: '', siteFilter: '', results: [], sourcePages: {}, sourceStatus: {}, sourceCounts: {}, sourceHasMore: {}, sourceErrors: {}, searching: false, sortBy: 'relevance', loadingMore: false, compareIds: [], showFavs: false };
+    var state = { query: '', rawQuery: '', siteFilter: '', results: [], sourcePages: {}, sourceStatus: {}, sourceCounts: {}, sourceHasMore: {}, sourceErrors: {}, searching: false, sortBy: 'relevance', loadingMore: false, compareIds: [], showFavs: false, offlineCache: null };
 
     /* ===== SECURITY SCANNER ===== */
     var DANGER_PATTERNS = [
@@ -1146,6 +1271,14 @@
         state.showFavs = false;
         if (!loadMore) syncUrlState();
 
+        if (!navigator.onLine) {
+            if (loadMore) { state.loadingMore = false; return; }
+            _hAdd(state.rawQuery);
+            await restoreOfflineForSearch(state.rawQuery, siteVal, filters);
+            return;
+        }
+        state.offlineCache = null;
+
         if (!loadMore) {
             _hAdd(state.rawQuery);
             state.results = []; state.sourcePages = {}; state.sourceStatus = {}; state.sourceCounts = {}; state.sourceHasMore = {}; state.sourceErrors = {};
@@ -1241,6 +1374,7 @@
             item._spam = isSpam(item);
         });
         sortAndRender(); renderStatusChips(); renderSourceToggles();
+        saveCurrentOfflineSearch(filters);
     }
 
     function sortAndRender() {
@@ -1266,6 +1400,7 @@
         });
         document.title = state.rawQuery ? state.rawQuery + ' (' + sorted.length + ') — ScriptHunt' : 'ScriptHunt - Unified Userscript Search';
         if (document.startViewTransition) { document.startViewTransition(function() { renderResults(sorted); }); } else { renderResults(sorted); }
+        renderOfflineCachePanel();
     }
 
     /* ===== Icons ===== */
@@ -1298,7 +1433,8 @@
         statsBar.style.display = 'flex';
         var srcCount = Object.keys(state.sourceCounts).filter(function(k) { return state.sourceCounts[k] > 0; }).length;
         var spamCount = items.filter(function(i) { return i._spam; }).length;
-        statsText.innerHTML = '<strong>' + items.length + '</strong> results from <strong>' + srcCount + '</strong> source' + (srcCount !== 1 ? 's' : '') + (spamCount > 0 ? ' <span style="color:var(--text-muted)">(' + spamCount + ' low quality)</span>' : '');
+        var stale = state.offlineCache ? ' <span style="color:var(--amber)">(offline cache, saved ' + esc(timeAgo(state.offlineCache.savedAt)) + ')</span>' : '';
+        statsText.innerHTML = '<strong>' + items.length + '</strong> results from <strong>' + srcCount + '</strong> source' + (srcCount !== 1 ? 's' : '') + (spamCount > 0 ? ' <span style="color:var(--text-muted)">(' + spamCount + ' low quality)</span>' : '') + stale;
 
         items.forEach(function(item, i) {
             var card = document.createElement('div');
@@ -1616,6 +1752,171 @@
         });
     }
 
+    function sourceSnapshot() {
+        var out = {};
+        Object.keys(SOURCES).forEach(function(k) { out[k] = SOURCES[k].enabled; });
+        return out;
+    }
+
+    function applySourceSnapshot(snapshot) {
+        if (!snapshot) return;
+        Object.keys(SOURCES).forEach(function(k) {
+            if (typeof snapshot[k] === 'boolean') SOURCES[k].enabled = snapshot[k];
+        });
+        _prefSet('sources', sourceSnapshot());
+    }
+
+    function countSources(items) {
+        return items.reduce(function(acc, item) {
+            acc[item.source] = (acc[item.source] || 0) + 1;
+            return acc;
+        }, {});
+    }
+
+    function applyOfflineControls(entry) {
+        searchInput.value = entry.rawQuery || entry.query || '';
+        clearBtn.classList.toggle('visible', searchInput.value.length > 0);
+        siteFilter.value = entry.site || '';
+        if (entry.sort && hasOption(sortSelect, entry.sort)) sortSelect.value = entry.sort;
+        var f = entry.filters || {};
+        licenseFilter.value = f.license || '';
+        minInstallsFilter.value = f.minInstalls || '';
+        updatedFilter.value = String(f.updatedDays || 0);
+        grantFilterInput.value = f.grant || '';
+        riskFilter.value = f.risk || '';
+        applySourceSnapshot(entry.sources);
+    }
+
+    function restoreOfflineEntry(entry) {
+        applyOfflineControls(entry);
+        var parsed = parseQuery(entry.rawQuery || '');
+        var filters = entry.filters || getVisibleFilters(parsed);
+        state.rawQuery = entry.rawQuery || '';
+        state.query = parsed.query;
+        state.siteFilter = entry.site || parsed.site || '';
+        state._parsedAuthor = parsed.author;
+        state._parsedDays = filters.updatedDays || 0;
+        state._parsedGrant = filters.grant || '';
+        state._licenseFilter = filters.license || '';
+        state._minInstalls = filters.minInstalls || 0;
+        state._riskFilter = filters.risk || '';
+        state.showFavs = false;
+        state.searching = false;
+        state.loadingMore = false;
+        state.compareIds = [];
+        state.sourceErrors = {};
+        state.sourceHasMore = {};
+        Object.keys(SOURCES).forEach(function(s) { state.sourceHasMore[s] = false; });
+        state.results = (entry.results || []).map(function(item) {
+            var copy = Object.assign({}, item);
+            if (typeof copy._trust === 'undefined') copy._trust = computeTrust(copy, null);
+            if (typeof copy._spam === 'undefined') copy._spam = isSpam(copy);
+            return copy;
+        });
+        state.sourceCounts = entry.sourceCounts || countSources(state.results);
+        state.sourceStatus = {};
+        Object.keys(state.sourceCounts).forEach(function(s) { if (state.sourceCounts[s] > 0) state.sourceStatus[s] = 'done'; });
+        state.offlineCache = { key: entry.key, savedAt: entry.savedAt, resultCount: entry.resultCount || state.results.length };
+        syncUrlState();
+        sortAndRender();
+        renderStatusChips();
+        renderSourceToggles();
+        updateCompareBar();
+        renderOfflineCachePanel();
+    }
+
+    async function renderOfflineMiss(rawQuery) {
+        state.results = [];
+        state.sourcePages = {};
+        state.sourceStatus = {};
+        state.sourceCounts = {};
+        state.sourceHasMore = {};
+        state.sourceErrors = {};
+        state.searching = false;
+        state.loadingMore = false;
+        state.offlineCache = null;
+        statsBar.style.display = 'none';
+        grid.innerHTML = '<div class="state-empty"><h3>No offline cache for "' + esc(rawQuery) + '"</h3><p>Reconnect to search live sources, or choose a cached recent search below.</p></div>';
+        renderStatusChips();
+        renderSourceToggles();
+        renderOfflineCachePanel();
+    }
+
+    async function restoreOfflineForSearch(rawQuery, siteVal, filters) {
+        var entry = await findOfflineEntry(offlineKey(rawQuery, siteVal, filters));
+        if (entry) {
+            restoreOfflineEntry(entry);
+            showToast('Showing offline cached results', 'info', 2500);
+            return true;
+        }
+        await renderOfflineMiss(rawQuery);
+        return false;
+    }
+
+    function saveCurrentOfflineSearch(filters) {
+        if (!state.results.length || state.showFavs || state.offlineCache) return;
+        var entry = {
+            key: offlineKey(state.rawQuery, state.siteFilter, filters),
+            rawQuery: state.rawQuery,
+            query: state.query,
+            site: state.siteFilter,
+            filters: {
+                license: filters.license || '',
+                minInstalls: filters.minInstalls || 0,
+                updatedDays: filters.updatedDays || 0,
+                grant: filters.grant || '',
+                risk: filters.risk || '',
+            },
+            sort: state.sortBy,
+            sources: sourceSnapshot(),
+            sourceCounts: Object.assign({}, state.sourceCounts),
+            savedAt: Date.now(),
+            results: state.results,
+        };
+        saveOfflineEntry(entry).then(renderOfflineCachePanel).catch(function(err) { console.warn('[offline-cache]', err.message || err); });
+    }
+
+    async function renderOfflineCachePanel() {
+        var panel = document.getElementById('offlineCachePanel');
+        if (!panel) return;
+        if (state.offlineCache) {
+            var online = navigator.onLine;
+            panel.classList.add('visible');
+            panel.innerHTML = '<div class="offline-cache-title">Offline cached results</div>' +
+                '<div class="offline-cache-copy">Saved ' + esc(timeAgo(state.offlineCache.savedAt)) + '. Results may be stale; refresh from live sources when the connection is available.</div>' +
+                '<div class="offline-cache-actions"><button class="offline-cache-btn" id="btnRevalidateCache" type="button"' + (online ? '' : ' disabled') + '>' + (online ? 'Revalidate now' : 'Waiting for connection') + '</button>' +
+                '<span class="offline-cache-note">' + esc(String(state.offlineCache.resultCount || state.results.length)) + ' cached results</span></div>';
+            var btn = document.getElementById('btnRevalidateCache');
+            if (btn && online) btn.addEventListener('click', function() { state.offlineCache = null; executeSearch(state.rawQuery); });
+            return;
+        }
+        var entries = await offlineEntries();
+        if (!navigator.onLine && entries.length) {
+            panel.classList.add('visible');
+            panel.innerHTML = '<div class="offline-cache-title">Offline recent searches</div><div class="offline-cache-copy">Browse saved successful searches while live sources are unavailable.</div><div class="offline-cache-actions">' +
+                entries.slice(0, 6).map(function(e) {
+                    return '<button class="offline-cache-btn" type="button" data-offline-key="' + attr(e.key) + '">' + esc(e.rawQuery || e.query || 'Search') + ' <span class="offline-cache-note">(' + esc(String(e.resultCount || 0)) + ')</span></button>';
+                }).join('') + '</div>';
+            panel.querySelectorAll('[data-offline-key]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var key = btn.getAttribute('data-offline-key');
+                    offlineEntries().then(function(list) {
+                        var entry = list.find(function(e) { return e.key === key; });
+                        if (entry) restoreOfflineEntry(entry);
+                    });
+                });
+            });
+            return;
+        }
+        if (!navigator.onLine) {
+            panel.classList.add('visible');
+            panel.innerHTML = '<div class="offline-cache-title">Offline mode</div><div class="offline-cache-copy">No cached searches are available yet. Run a search online first to make it available offline.</div>';
+            return;
+        }
+        panel.classList.remove('visible');
+        panel.innerHTML = '';
+    }
+
     function renderSourceToggles() {
         var bar = document.getElementById('sourcesBar'); bar.innerHTML = '';
         Object.values(SOURCES).forEach(function(src) {
@@ -1729,13 +2030,13 @@
 
     clearBtn.addEventListener('click', function() {
         searchInput.value = ''; clearBtn.classList.remove('visible'); siteFilter.value = '';
-        state.results = []; state.rawQuery = ''; state.query = ''; state.sourceCounts = {}; state.sourceErrors = {}; state.compareIds = []; state.showFavs = false;
+        state.results = []; state.rawQuery = ''; state.query = ''; state.sourceCounts = {}; state.sourceErrors = {}; state.compareIds = []; state.showFavs = false; state.offlineCache = null;
         updateCompareBar();
         grid.innerHTML = EMPTY_HOME;
         statsBar.style.display = 'none'; document.getElementById('sourceStatusBar').innerHTML = '';
         document.title = 'ScriptHunt - Unified Userscript Search';
         syncUrlState();
-        renderSourceToggles(); searchInput.focus();
+        renderSourceToggles(); renderOfflineCachePanel(); searchInput.focus();
     });
 
     sortSelect.addEventListener('change', function() { state.sortBy = sortSelect.value; _prefSet('sort', state.sortBy); syncUrlState(); if (state.results.length) sortAndRender(); });
@@ -1956,7 +2257,9 @@
     if (savedSort) { sortSelect.value = savedSort; state.sortBy = savedSort; }
     var urlParams = new URLSearchParams(window.location.search);
     var initQ = restoreUrlState(urlParams);
-    renderSourceToggles(); searchInput.focus();
+    window.addEventListener('online', function() { renderOfflineCachePanel(); if (state.offlineCache) showToast('Back online - refresh cached results when ready', 'info', 2500); });
+    window.addEventListener('offline', renderOfflineCachePanel);
+    renderSourceToggles(); renderOfflineCachePanel(); searchInput.focus();
     if (initQ) { searchInput.value = initQ; clearBtn.classList.add('visible'); executeSearch(initQ); }
 
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function() {}); }

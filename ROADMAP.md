@@ -2,15 +2,6 @@
 
 ## Research-Driven Additions
 
-### P0
-### P1
-- [ ] P1 — Add offline recent-search cache
-  Why: The PWA currently opens offline but does not preserve useful recent search results.
-  Evidence: `sw.js` caches shell assets only; MDN StorageManager; existing roadmap offline item.
-  Touches: `sw.js`, `index.html` cache layer, IndexedDB wrapper, storage quota handling.
-  Acceptance: last N successful searches are browsable offline with stale labels and clear revalidation behavior when online.
-  Complexity: M
-
 ### P2
 - [ ] P2 — Normalize install, update, and already-installed state
   Why: Manager projects show install/update URL normalization and installed-script awareness as recurring user needs.

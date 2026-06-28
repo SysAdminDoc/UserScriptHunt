@@ -60,6 +60,7 @@ npm test
 | **Advanced Filters** | Visible controls for source, license, minimum installs, updated date, @grant, risk, and applies-to domain |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
 | **Source Health** | Persists failing source cooldowns with retry controls and copyable diagnostics that omit secrets |
+| **Offline Recent Searches** | Stores recent successful searches locally, labels stale cached results, and exposes revalidation when online |
 | **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
 | **Live Status Chips** | Real-time per-source indicators with CORS proxy health and suspension status |
 | **Sort Controls** | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |
@@ -75,9 +76,9 @@ npm test
 | **Content Security Policy** | Dynamic CSP restricting connections to known API domains (supports custom proxies) |
 | **View Transitions** | GPU-accelerated smooth transitions between search states |
 | **Themes** | Dark, Light, OLED black, and Auto (follows OS preference) |
-| **PWA** | Installable as a Progressive Web App with offline-capable service worker |
+| **PWA** | Installable as a Progressive Web App with an offline shell and recent-search cache |
 | **Responsive Design** | Full mobile/tablet/desktop support with CSS container queries |
-| **Zero Dependencies** | Single HTML file, no build tools, no npm, no frameworks |
+| **Runtime Zero Dependencies** | Single HTML file, no app runtime dependencies; npm is used only for local tests |
 
 ---
 
@@ -233,8 +234,8 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **Source Adapter Registry** — adding a new source requires only a `SOURCES` entry with a `search()` function
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
 - **CORS Proxy** — allorigins.win → codetabs → everyorigin fallback chain with exponential backoff
-- **PWA** — manifest.json + service worker for installability and offline caching
-- **localStorage** — preferences, favorites, source toggles, and theme persist locally; no tracking, no cookies, no server-side state
+- **PWA** — manifest.json + service worker for installability, offline shell loading, and local recent-search recovery
+- **localStorage + IndexedDB** — preferences, favorites, source toggles, theme, and recent search results persist locally; no tracking, no cookies, no server-side state
 
 ---
 

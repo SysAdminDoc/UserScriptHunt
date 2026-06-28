@@ -124,6 +124,30 @@ async function runSearch(page, query = 'youtube') {
   await expect(page.locator('.result-card').first()).toBeVisible({ timeout: 5000 });
 }
 
+async function waitForOfflineCache(page, query = 'youtube') {
+  await page.waitForFunction(async (rawQuery) => {
+    function request(req) {
+      return new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    try {
+      const db = await new Promise((resolve, reject) => {
+        const open = indexedDB.open('scripthunt-offline-v1', 1);
+        open.onsuccess = () => resolve(open.result);
+        open.onerror = () => reject(open.error);
+      });
+      const rows = await request(db.transaction('searches', 'readonly').objectStore('searches').getAll());
+      if (rows.some((entry) => entry.rawQuery === rawQuery && entry.results?.length)) return true;
+    } catch (err) {
+      const rows = JSON.parse(localStorage.getItem('sh_offline_searches') || '[]');
+      return rows.some((entry) => entry.rawQuery === rawQuery && entry.results?.length);
+    }
+    return false;
+  }, query);
+}
+
 test('page loads with search input and source toggles', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#searchInput')).toBeVisible();
@@ -485,6 +509,27 @@ test('diagnostics export includes health and excludes secrets', async ({ page })
   expect(payloadText).not.toContain('ghp_secret_should_not_export');
   expect(payloadText).not.toContain('secret-proxy.example');
   expect(payload.customProxyConfigured).toBe(false);
+});
+
+test('offline cache restores recent successful search', async ({ page, context }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+  await waitForOfflineCache(page, 'youtube');
+
+  await context.setOffline(true);
+  await page.click('#clearBtn');
+  await expect(page.locator('#offlineCachePanel')).toContainText('Offline recent searches');
+  await page.fill('#searchInput', 'youtube');
+  await page.press('#searchInput', 'Enter');
+
+  await expect(page.locator('#offlineCachePanel')).toContainText('Offline cached results');
+  await expect(page.locator('#statsText')).toContainText('offline cache');
+  await expect(page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Waiting for connection' })).toBeDisabled();
+
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.getByRole('button', { name: 'Revalidate now' })).toBeVisible();
 });
 
 test('clear button resets search state', async ({ page }) => {
