@@ -345,6 +345,32 @@ test('grant query filters by metadata and labels unknown metadata', async ({ pag
   await expect(page.locator('.card-source-badge', { hasText: 'Grant unverified' })).toBeVisible();
 });
 
+test('metadata scans are cached across repeated filter passes', async ({ page }) => {
+  const counts = { matching: 0, nonmatching: 0 };
+  await page.unroute(/https:\/\/greasyfork\.org\/scripts\/101-.*/);
+  await page.unroute(/https:\/\/greasyfork\.org\/scripts\/102-.*/);
+  await page.route(/https:\/\/greasyfork\.org\/scripts\/101-.*/, async (route) => {
+    counts.matching++;
+    await route.fulfill({ contentType: 'text/javascript', body: MATCHING_USER_SCRIPT });
+  });
+  await page.route(/https:\/\/greasyfork\.org\/scripts\/102-.*/, async (route) => {
+    counts.nonmatching++;
+    await route.fulfill({ contentType: 'text/javascript', body: NONMATCHING_USER_SCRIPT });
+  });
+
+  await page.goto('/');
+  await page.fill('#grantFilterInput', 'GM_xmlhttpRequest');
+  await runSearch(page, 'youtube');
+  await expect(page.locator('.result-card')).toHaveCount(2);
+  expect(counts).toEqual({ matching: 1, nonmatching: 1 });
+
+  await page.reload();
+  await page.fill('#grantFilterInput', 'GM_xmlhttpRequest');
+  await runSearch(page, 'youtube');
+  await expect(page.locator('.result-card')).toHaveCount(2);
+  expect(counts).toEqual({ matching: 1, nonmatching: 1 });
+});
+
 test('ScriptCat raw install URLs expose scan and metadata panels', async ({ page }) => {
   await page.route('https://scriptcat.org/api/v2/scripts**', async (route) => {
     await route.fulfill({

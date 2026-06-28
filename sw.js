@@ -1,4 +1,4 @@
-var CACHE_NAME = 'scripthunt-v0.4.0';
+var CACHE_NAME = 'scripthunt-v0.4.1';
 
 self.addEventListener('install', function(e) {
   e.waitUntil(

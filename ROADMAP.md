@@ -70,26 +70,12 @@
 ## Research-Driven Additions
 
 ### P1
-- [ ] P1 - Add bounded metadata/security scan cache
-  Why: Grant and risk filters can fan out raw `.user.js` fetches for every result at once, which stresses public proxies and source rate limits.
-  Evidence: `index.html:1291`, `index.html:1324`, CodeTabs limits, Cloudflare Worker limits, quoid/userscripts cache issue.
-  Touches: `index.html` scan/filter pipeline, IndexedDB/localStorage cache helpers, Playwright filter tests.
-  Acceptance: scans are cached by normalized install/update URL plus version/hash, filter scans run with a fixed concurrency cap, repeat filters reuse cached metadata, and failed proxy/source scans keep visible "unverified" labels.
-  Complexity: L
-
 - [ ] P1 - Add custom proxy validation and self-test UI
   Why: Custom proxy URLs are currently read from localStorage and injected into CSP/fetch paths without in-app validation or a response-shape test.
   Evidence: `index.html:10`, `index.html:447`, `index.html:457`, `cors-proxy/worker.js`, Cloudflare Worker limits.
   Touches: `index.html` settings/diagnostics UI, CSP bootstrap, `cors-proxy/worker.js`, Worker tests.
   Acceptance: users can add/remove/test a custom HTTPS proxy in-app, invalid URLs are rejected before persistence, the test verifies one allowed userscript target and one blocked target, and diagnostics still omit the proxy URL.
   Complexity: M
-
-- [ ] P1 - Replace remote workflow planning with a local QA gate
-  Why: The existing remote smoke workflow roadmap item conflicts with repo rules; repeatable verification should stay local.
-  Evidence: `ROADMAP.md` remote workflow item, `package.json` test scripts, `tests/worker.test.js`, `tests/smoke.spec.js`.
-  Touches: `package.json`, README verification docs, Playwright/Node tests.
-  Acceptance: `npm run qa` runs `npm audit`, Worker tests, Playwright tests, and any source-adapter fixtures locally with one command; no `.github/workflows/` files are added.
-  Complexity: S
 
 ### P2
 - [ ] P2 - Make security scoring manager-aware

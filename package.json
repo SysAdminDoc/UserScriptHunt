@@ -1,14 +1,14 @@
 {
   "name": "scripthunt",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "scripts": {
+    "qa": "npm audit && npm test",
     "test": "node --test tests/worker.test.js && playwright test",
     "test:install": "playwright install chromium",
-    "serve:test": "serve -l 3217 -s ."
+    "serve:test": "node tests/static-server.js 3217 ."
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0",
-    "serve": "^14.2.4"
+    "@playwright/test": "^1.49.0"
   }
 }

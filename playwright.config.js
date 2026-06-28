@@ -9,8 +9,9 @@ module.exports = defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'npm run serve:test',
+    command: 'node tests/static-server.js 3217 .',
     port: 3217,
     reuseExistingServer: false,
+    timeout: 15000,
   },
 });

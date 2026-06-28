@@ -336,7 +336,7 @@
             </div>
             <p class="tagline">Unified search across every userscript source</p>
             <div class="header-meta">
-                <span class="version">v0.4.0</span>
+                <span class="version">v0.4.1</span>
                 <button class="theme-toggle" id="themeToggle" title="Switch theme" aria-label="Switch color theme">Auto</button>
             </div>
         </header>
@@ -426,7 +426,7 @@
 
     <script>
     /* =============================================
-       ScriptHunt v0.4.0 - Unified Userscript Search
+       ScriptHunt v0.4.1 - Unified Userscript Search
        Security Scanner + Trust Scoring + Comparison
        ============================================= */
 
@@ -500,9 +500,14 @@
 
     /* -- Offline recent-search cache (IndexedDB with localStorage fallback) -- */
     var OFFLINE_DB = 'scripthunt-offline-v1';
+    var OFFLINE_DB_VERSION = 2;
     var OFFLINE_STORE = 'searches';
+    var SCAN_STORE = 'scans';
     var OFFLINE_LIMIT = 12;
     var OFFLINE_RESULT_LIMIT = 120;
+    var SCAN_CACHE_LIMIT = 300;
+    var SCAN_CACHE_TTL = 7 * 864e5;
+    var SCAN_CONCURRENCY = 4;
     var _offlineDbPromise = null;
 
     function offlineKey(rawQuery, siteVal, filters) {
@@ -521,10 +526,11 @@
         if (!('indexedDB' in window)) return Promise.reject(new Error('IndexedDB unavailable'));
         if (_offlineDbPromise) return _offlineDbPromise;
         _offlineDbPromise = new Promise(function(resolve, reject) {
-            var req = indexedDB.open(OFFLINE_DB, 1);
+            var req = indexedDB.open(OFFLINE_DB, OFFLINE_DB_VERSION);
             req.onupgradeneeded = function() {
                 var db = req.result;
                 if (!db.objectStoreNames.contains(OFFLINE_STORE)) db.createObjectStore(OFFLINE_STORE, { keyPath: 'key' });
+                if (!db.objectStoreNames.contains(SCAN_STORE)) db.createObjectStore(SCAN_STORE, { keyPath: 'key' });
             };
             req.onsuccess = function() { resolve(req.result); };
             req.onerror = function() { reject(req.error || new Error('IndexedDB open failed')); };
@@ -565,7 +571,8 @@
     function compactOfflineItem(item) {
         return {
             id: item.id, source: item.source, name: item.name, description: item.description, author: item.author,
-            url: item.url, installUrl: item.installUrl, version: item.version, dailyInstalls: item.dailyInstalls || 0,
+            namespace: item.namespace || '', url: item.url, installUrl: item.installUrl, downloadUrl: item.downloadUrl || '', updateUrl: item.updateUrl || '',
+            version: item.version, dailyInstalls: item.dailyInstalls || 0,
             totalInstalls: item.totalInstalls || 0, rating: item.rating || 0, badRating: item.badRating || 0,
             stars: item.stars || 0, createdAt: item.createdAt || '', updatedAt: item.updatedAt || '', license: item.license || '',
             _sourceCount: item._sourceCount || 1, _trust: item._trust, _spam: item._spam,
@@ -611,14 +618,224 @@
         return entries.find(function(e) { return e.key === key; }) || null;
     }
 
+    async function idbScanGet(key) {
+        var db = await offlineDb();
+        return offlineReq(db.transaction(SCAN_STORE, 'readonly').objectStore(SCAN_STORE).get(key));
+    }
+
+    async function idbScanPut(entry) {
+        var db = await offlineDb();
+        await offlineReq(db.transaction(SCAN_STORE, 'readwrite').objectStore(SCAN_STORE).put(entry));
+    }
+
+    async function idbScanEntries() {
+        var db = await offlineDb();
+        return offlineReq(db.transaction(SCAN_STORE, 'readonly').objectStore(SCAN_STORE).getAll());
+    }
+
+    async function idbScanDelete(key) {
+        var db = await offlineDb();
+        await offlineReq(db.transaction(SCAN_STORE, 'readwrite').objectStore(SCAN_STORE).delete(key));
+    }
+
+    function lsScanEntries() {
+        try { return JSON.parse(localStorage.getItem('sh_scan_cache') || '[]'); } catch(e) { return []; }
+    }
+
+    function lsWriteScanEntries(entries) {
+        try { localStorage.setItem('sh_scan_cache', JSON.stringify(entries)); } catch(e) {}
+    }
+
+    function hashString(str) {
+        var h = 2166136261;
+        for (var i = 0; i < str.length; i++) {
+            h ^= str.charCodeAt(i);
+            h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+        }
+        return ('00000000' + (h >>> 0).toString(16)).slice(-8);
+    }
+
+    function scanCacheKey(item) {
+        normalizeScriptUrls(item);
+        var url = urlKey(item.installUrl || item.downloadUrl || item.updateUrl || '');
+        if (!url) return '';
+        return JSON.stringify({
+            url: url,
+            version: String(item.version || '').trim(),
+            updateUrl: urlKey(item.updateUrl || ''),
+        });
+    }
+
+    function compactScanEntry(key, item, scan) {
+        return {
+            key: key,
+            savedAt: Date.now(),
+            url: item.installUrl || item.downloadUrl || item.updateUrl || '',
+            version: item.version || '',
+            updateUrl: item.updateUrl || '',
+            codeHash: scan.codeHash || '',
+            scan: {
+                score: scan.score,
+                findings: scan.findings || [],
+                permLevel: scan.permLevel || 'unknown',
+                meta: scan.meta || null,
+                codeSize: scan.codeSize || 0,
+                codeHash: scan.codeHash || '',
+            },
+        };
+    }
+
+    function hydrateScan(item, entry) {
+        if (!entry || !entry.scan || Date.now() - (entry.savedAt || 0) > SCAN_CACHE_TTL) return null;
+        var scan = {
+            score: entry.scan.score,
+            findings: entry.scan.findings || [],
+            permLevel: entry.scan.permLevel || 'unknown',
+            meta: entry.scan.meta || null,
+            codeSize: entry.scan.codeSize || 0,
+            codeHash: entry.scan.codeHash || entry.codeHash || '',
+            cached: true,
+        };
+        item._scan = scan;
+        item._meta = scan.meta;
+        if (scan.meta) applyMetaUrls(item, scan.meta);
+        item._trust = computeTrust(item, scan);
+        return scan;
+    }
+
+    async function getCachedScan(item) {
+        var key = scanCacheKey(item);
+        if (!key) return null;
+        try {
+            var idbEntry = await idbScanGet(key);
+            var hit = hydrateScan(item, idbEntry);
+            if (hit) return hit;
+        } catch(e) {}
+        var lsEntry = lsScanEntries().find(function(entry) { return entry.key === key; });
+        return hydrateScan(item, lsEntry);
+    }
+
+    async function saveCachedScan(item, scan) {
+        if (!scan || scan.unavailable) return;
+        var key = scanCacheKey(item);
+        if (!key) return;
+        var entry = compactScanEntry(key, item, scan);
+        try {
+            await idbScanPut(entry);
+            var entries = await idbScanEntries();
+            entries.sort(function(a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
+            for (var i = SCAN_CACHE_LIMIT; i < entries.length; i++) await idbScanDelete(entries[i].key);
+        } catch(e) {
+            var all = [entry].concat(lsScanEntries().filter(function(old) { return old.key !== key; }));
+            lsWriteScanEntries(all.slice(0, SCAN_CACHE_LIMIT));
+        }
+    }
+
     /* -- Favorites (localStorage) -- */
     function getFavs() { try { return JSON.parse(localStorage.getItem('sh_favs') || '[]'); } catch(e) { return []; } }
     function setFavs(favs) { localStorage.setItem('sh_favs', JSON.stringify(favs)); }
     function isFav(id) { return getFavs().some(function(f) { return f.id === id; }); }
+
+    function cleanUrl(u) { return (u || '').trim(); }
+    function normalizeScriptUrls(item) {
+        item.installUrl = cleanUrl(item.installUrl || item.downloadUrl || item.updateUrl || '');
+        item.downloadUrl = cleanUrl(item.downloadUrl || item.installUrl || '');
+        item.updateUrl = cleanUrl(item.updateUrl || item.downloadUrl || item.installUrl || '');
+        return item;
+    }
+
+    function applyMetaUrls(item, meta) {
+        if (!meta) return normalizeScriptUrls(item);
+        item.namespace = item.namespace || meta.namespace || '';
+        item.version = item.version || meta.version || '';
+        if (meta.downloadURL) item.downloadUrl = meta.downloadURL;
+        if (meta.updateURL) item.updateUrl = meta.updateURL;
+        return normalizeScriptUrls(item);
+    }
+
+    function exportScriptRecord(item) {
+        normalizeScriptUrls(item);
+        return {
+            id: item.id || '', name: item.name || '', namespace: item.namespace || '', source: item.source || '',
+            author: item.author || '', version: item.version || '', url: item.url || '',
+            installUrl: item.installUrl || '', downloadUrl: item.downloadUrl || '', updateUrl: item.updateUrl || '',
+            totalInstalls: item.totalInstalls || 0, rating: item.rating || 0, updatedAt: item.updatedAt || '',
+        };
+    }
+
+    function normalizeImportedScript(item) {
+        if (!item || typeof item !== 'object') return null;
+        var out = exportScriptRecord({
+            id: item.id || item.uuid || '',
+            name: item.name || item.title || '',
+            namespace: item.namespace || '',
+            source: item.source || '',
+            author: item.author || item.user || '',
+            version: item.version || '',
+            url: item.url || item.homepageURL || item.homepage || '',
+            installUrl: item.installUrl || item.install_url || item.downloadURL || item.downloadUrl || item.download_url || '',
+            downloadUrl: item.downloadUrl || item.downloadURL || item.download_url || '',
+            updateUrl: item.updateUrl || item.updateURL || item.update_url || '',
+            totalInstalls: item.totalInstalls || 0,
+            rating: item.rating || 0,
+            updatedAt: item.updatedAt || '',
+        });
+        if (!out.id && (out.name || out.installUrl || out.updateUrl)) out.id = 'imported-' + (out.namespace || out.author || 'script') + '-' + out.name;
+        return (out.name || out.installUrl || out.updateUrl) ? out : null;
+    }
+
+    function getInstalledScripts() {
+        try {
+            var raw = JSON.parse(localStorage.getItem('sh_installed_scripts') || '[]');
+            var list = Array.isArray(raw) ? raw : (raw.installed || raw.scripts || []);
+            return list.map(normalizeImportedScript).filter(Boolean);
+        } catch(e) { return []; }
+    }
+
+    function setInstalledScripts(items) {
+        localStorage.setItem('sh_installed_scripts', JSON.stringify({
+            schema: 'scripthunt-installed',
+            version: 1,
+            importedAt: new Date().toISOString(),
+            installed: items.map(normalizeImportedScript).filter(Boolean),
+        }));
+    }
+
+    function urlKey(u) {
+        try {
+            var url = new URL(u);
+            url.hash = '';
+            return url.toString().replace(/\/$/, '').toLowerCase();
+        } catch(e) { return (u || '').replace(/\/$/, '').toLowerCase(); }
+    }
+
+    function versionDiffers(a, b) {
+        return !!(a && b && String(a).trim() && String(b).trim() && String(a).trim() !== String(b).trim());
+    }
+
+    function installedState(item) {
+        normalizeScriptUrls(item);
+        var urls = [item.installUrl, item.downloadUrl, item.updateUrl, item.url].filter(Boolean).map(urlKey);
+        var name = (item.name || '').trim().toLowerCase();
+        var namespace = (item.namespace || '').trim().toLowerCase();
+        var installed = getInstalledScripts();
+        for (var i = 0; i < installed.length; i++) {
+            var rec = installed[i];
+            var recUrls = [rec.installUrl, rec.downloadUrl, rec.updateUrl, rec.url].filter(Boolean).map(urlKey);
+            var urlMatch = urls.some(function(u) { return recUrls.indexOf(u) >= 0; });
+            var nameMatch = name && name === (rec.name || '').trim().toLowerCase();
+            var nsMatch = namespace && namespace === (rec.namespace || '').trim().toLowerCase();
+            if (urlMatch || (nameMatch && (nsMatch || !namespace))) {
+                return { installed: true, record: rec, updateAvailable: versionDiffers(rec.version, item.version) };
+            }
+        }
+        return { installed: false, updateAvailable: false, record: null };
+    }
+
     function toggleFav(item) {
         var favs = getFavs();
         var idx = favs.findIndex(function(f) { return f.id === item.id; });
-        if (idx >= 0) { favs.splice(idx, 1); } else { favs.unshift({ id: item.id, name: item.name, url: item.url, source: item.source, author: item.author, installUrl: item.installUrl, totalInstalls: item.totalInstalls, rating: item.rating, updatedAt: item.updatedAt }); }
+        if (idx >= 0) { favs.splice(idx, 1); } else { favs.unshift(exportScriptRecord(item)); }
         setFavs(favs);
         return idx < 0;
     }
@@ -1133,11 +1350,33 @@
         return '';
     }
 
+    async function mapWithConcurrency(items, limit, worker) {
+        var out = new Array(items.length);
+        var next = 0;
+        var workers = [];
+        var count = Math.max(1, Math.min(limit || SCAN_CONCURRENCY, items.length || 1));
+        async function run() {
+            while (next < items.length) {
+                var idx = next++;
+                out[idx] = await worker(items[idx], idx);
+            }
+        }
+        for (var i = 0; i < count; i++) workers.push(run());
+        await Promise.all(workers);
+        return out;
+    }
+
     async function fetchAndScan(item) {
         if (item._scan) return item._scan;
+        normalizeScriptUrls(item);
         var url = item.installUrl;
         var blocker = scanBlocker(item);
-        if (blocker) return scanUnavailable(blocker);
+        if (blocker) {
+            item._scan = scanUnavailable(blocker);
+            return item._scan;
+        }
+        var cached = await getCachedScan(item);
+        if (cached) return cached;
         try {
             var r;
             if (url.includes('openuserjs.org') || url.includes('userscript.zone') || url.includes('gist.github.com') || url.includes('gist.githubusercontent.com')) r = await fetchViaProxy(url, 10000, item.source || 'metadata');
@@ -1147,11 +1386,17 @@
             var scan = scanCode(code);
             scan.meta = meta;
             scan.codeSize = code.length;
+            scan.codeHash = hashString(code);
+            if (meta) applyMetaUrls(item, meta);
             item._scan = scan;
             item._meta = meta;
             item._trust = computeTrust(item, scan);
+            await saveCachedScan(item, scan);
             return scan;
-        } catch(e) { return scanUnavailable('Scan unavailable: ' + ((e && e.message) || 'script fetch failed')); }
+        } catch(e) {
+            item._scan = scanUnavailable('Scan unavailable: ' + ((e && e.message) || 'script fetch failed'));
+            return item._scan;
+        }
     }
 
     function parseMetaBlock(code) {
@@ -1192,7 +1437,7 @@
 
     async function applyGrantFilter(items, wanted) {
         if (!wanted) return items;
-        var checked = await Promise.all(items.map(async function(item) {
+        var checked = await mapWithConcurrency(items, SCAN_CONCURRENCY, async function(item) {
             delete item._grantFilter;
             var scan = await fetchAndScan(item);
             if (!scan || !scan.meta) {
@@ -1204,7 +1449,7 @@
                 return item;
             }
             return null;
-        }));
+        });
         return checked.filter(Boolean);
     }
 
@@ -1226,7 +1471,7 @@
     async function applyRiskFilter(items, wanted) {
         if (!wanted) return items;
         var wantedRank = riskRank(wanted);
-        var checked = await Promise.all(items.map(async function(item) {
+        var checked = await mapWithConcurrency(items, SCAN_CONCURRENCY, async function(item) {
             delete item._riskFilter;
             var scan = await fetchAndScan(item);
             if (!scan || scan.unavailable || !scan.meta) {
@@ -1237,7 +1482,7 @@
             item._riskFilter = { status: 'matched', level: level };
             if (wanted === 'safe') return level === 'safe' ? item : null;
             return riskRank(level) >= wantedRank ? item : null;
-        }));
+        });
         return checked.filter(Boolean);
     }
 

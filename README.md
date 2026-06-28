@@ -1,6 +1,6 @@
 # ScriptHunt
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue)
+![Version](https://img.shields.io/badge/version-0.4.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web-ff6600)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black)
@@ -34,7 +34,7 @@ open index.html
 ```bash
 npm ci
 npm run test:install
-npm test
+npm run qa
 ```
 
 **GitHub Pages deploy:**
@@ -78,7 +78,7 @@ npm test
 | **Themes** | Dark, Light, OLED black, and Auto (follows OS preference) |
 | **PWA** | Installable as a Progressive Web App with an offline shell and recent-search cache |
 | **Responsive Design** | Full mobile/tablet/desktop support with CSS container queries |
-| **Runtime Zero Dependencies** | Single HTML file, no app runtime dependencies; npm is used only for local tests |
+| **Runtime Zero Dependencies** | Single HTML file, no app runtime dependencies; npm is used only for local tests via `npm run qa` |
 
 ---
 
@@ -235,7 +235,8 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
 - **CORS Proxy** — allorigins.win → codetabs → everyorigin fallback chain with exponential backoff
 - **PWA** — manifest.json + service worker for installability, offline shell loading, and local recent-search recovery
-- **localStorage + IndexedDB** — preferences, favorites, source toggles, theme, and recent search results persist locally; no tracking, no cookies, no server-side state
+- **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; no tracking, no cookies, no server-side state
+- **Local QA** - npm run qa runs npm audit, Worker tests, and Playwright smoke/adapter tests against the repo-local static server
 
 ---
 
