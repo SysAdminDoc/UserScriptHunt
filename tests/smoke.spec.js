@@ -158,6 +158,30 @@ test('sort select persists preference', async ({ page }) => {
   await expect(page.locator('#sortSelect')).toHaveValue('installs');
 });
 
+test('proxy failures show per-proxy reasons and retry control', async ({ page }) => {
+  await page.route('https://api.allorigins.win/**', async (route) => {
+    await route.fulfill({ status: 502, body: 'allorigins down' });
+  });
+  await page.route('https://api.codetabs.com/**', async (route) => {
+    await route.fulfill({ status: 502, body: 'codetabs down' });
+  });
+  await page.route('https://everyorigin.jwvbremen.nl/**', async (route) => {
+    await route.fulfill({ status: 502, body: 'everyorigin down' });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Greasy Fork source').click();
+  await page.getByLabel('OpenUserJS source').click();
+  await page.fill('#searchInput', 'dark');
+  await page.press('#searchInput', 'Enter');
+
+  const chip = page.locator('.source-chip.error').filter({ hasText: 'OpenUserJS' });
+  await expect(chip).toContainText('allorigins: HTTP 502');
+  await expect(chip).toContainText('codetabs: HTTP 502');
+  await expect(chip).toContainText('everyorigin: HTTP 502');
+  await expect(chip.getByRole('button', { name: 'Retry OpenUserJS' })).toBeVisible();
+});
+
 test('clear button resets search state', async ({ page }) => {
   await page.goto('/');
   await page.fill('#searchInput', 'test');

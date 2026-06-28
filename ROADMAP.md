@@ -3,20 +3,6 @@
 ## Research-Driven Additions
 
 ### P0
-- [ ] P0 — Fix proxy reliability and diagnostics
-  Why: Proxied sources fail silently enough to make cross-source search look complete when it is not.
-  Evidence: `index.html` `fetchViaProxy()`; live `youtube` search returned Greasy Fork/GitHub while OpenUserJS, Userscript.Zone, and ScriptCat failed; CodeTabs proxy docs.
-  Touches: `index.html` proxy list, `fetchViaProxy()`, `_sourceHealth`, `renderStatusChips()`, tests.
-  Acceptance: failed searches show per-source/per-proxy failure reasons, working proxy used, retry option, and no source is presented as complete after all proxy fallbacks fail.
-  Complexity: M
-
-- [ ] P0 — Expand the bundled Worker allowlist for all proxied sources
-  Why: The documented custom proxy cannot currently support GitHub Gists, even though the app routes Gist search through a proxy.
-  Evidence: `cors-proxy/worker.js`; `index.html` Gist source; README custom proxy instructions.
-  Touches: `cors-proxy/worker.js`, `README.md`, Worker tests or smoke checks.
-  Acceptance: Worker allows only the required OpenUserJS, Userscript.Zone, Gist, and raw Gist hosts; rejects unknown hosts; Gist/OpenUserJS/Userscript.Zone searches work through the Worker.
-  Complexity: S
-
 - [ ] P0 — Make `grant:` filtering real
   Why: The app advertises advanced query syntax, but `grant:` is parsed and never applied.
   Evidence: `index.html` `parseQuery()` and `executeSearch()`; README advanced query syntax.

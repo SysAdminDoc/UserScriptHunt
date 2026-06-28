@@ -3,7 +3,7 @@ addEventListener('fetch', event => {
 });
 
 const ALLOWED_ORIGINS = ['https://sysadmindoc.github.io', 'http://localhost', 'http://127.0.0.1'];
-const ALLOWED_TARGETS = ['openuserjs.org', 'www.userscript.zone', 'greasyfork.org', 'sleazyfork.org'];
+const ALLOWED_TARGETS = ['openuserjs.org', 'www.userscript.zone', 'gist.github.com', 'gist.githubusercontent.com'];
 
 async function handleRequest(request) {
   const url = new URL(request.url);

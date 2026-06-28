@@ -169,7 +169,7 @@ A Cloudflare Worker template is included in `cors-proxy/`:
 cd cors-proxy
 npx wrangler deploy
 ```
-This gives you a private proxy with domain allowlisting on Cloudflare's free tier (100K req/day).
+This gives you a private proxy with domain allowlisting on Cloudflare's free tier (100K req/day). The bundled Worker allows only OpenUserJS, Userscript.Zone, GitHub Gist search, and raw Gist hosts.
 
 To use your custom proxy:
 ```javascript
