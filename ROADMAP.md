@@ -66,3 +66,64 @@
   Touches: `index.html` bookmarklet, URL state, import/history schema.
   Acceptance: bookmarklet opens ScriptHunt with the current URL/domain, optional installed-list import marks known scripts, and no browser extension is required.
   Complexity: M
+
+## Research-Driven Additions
+
+### P1
+- [ ] P1 - Add bounded metadata/security scan cache
+  Why: Grant and risk filters can fan out raw `.user.js` fetches for every result at once, which stresses public proxies and source rate limits.
+  Evidence: `index.html:1291`, `index.html:1324`, CodeTabs limits, Cloudflare Worker limits, quoid/userscripts cache issue.
+  Touches: `index.html` scan/filter pipeline, IndexedDB/localStorage cache helpers, Playwright filter tests.
+  Acceptance: scans are cached by normalized install/update URL plus version/hash, filter scans run with a fixed concurrency cap, repeat filters reuse cached metadata, and failed proxy/source scans keep visible "unverified" labels.
+  Complexity: L
+
+- [ ] P1 - Add custom proxy validation and self-test UI
+  Why: Custom proxy URLs are currently read from localStorage and injected into CSP/fetch paths without in-app validation or a response-shape test.
+  Evidence: `index.html:10`, `index.html:447`, `index.html:457`, `cors-proxy/worker.js`, Cloudflare Worker limits.
+  Touches: `index.html` settings/diagnostics UI, CSP bootstrap, `cors-proxy/worker.js`, Worker tests.
+  Acceptance: users can add/remove/test a custom HTTPS proxy in-app, invalid URLs are rejected before persistence, the test verifies one allowed userscript target and one blocked target, and diagnostics still omit the proxy URL.
+  Complexity: M
+
+- [ ] P1 - Replace remote workflow planning with a local QA gate
+  Why: The existing remote smoke workflow roadmap item conflicts with repo rules; repeatable verification should stay local.
+  Evidence: `ROADMAP.md` remote workflow item, `package.json` test scripts, `tests/worker.test.js`, `tests/smoke.spec.js`.
+  Touches: `package.json`, README verification docs, Playwright/Node tests.
+  Acceptance: `npm run qa` runs `npm audit`, Worker tests, Playwright tests, and any source-adapter fixtures locally with one command; no `.github/workflows/` files are added.
+  Complexity: S
+
+### P2
+- [ ] P2 - Make security scoring manager-aware
+  Why: Current scanning catches dangerous code patterns but under-explains manager-specific risks that users see during install.
+  Evidence: `index.html:790`, `index.html:918`, Tampermonkey metadata docs, Violentmonkey metadata docs, ScriptCat `GM_download`/`@connect` issue.
+  Touches: `index.html` scanner, permission pills, scan panel, compare modal, smoke fixtures.
+  Acceptance: scans score broad `@match`/`@include`, enumerate `@connect` hosts, flag update/download URL mismatches, distinguish pinned/versioned `@require` URLs from floating third-party URLs, and show the reasons on cards/panels.
+  Complexity: M
+
+- [ ] P2 - Normalize metadata variants and localized keys
+  Why: Manager metadata supports localized names/descriptions and additional directive variants that the current parser does not normalize.
+  Evidence: `index.html:1258`, Violentmonkey metadata docs, Tampermonkey metadata docs, quoid/userscripts metadata-block proposal.
+  Touches: `index.html` `parseMetaBlock()`, metadata viewer, adapter fixtures, grant/risk filters.
+  Acceptance: metadata parsing preserves `@name:locale`, `@description:locale`, `@exclude-match`, `@compatible`, `@incompatible`, `@updateURL`, and duplicate array keys, with fixture coverage for each.
+  Complexity: M
+
+- [ ] P2 - Version and validate all import/export payloads
+  Why: Favorites import currently accepts arbitrary arrays and can persist malformed records or inconsistent URLs.
+  Evidence: `index.html:637`, `index.html:647`, `index.html:2237`, quoid/userscripts installURL issue, ScriptCat migration/backup issues.
+  Touches: `index.html` favorites export/import, installed-script import model, README import/export docs, Playwright import tests.
+  Acceptance: favorites and installed-script exports include schema/version fields, imports validate and normalize records before persistence, invalid rows are reported without aborting valid rows, and legacy array exports still import through a migration path.
+  Complexity: M
+
+- [ ] P2 - Add PWA update and cache recovery controls
+  Why: The service worker uses cache-first shell behavior without telling users when a new shell is available or when cache recovery was used.
+  Evidence: `sw.js`, README PWA feature, MDN StorageManager/offline guidance.
+  Touches: `sw.js`, `index.html` toast/status handling, Playwright offline/update smoke tests.
+  Acceptance: users see an update-available toast when a new service worker activates, can refresh to the new shell immediately, stale caches are cleared by version, and offline fallback clearly indicates when cached shell content is being served.
+  Complexity: M
+
+### P3
+- [ ] P3 - Add optional live source canaries for adapter drift
+  Why: HTML-scraped sources can change markup without breaking deterministic fixtures, leaving failures visible only to users.
+  Evidence: `tests/fixtures/source-adapters.js`, OpenUserJS search HTML path, Userscript.Zone scrape path, Gist search scrape path.
+  Touches: `tests/`, `package.json`, README verification docs.
+  Acceptance: a local opt-in command exercises one low-volume query per proxied source, records pass/fail diagnostics without secrets, and is excluded from the default deterministic test suite.
+  Complexity: S
