@@ -2,13 +2,6 @@
 
 ## Research-Driven Additions
 
-- [ ] P2 — Expose transparent trust-score dimensions
-  Why: Trust scoring is useful only if users can see which evidence drove the score.
-  Evidence: `index.html` `computeTrust()`; npms quality/popularity/maintenance model; OpenSSF Scorecard transparency.
-  Touches: `index.html` trust model, result cards, compare modal, docs.
-  Acceptance: each card can expand trust into popularity, freshness, security, metadata completeness, and source-health dimensions with plain labels.
-  Complexity: M
-
 - [ ] P2 — Add locale and language filters for catalog sources
   Why: Full UI i18n is not a fit, but source-level language filtering is directly supported by catalogs.
   Evidence: Greasy Fork language/locale search; rejected full-i18n research finding.

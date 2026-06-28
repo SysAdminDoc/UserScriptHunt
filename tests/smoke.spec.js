@@ -279,6 +279,25 @@ test('result icon buttons have accessible names', async ({ page }) => {
   await expect(card.getByRole('button', { name: /Compare YouTube Enhancer/ })).toBeVisible();
 });
 
+test('trust score expands into evidence dimensions', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  const toggle = card.locator('.trust-toggle');
+  await expect(toggle).toContainText(/Trust \d+/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(card.locator('.trust-details')).toHaveClass(/visible/);
+  await expect(card.locator('.trust-details')).toContainText('Popularity');
+  await expect(card.locator('.trust-details')).toContainText('Security');
+  await expect(card.locator('.trust-details')).toContainText('Freshness');
+  await expect(card.locator('.trust-details')).toContainText('Metadata');
+  await expect(card.locator('.trust-details')).toContainText('Source health');
+});
+
 test('comparison modal opens with 2+ selected scripts', async ({ page }) => {
   await page.goto('/');
   await runSearch(page, 'dark mode');
@@ -295,6 +314,22 @@ test('comparison modal opens with 2+ selected scripts', async ({ page }) => {
     await expect(page.locator('.modal-overlay')).not.toHaveClass(/visible/);
     await expect(page.locator('.compare-go')).toBeFocused();
   }
+});
+
+test('comparison modal shows trust dimensions', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+  const cards = page.locator('.result-card');
+  await cards.nth(0).locator('[data-action="compare"]').click();
+  await cards.nth(1).locator('[data-action="compare"]').click();
+  await page.click('.compare-go');
+
+  await expect(page.locator('.modal-overlay')).toHaveClass(/visible/);
+  await expect(page.locator('.compare-label', { hasText: 'Popularity' })).toHaveCount(2);
+  await expect(page.locator('.compare-label', { hasText: 'Security' })).toHaveCount(2);
+  await expect(page.locator('.compare-label', { hasText: 'Freshness' })).toHaveCount(2);
+  await expect(page.locator('.compare-label', { hasText: 'Metadata' })).toHaveCount(2);
+  await expect(page.locator('.compare-label', { hasText: 'Source health' })).toHaveCount(2);
 });
 
 test('empty state shows when no results', async ({ page }) => {

@@ -177,10 +177,23 @@
 
         /* Trust badge */
         .trust-badge{padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:700;font-family:'JetBrains Mono',monospace;white-space:nowrap;letter-spacing:0.2px}
+        .trust-toggle{border:none;cursor:pointer}
+        .trust-toggle:hover,.trust-toggle.active{filter:brightness(1.12)}
         .trust-badge.trust-high{background:var(--green-dim);color:var(--green)}
         .trust-badge.trust-mid{background:var(--amber-dim);color:var(--amber)}
         .trust-badge.trust-low{background:var(--red-dim);color:var(--red)}
         .trust-badge.trust-unknown{background:var(--accent-glow);color:var(--text-muted)}
+        .trust-details{display:none;margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-secondary);font-size:11px;color:var(--text-secondary)}
+        .trust-details.visible{display:block}
+        .trust-dim{display:grid;grid-template-columns:108px 1fr auto;align-items:center;gap:8px;margin:6px 0}
+        .trust-dim-label{color:var(--text-primary);font-weight:600}
+        .trust-dim-meter{height:5px;border-radius:999px;background:var(--bg-primary);overflow:hidden;border:1px solid var(--border)}
+        .trust-dim-fill{height:100%;background:var(--accent)}
+        .trust-dim-fill.trust-high{background:var(--green)}
+        .trust-dim-fill.trust-mid{background:var(--amber)}
+        .trust-dim-fill.trust-low{background:var(--red)}
+        .trust-dim-fill.trust-unknown{background:var(--text-muted)}
+        .trust-dim-reason{grid-column:2 / 4;color:var(--text-muted);line-height:1.4}
 
         .card-desc{font-size:12.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;font-weight:300;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .card-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1115,33 +1128,75 @@
     }
 
     /* ===== TRUST SCORE ===== */
+    function clampScore(score) {
+        return Math.max(0, Math.min(100, Math.round(score)));
+    }
+
+    function trustDim(label, score, weight, reason) {
+        return { label: label, score: clampScore(score), weight: weight, reason: reason };
+    }
+
+    function metadataCompleteness(item) {
+        var score = 10, pieces = [];
+        if (item.name) { score += 12; pieces.push('name'); }
+        if (item.author) { score += 8; pieces.push('author'); }
+        if (item.description) { score += 10; pieces.push('description'); }
+        if (item.version) { score += 10; pieces.push('version'); }
+        if (item.license) { score += 10; pieces.push('license'); }
+        if (item.updatedAt) { score += 8; pieces.push('updated date'); }
+        if (item.installUrl || item.downloadUrl || item.updateUrl) { score += 12; pieces.push('install/update URL'); }
+        if (item._meta) {
+            score += 20;
+            pieces.push('metadata block');
+            if (item._meta.match || item._meta.include) { score += 5; pieces.push('site patterns'); }
+            if (item._meta.grant) { score += 5; pieces.push('permissions'); }
+        }
+        var reason = pieces.length ? 'Has ' + pieces.slice(0, 5).join(', ') + (pieces.length > 5 ? ', and more' : '') : 'Sparse catalog record';
+        if (!item._meta && item.installUrl) reason += '; metadata block not checked yet';
+        return trustDim('Metadata', score, 10, reason);
+    }
+
+    function sourceHealthDimension(item) {
+        var srcId = item.source || '';
+        var h = _sourceHealth[srcId] || {};
+        var status = state.sourceStatus[srcId] || 'idle';
+        if (status === 'error') return trustDim('Source health', 25, 5, 'Source failed during this search');
+        if (status === 'suspended' || srcSuspended(srcId)) return trustDim('Source health', 10, 5, 'Source is temporarily paused after repeated failures');
+        if (h.fails > 0) return trustDim('Source health', 65, 5, h.fails + ' recent source failure' + (h.fails === 1 ? '' : 's'));
+        if (status === 'done' || (state.sourceCounts[srcId] || 0) > 0) return trustDim('Source health', 90, 5, 'Source returned results in this search');
+        return trustDim('Source health', 75, 5, 'No source failures recorded');
+    }
+
     function computeTrust(item, scanResult) {
-        var pop = 50, sec = 50, fresh = 50;
-        // Popularity dimension (0-100)
-        if (item.totalInstalls > 100000) pop += 30;
-        else if (item.totalInstalls > 10000) pop += 22;
-        else if (item.totalInstalls > 1000) pop += 15;
-        else if (item.totalInstalls > 100) pop += 8;
-        if (item.rating > 50) pop += 15;
-        else if (item.rating > 10) pop += 10;
-        else if (item.rating > 0) pop += 5;
-        if (item.badRating > item.rating && item.rating > 0) pop -= 15;
-        if (item.stars > 100) pop += 15;
-        else if (item.stars > 10) pop += 8;
-        if (item._sourceCount > 1) pop += Math.min((item._sourceCount - 1) * 8, 15);
-        if (item.name && item.name.length > 100) pop -= 20;
-        if (item.description && item.description.length < 10 && item.totalInstalls < 100) pop -= 15;
-        pop = Math.max(0, Math.min(100, pop));
-        // Security dimension (0-100)
+        var pop = 50, popReasons = [];
+        if (item.totalInstalls > 100000) { pop += 30; popReasons.push('very high installs'); }
+        else if (item.totalInstalls > 10000) { pop += 22; popReasons.push('high installs'); }
+        else if (item.totalInstalls > 1000) { pop += 15; popReasons.push('steady installs'); }
+        else if (item.totalInstalls > 100) { pop += 8; popReasons.push('some installs'); }
+        if (item.rating > 50) { pop += 15; popReasons.push('strong ratings'); }
+        else if (item.rating > 10) { pop += 10; popReasons.push('positive ratings'); }
+        else if (item.rating > 0) { pop += 5; popReasons.push('some ratings'); }
+        if (item.badRating > item.rating && item.rating > 0) { pop -= 15; popReasons.push('bad ratings exceed good ratings'); }
+        if (item.stars > 100) { pop += 15; popReasons.push('many GitHub stars'); }
+        else if (item.stars > 10) { pop += 8; popReasons.push('some GitHub stars'); }
+        if (item._sourceCount > 1) { pop += Math.min((item._sourceCount - 1) * 8, 15); popReasons.push('found on multiple sources'); }
+        if (item.name && item.name.length > 100) { pop -= 20; popReasons.push('unusually long name'); }
+        if (item.description && item.description.length < 10 && item.totalInstalls < 100) { pop -= 15; popReasons.push('thin description with low installs'); }
+        pop = clampScore(pop);
+
+        var sec = 50, secReason = 'Security scan not run yet';
         if (scanResult) {
             sec = scanResult.score;
+            secReason = scanResult.unavailable ? scanResult.reason : ((scanResult.findings || []).length ? (scanResult.findings.length + ' scan finding' + (scanResult.findings.length === 1 ? '' : 's')) : 'No dangerous patterns detected');
         }
         if (item._meta && item._meta.antifeature) {
             var af = Array.isArray(item._meta.antifeature) ? item._meta.antifeature : [item._meta.antifeature];
             sec = Math.max(0, sec - af.length * 15);
+            secReason += '; antifeature metadata present';
         }
-        sec = Math.max(0, Math.min(100, sec));
-        // Freshness dimension (0-100)
+        sec = clampScore(sec);
+
+        var fresh = 50, freshReason = 'No update date available';
         if (item.updatedAt) {
             var days = Math.floor((Date.now() - new Date(item.updatedAt)) / 864e5);
             if (days < 30) fresh = 90;
@@ -1149,10 +1204,19 @@
             else if (days < 365) fresh = 50;
             else if (days < 730) fresh = 30;
             else fresh = 15;
+            freshReason = days < 0 ? 'Future-dated update' : 'Updated ' + days + ' day' + (days === 1 ? '' : 's') + ' ago';
         }
-        var total = Math.round(pop * 0.4 + sec * 0.35 + fresh * 0.25);
-        item._trustDims = { popularity: pop, security: sec, freshness: fresh };
-        return Math.max(0, Math.min(100, total));
+
+        var dims = {
+            popularity: trustDim('Popularity', pop, 35, popReasons.length ? popReasons.join('; ') : 'Limited public adoption signals'),
+            security: trustDim('Security', sec, 30, secReason),
+            freshness: trustDim('Freshness', fresh, 20, freshReason),
+            metadata: metadataCompleteness(item),
+            sourceHealth: sourceHealthDimension(item),
+        };
+        var total = Object.keys(dims).reduce(function(sum, key) { return sum + dims[key].score * (dims[key].weight / 100); }, 0);
+        item._trustDims = dims;
+        return clampScore(total);
     }
 
     function trustClass(score) {
@@ -1160,6 +1224,23 @@
         if (score >= 45) return 'trust-mid';
         if (score > 0) return 'trust-low';
         return 'trust-unknown';
+    }
+
+    function trustDimensions(item) {
+        if (!item._trustDims) computeTrust(item, item._scan && !item._scan.unavailable ? item._scan : item._scan || null);
+        return ['popularity', 'security', 'freshness', 'metadata', 'sourceHealth'].map(function(key) { return item._trustDims && item._trustDims[key]; }).filter(Boolean);
+    }
+
+    function renderTrustDetails(item) {
+        return trustDimensions(item).map(function(dim) {
+            var score = clampScore(dim.score);
+            return '<div class="trust-dim">' +
+                '<span class="trust-dim-label">' + esc(dim.label) + '</span>' +
+                '<span class="trust-dim-meter" aria-hidden="true"><span class="trust-dim-fill ' + trustClass(score) + '" style="width:' + score + '%"></span></span>' +
+                '<span class="trust-dim-score">' + score + '/100</span>' +
+                '<span class="trust-dim-reason">' + esc(dim.reason) + '</span>' +
+            '</div>';
+        }).join('');
     }
 
     /* ===== PERMISSION RISK DISPLAY ===== */
@@ -1942,12 +2023,13 @@
             var fav = isFav(item.id);
             var scanId = 'scan-' + i;
             var metaId = 'meta-' + i;
+            var trustId = 'trust-' + i;
 
             var h = '<div class="card-source-stripe"></div>';
             h += '<div class="card-top-row">';
             h += '<div class="card-title" data-url="' + attr(item.url) + '">' + esc(item.name) + '</div>';
             h += '<div class="card-badges">';
-            h += '<span class="trust-badge ' + tCls + '">' + trustScore + '</span>';
+            h += '<button class="trust-badge trust-toggle ' + tCls + '" data-action="trust" data-idx="' + i + '" aria-expanded="false" aria-controls="' + trustId + '" title="Trust breakdown">Trust ' + trustScore + '</button>';
             if (item._sourceCount > 1) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Multi-source</span>';
             if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
             if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
@@ -1959,6 +2041,7 @@
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';
             if (item.description) h += '<div class="card-desc">' + esc(item.description) + '</div>';
             h += '<div class="card-meta">' + meta.join('') + '</div>';
+            h += '<div class="trust-details" id="' + trustId + '">' + renderTrustDetails(item) + '</div>';
             var urlLinks = renderScriptUrlLinks(item);
             if (urlLinks) h += '<div class="script-url-list">' + urlLinks + '</div>';
             h += renderAppliesToEvidence(item._appliesTo);
@@ -2006,6 +2089,15 @@
         else if (action === 'share') {
             navigator.share({ title: item.name, url: item.url }).catch(function() {});
         }
+        else if (action === 'trust') {
+            var trustPanel = document.getElementById('trust-' + idx);
+            if (!trustPanel) return;
+            var show = !trustPanel.classList.contains('visible');
+            trustPanel.innerHTML = renderTrustDetails(item);
+            trustPanel.classList.toggle('visible', show);
+            btn.classList.toggle('active', show);
+            btn.setAttribute('aria-expanded', show ? 'true' : 'false');
+        }
         else if (action === 'compare') {
             var ci = state.compareIds.indexOf(item.id);
             if (ci >= 0) { state.compareIds.splice(ci, 1); btn.classList.remove('active'); btn.closest('.result-card').classList.remove('selected'); }
@@ -2025,14 +2117,7 @@
             var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="trust-badge ' + trustClass(scan.score) + '">Security: ' + scan.score + '/100</span>';
             if (scan.codeSize) html += '<span style="font-size:10px;color:var(--text-muted)">' + fmtNum(scan.codeSize) + ' bytes</span>';
             html += '</div>';
-            if (item._trustDims) {
-                var d = item._trustDims;
-                html += '<div style="display:flex;gap:6px;margin-bottom:8px;font-size:10px;flex-wrap:wrap">';
-                html += '<span class="trust-badge ' + trustClass(d.popularity) + '">Pop: ' + d.popularity + '</span>';
-                html += '<span class="trust-badge ' + trustClass(d.security) + '">Sec: ' + d.security + '</span>';
-                html += '<span class="trust-badge ' + trustClass(d.freshness) + '">Fresh: ' + d.freshness + '</span>';
-                html += '</div>';
-            }
+            html += '<div class="trust-details visible">' + renderTrustDetails(item) + '</div>';
             // Permission pills
             if (scan.meta && scan.meta.grant) {
                 var pills = getPermPills(scan.meta);
@@ -2060,8 +2145,15 @@
             panel.innerHTML = html;
             // Update trust badge on card
             item._trust = computeTrust(item, scan);
-            var badge = btn.closest('.result-card').querySelector('.trust-badge');
-            if (badge) { badge.className = 'trust-badge ' + trustClass(item._trust); badge.textContent = item._trust; }
+            var card = btn.closest('.result-card');
+            var badge = card.querySelector('.trust-toggle');
+            if (badge) {
+                var active = badge.classList.contains('active');
+                badge.className = 'trust-badge trust-toggle ' + trustClass(item._trust) + (active ? ' active' : '');
+                badge.textContent = 'Trust ' + item._trust;
+            }
+            var trustPanel = card.querySelector('.trust-details');
+            if (trustPanel) trustPanel.innerHTML = renderTrustDetails(item);
         }
         else if (action === 'meta') {
             var mp = document.getElementById('meta-' + idx);
@@ -2143,16 +2235,19 @@
             h += '<div class="compare-row"><span class="compare-label">Source</span><span class="compare-value">' + esc((SOURCES[item.source] || {}).name || item.source) + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Author</span><span class="compare-value">' + esc(item.author) + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Trust Score</span><span class="compare-value">' + trust + '/100</span></div>';
+            trustDimensions(item).forEach(function(dim) {
+                h += '<div class="compare-row"><span class="compare-label">' + esc(dim.label) + '</span><span class="compare-value" title="' + attr(dim.reason) + '">' + clampScore(dim.score) + '/100</span></div>';
+            });
             h += '<div class="compare-row"><span class="compare-label">Total Installs</span><span class="compare-value">' + fmtNum(item.totalInstalls) + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Daily Installs</span><span class="compare-value">' + fmtNum(item.dailyInstalls) + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Rating</span><span class="compare-value">' + (item.rating || item.stars || 0) + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Version</span><span class="compare-value">' + esc(item.version || 'N/A') + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">License</span><span class="compare-value">' + esc(item.license || 'N/A') + '</span></div>';
-            h += '<div class="compare-row"><span class="compare-label">Freshness</span><span class="compare-value">' + (stale ? stale.label : 'N/A') + '</span></div>';
+            h += '<div class="compare-row"><span class="compare-label">Staleness</span><span class="compare-value">' + (stale ? stale.label : 'N/A') + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Updated</span><span class="compare-value">' + (item.updatedAt ? timeAgo(item.updatedAt) : 'N/A') + '</span></div>';
             if (state.siteFilter) h += '<div class="compare-row"><span class="compare-label">Applies to ' + esc(normalizeSiteHost(state.siteFilter)) + '</span><span class="compare-value">' + esc(appliesSummary(item._appliesTo)) + '</span></div>';
             if (item._scan) {
-                h += '<div class="compare-row"><span class="compare-label">Security</span><span class="compare-value">' + item._scan.score + '/100</span></div>';
+                h += '<div class="compare-row"><span class="compare-label">Scan score</span><span class="compare-value">' + item._scan.score + '/100</span></div>';
                 h += '<div class="compare-row"><span class="compare-label">Code Size</span><span class="compare-value">' + fmtNum(item._scan.codeSize || 0) + 'B</span></div>';
             }
             h += '</div>';
@@ -2170,7 +2265,7 @@
     function highlightBest(modal) {
         var cols = modal.querySelectorAll('.compare-col');
         if (cols.length < 2) return;
-        var numericLabels = ['Total Installs', 'Daily Installs', 'Rating', 'Trust Score', 'Security'];
+        var numericLabels = ['Total Installs', 'Daily Installs', 'Rating', 'Trust Score', 'Popularity', 'Security', 'Freshness', 'Metadata', 'Source health', 'Scan score'];
         numericLabels.forEach(function(label) {
             var vals = []; var elems = [];
             cols.forEach(function(col) {

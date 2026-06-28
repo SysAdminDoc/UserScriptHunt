@@ -12,6 +12,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Installed-script import for local already-installed and update-available result badges.
 - Versioned favorites export schema with normalized install, download, update URL, and namespace fields.
 - Applies-to evidence on site-filtered result cards and comparison rows, including source site matches and parsed userscript metadata patterns.
+- Expandable trust breakdowns showing popularity, security, freshness, metadata, and source-health evidence on cards and comparison rows.
 
 ### Changed
 - Grant and risk filters now scan scripts through a fixed concurrency pool instead of launching every raw-script fetch at once.
