@@ -64,8 +64,15 @@ const GREASY_FORK_RESULTS = [
 
 const MATCHING_USER_SCRIPT = `// ==UserScript==
 // @name YouTube Enhancer
+// @match *://*/*
 // @match https://*.youtube.com/*
 // @include https://music.youtube.com/*
+// @connect api.youtube.com
+// @connect *
+// @require https://cdn.jsdelivr.net/npm/pinned-lib@1.2.3/dist/index.js
+// @require https://unpkg.com/floating-lib/dist/index.js
+// @downloadURL https://greasyfork.org/scripts/101-youtube-enhancer/code/YouTube%20Enhancer.user.js
+// @updateURL https://updates.example.net/youtube-enhancer.meta.js
 // @grant GM_xmlhttpRequest
 // ==/UserScript==
 console.log('match');
@@ -380,6 +387,22 @@ test('visible risk filter keeps matching and unverified results', async ({ page 
   await expect(page.locator('.card-title')).toContainText(['YouTube Enhancer', 'Metadata Unavailable Script']);
   await expect(page.locator('.card-title', { hasText: 'Dark Mode Helper' })).toHaveCount(0);
   await expect(page.locator('.card-source-badge', { hasText: 'Risk unverified' })).toBeVisible();
+});
+
+test('security scan reports manager metadata risks', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await card.getByRole('button', { name: /Security scan for YouTube Enhancer/ }).click();
+  const panel = card.locator('.scan-results.visible');
+
+  await expect(panel).toContainText('Broad @match scope: *://*/*');
+  await expect(panel).toContainText('@connect host allowed: api.youtube.com');
+  await expect(panel).toContainText('@connect * - unrestricted cross-origin access');
+  await expect(panel).toContainText('Pinned @require dependency: cdn.jsdelivr.net');
+  await expect(panel).toContainText('Floating @require version: unpkg.com');
+  await expect(panel).toContainText('updateURL host differs from install host');
 });
 
 test('URL restores complete search state', async ({ page }) => {

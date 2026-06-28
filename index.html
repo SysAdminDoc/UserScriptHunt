@@ -755,7 +755,6 @@
         return JSON.stringify({
             url: url,
             version: String(item.version || '').trim(),
-            updateUrl: urlKey(item.updateUrl || ''),
         });
     }
 
@@ -1084,7 +1083,77 @@
     var MINING_DOMAINS = ['coinhive.com','coin-hive.com','cryptoloot.pro','crypto-loot.com','jsecoin.com','authedmine.com','ppoi.org','webmine.pro'];
     var TRUSTED_REQUIRE_DOMAINS = ['greasyfork.org','github.com','githubusercontent.com','cdnjs.cloudflare.com','cdn.jsdelivr.net','unpkg.com','ajax.googleapis.com','code.jquery.com'];
 
-    function scanCode(code) {
+    function listMeta(meta, key) {
+        if (!meta || !meta[key]) return [];
+        return Array.isArray(meta[key]) ? meta[key] : [meta[key]];
+    }
+
+    function urlHost(raw) {
+        try { return new URL(raw).hostname.replace(/^www\./, '').toLowerCase(); }
+        catch(e) { return ''; }
+    }
+
+    function sameHost(a, b) {
+        return a && b && (a === b || a.endsWith('.' + b) || b.endsWith('.' + a));
+    }
+
+    function broadUserscriptPattern(pattern) {
+        var p = String(pattern || '').trim();
+        return p === '*' || p === '<all_urls>' || /^(\*|https?|http\*):\/\/\*\/?\*?$/i.test(p) || /:\/\/\*\/\*/.test(p);
+    }
+
+    function requireStatus(raw) {
+        try {
+            var u = new URL(raw);
+            var host = u.hostname.replace(/^www\./, '').toLowerCase();
+            var target = u.pathname + u.search + u.hash;
+            var floating = /\/(master|main|latest|head)(\/|$)/i.test(target) ||
+                (/unpkg\.com$/.test(host) && !/@\d/.test(target)) ||
+                (/cdn\.jsdelivr\.net$/.test(host) && /\/npm\/[^@/?#]+(\/|$)/.test(target));
+            var pinned = /@[0-9]+(\.[0-9]+){0,3}/.test(target) || /\/[a-f0-9]{40}(\/|$)/i.test(target) || /\/v?[0-9]+\.[0-9][^/]*(\/|$)/.test(target);
+            return { host: host, pinned: pinned && !floating, floating: floating };
+        } catch(e) {
+            return { host: '', pinned: false, floating: false };
+        }
+    }
+
+    function addManagerMetadataFindings(meta, item, findings) {
+        listMeta(meta, 'match').forEach(function(p) {
+            if (broadUserscriptPattern(p)) findings.push({ label: 'Broad @match scope: ' + p, level: 'danger' });
+        });
+        listMeta(meta, 'include').forEach(function(p) {
+            if (broadUserscriptPattern(p)) findings.push({ label: 'Broad @include scope: ' + p, level: 'warn' });
+        });
+        listMeta(meta, 'connect').forEach(function(c) {
+            var target = String(c || '').trim();
+            if (!target) return;
+            if (target === '*') findings.push({ label: '@connect * - unrestricted cross-origin access', level: 'danger' });
+            else if (target.indexOf('*') >= 0) findings.push({ label: '@connect wildcard host: ' + target, level: 'warn' });
+            else findings.push({ label: '@connect host allowed: ' + target, level: 'info' });
+        });
+        listMeta(meta, 'require').forEach(function(r) {
+            var req = requireStatus(r);
+            if (!req.host) return;
+            if (!TRUSTED_REQUIRE_DOMAINS.some(function(d) { return req.host === d || req.host.endsWith('.' + d); })) {
+                findings.push({ label: '@require from untrusted domain: ' + req.host, level: 'warn' });
+            }
+            if (req.floating) findings.push({ label: 'Floating @require version: ' + req.host, level: 'warn' });
+            else if (req.pinned) findings.push({ label: 'Pinned @require dependency: ' + req.host, level: 'info' });
+            else findings.push({ label: '@require version not obvious: ' + req.host, level: 'warn' });
+        });
+        var installHost = urlHost(item && (item.installUrl || item.downloadUrl || item.url));
+        [['updateURL', 'updateURL'], ['downloadURL', 'downloadURL']].forEach(function(pair) {
+            var key = pair[0], label = pair[1], raw = meta && meta[key];
+            if (!raw) return;
+            var host = urlHost(raw);
+            if (!/^https:\/\//i.test(raw)) findings.push({ label: 'Non-HTTPS ' + label + ': ' + raw, level: 'danger' });
+            if (installHost && host && !sameHost(host, installHost)) findings.push({ label: label + ' host differs from install host: ' + host + ' vs ' + installHost, level: 'warn' });
+        });
+        var updateHost = urlHost(meta && meta.updateURL), downloadHost = urlHost(meta && meta.downloadURL);
+        if (updateHost && downloadHost && !sameHost(updateHost, downloadHost)) findings.push({ label: 'updateURL and downloadURL hosts differ: ' + updateHost + ' vs ' + downloadHost, level: 'warn' });
+    }
+
+    function scanCode(code, meta, item) {
         if (!code) return { score: 50, findings: [], permLevel: 'unknown' };
         var findings = [];
         var body = code.replace(/\/\/\s*==UserScript==[\s\S]*?\/\/\s*==\/UserScript==/, '');
@@ -1097,26 +1166,8 @@
         if (longStrings > 0) findings.push({ label: 'Contains very long strings (possible obfuscation)', level: 'danger' });
         var hexEscapes = (body.match(/\\x[0-9a-f]{2}/gi) || []).length;
         if (hexEscapes > 20) findings.push({ label: 'Heavy hex escape usage (' + hexEscapes + ' found)', level: 'danger' });
-        // Check @require domains
-        var meta = parseMetaBlock(code);
-        if (meta && meta.require) {
-            var reqs = Array.isArray(meta.require) ? meta.require : [meta.require];
-            reqs.forEach(function(r) {
-                try {
-                    var host = new URL(r).hostname;
-                    if (!TRUSTED_REQUIRE_DOMAINS.some(function(d) { return host === d || host.endsWith('.' + d); })) {
-                        findings.push({ label: '@require from untrusted domain: ' + host, level: 'warn' });
-                    }
-                } catch(e) {}
-            });
-        }
-        // Check @connect * wildcard
-        if (meta && meta.connect) {
-            var conns = Array.isArray(meta.connect) ? meta.connect : [meta.connect];
-            if (conns.some(function(c) { return c.trim() === '*'; })) {
-                findings.push({ label: '@connect * — unrestricted cross-origin access', level: 'danger' });
-            }
-        }
+        meta = meta || parseMetaBlock(code);
+        if (meta) addManagerMetadataFindings(meta, item || {}, findings);
         // Check for known mining domains
         MINING_DOMAINS.forEach(function(d) {
             if (code.indexOf(d) >= 0) findings.push({ label: 'Known crypto mining domain: ' + d, level: 'danger' });
@@ -1691,7 +1742,7 @@
             else r = await fetch(url, { signal: AbortSignal.timeout(10000) });
             var code = await r.text();
             var meta = parseMetaBlock(code);
-            var scan = scanCode(code);
+            var scan = scanCode(code, meta, item);
             scan.meta = meta;
             scan.codeSize = code.length;
             scan.codeHash = hashString(code);

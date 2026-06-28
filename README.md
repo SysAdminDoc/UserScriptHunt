@@ -52,7 +52,7 @@ npm run qa
 | **Parallel Fetching** | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
 | **Cross-Source Dedup** | Eliminates duplicate scripts with trust boost for scripts found on 2+ platforms |
 | **Trust Scoring** | Weighted popularity, security, freshness, metadata, and source-health dimensions with expandable evidence on each result |
-| **Security Scanner** | Pattern-based code analysis for any result with a raw `.user.js` URL, with clear blocker messages when metadata cannot be fetched |
+| **Security Scanner** | Pattern and metadata analysis for raw `.user.js` URLs, including manager-aware scope, `@connect`, `@require`, and update/download URL risk reasons |
 | **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
 | **Favorites** | Save scripts to localStorage with versioned JSON export/import and undo on removal |

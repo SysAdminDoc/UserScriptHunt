@@ -27,13 +27,6 @@
 ## Research-Driven Additions
 
 ### P2
-- [ ] P2 - Make security scoring manager-aware
-  Why: Current scanning catches dangerous code patterns but under-explains manager-specific risks that users see during install.
-  Evidence: `index.html:790`, `index.html:918`, Tampermonkey metadata docs, Violentmonkey metadata docs, ScriptCat `GM_download`/`@connect` issue.
-  Touches: `index.html` scanner, permission pills, scan panel, compare modal, smoke fixtures.
-  Acceptance: scans score broad `@match`/`@include`, enumerate `@connect` hosts, flag update/download URL mismatches, distinguish pinned/versioned `@require` URLs from floating third-party URLs, and show the reasons on cards/panels.
-  Complexity: M
-
 - [ ] P2 - Normalize metadata variants and localized keys
   Why: Manager metadata supports localized names/descriptions and additional directive variants that the current parser does not normalize.
   Evidence: `index.html:1258`, Violentmonkey metadata docs, Tampermonkey metadata docs, quoid/userscripts metadata-block proposal.
