@@ -537,6 +537,40 @@ test('diagnostics export includes health and excludes secrets', async ({ page })
   expect(payload.customProxyConfigured).toBe(false);
 });
 
+test('custom proxy settings validate, self-test, and stay redacted', async ({ page }) => {
+  await page.goto('/');
+  await page.click('#btnDiagnostics');
+  await page.fill('#customProxyInput', 'http://proxy.example');
+  await page.click('#btnSaveProxy');
+  await expect(page.locator('#proxySettingsStatus')).toContainText('must use HTTPS');
+  expect(await page.evaluate(() => localStorage.getItem('sh_pref_proxy'))).toBeNull();
+
+  await page.evaluate(() => localStorage.setItem('sh_pref_proxy', JSON.stringify('https://proxy.example')));
+  await page.route('https://proxy.example/**', async (route) => {
+    const target = new URL(route.request().url()).searchParams.get('url') || '';
+    const headers = { 'Access-Control-Allow-Origin': '*' };
+    if (decodeURIComponent(target).includes('example.com')) {
+      await route.fulfill({ status: 403, headers, body: 'Target domain not allowed' });
+      return;
+    }
+    await route.fulfill({ contentType: 'application/json', headers, body: JSON.stringify({ contents: 'proxy ok' }) });
+  });
+  await page.reload();
+  await page.click('#btnDiagnostics');
+  await expect(page.locator('#customProxyInput')).toHaveValue('https://proxy.example');
+  await page.click('#btnTestProxy');
+  await expect(page.locator('#proxySettingsStatus')).toContainText('Proxy self-test passed');
+
+  const payloadText = await page.locator('#diagnosticsOutput').inputValue();
+  const payload = JSON.parse(payloadText);
+  expect(payload.customProxyConfigured).toBe(true);
+  expect(payloadText).not.toContain('proxy.example');
+
+  await page.click('#btnRemoveProxy');
+  await expect(page.locator('#proxySettingsStatus')).toContainText('Custom proxy removed');
+  expect(await page.evaluate(() => localStorage.getItem('sh_pref_proxy'))).toBeNull();
+});
+
 test('offline cache restores recent successful search', async ({ page, context }) => {
   await page.goto('/');
   await runSearch(page, 'youtube');

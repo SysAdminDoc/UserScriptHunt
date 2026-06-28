@@ -173,11 +173,7 @@ npx wrangler deploy
 ```
 This gives you a private proxy with domain allowlisting on Cloudflare's free tier (100K req/day). The bundled Worker allows only OpenUserJS, Userscript.Zone, GitHub Gist search, and raw Gist hosts.
 
-To use your custom proxy:
-```javascript
-localStorage.setItem('sh_pref_proxy', '"https://your-proxy.workers.dev"');
-```
-The app will try your proxy first, then fall back to the public proxies. The CSP is automatically updated to allow your custom proxy domain.
+To use your custom proxy, open **Diagnostics**, enter the HTTPS Worker URL, save, then run **Test**. The self-test verifies that an allowed userscript target returns the expected JSON wrapper and that an unrelated host is blocked. The app tries your proxy first, then falls back to the public proxies. Diagnostics report whether a custom proxy is configured without exporting the proxy URL.
 
 ### URL Parameters
 

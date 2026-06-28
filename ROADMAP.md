@@ -69,14 +69,6 @@
 
 ## Research-Driven Additions
 
-### P1
-- [ ] P1 - Add custom proxy validation and self-test UI
-  Why: Custom proxy URLs are currently read from localStorage and injected into CSP/fetch paths without in-app validation or a response-shape test.
-  Evidence: `index.html:10`, `index.html:447`, `index.html:457`, `cors-proxy/worker.js`, Cloudflare Worker limits.
-  Touches: `index.html` settings/diagnostics UI, CSP bootstrap, `cors-proxy/worker.js`, Worker tests.
-  Acceptance: users can add/remove/test a custom HTTPS proxy in-app, invalid URLs are rejected before persistence, the test verifies one allowed userscript target and one blocked target, and diagnostics still omit the proxy URL.
-  Complexity: M
-
 ### P2
 - [ ] P2 - Make security scoring manager-aware
   Why: Current scanning catches dangerous code patterns but under-explains manager-specific risks that users see during install.
