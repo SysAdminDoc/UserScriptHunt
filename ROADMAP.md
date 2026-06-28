@@ -4,13 +4,6 @@
 
 ### P0
 ### P1
-- [ ] P1 — Add source adapter fixtures and parser tests
-  Why: HTML-scraped sources can break without warning, and the current tests mostly cover UI smoke paths.
-  Evidence: OpenUserJS/Userscript.Zone/Gist scraping functions in `index.html`; recent source additions in git history.
-  Touches: `tests/`, source adapter functions, fixture files, `playwright.config.js`.
-  Acceptance: representative Greasy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and Gist responses normalize into stable `ScriptResult` objects in automated tests.
-  Complexity: M
-
 - [ ] P1 — Add visible advanced filter controls
   Why: Greasy Fork and Userscript.Zone set user expectations for license/date/install/grant/domain filtering, while ScriptHunt hides partial filters in query syntax.
   Evidence: Greasy Fork search UI/API; Userscript.Zone domain search; existing roadmap filter item; `index.html` `filterResults` and `parseQuery()`.
