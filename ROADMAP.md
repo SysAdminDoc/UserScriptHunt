@@ -27,3 +27,77 @@
   Touches: `tests/`, `package.json`, README verification docs.
   Acceptance: a local opt-in command exercises one low-volume query per proxied source, records pass/fail diagnostics without secrets, and is excluded from the default deterministic test suite.
   Complexity: S
+
+## Research-Driven Additions
+
+### P1
+- [ ] P1 — Cap oversized metadata parsing and rendering
+  Why: Very large `@match` and repeated metadata blocks can stall manager tooling, and ScriptHunt currently preserves and renders metadata without an explicit display cap.
+  Evidence: quoid/userscripts#899; `index.html:1795`, `index.html:246`, `tests/smoke.spec.js:454`.
+  Touches: `index.html` metadata parser/viewer/filter summaries, `tests/smoke.spec.js`, `tests/fixtures/source-adapters.js`.
+  Acceptance: a fixture with 1,000+ metadata directives renders within the existing Playwright timeout, repeated directives show a visible overflow count, filters/risk scoring still use normalized data, and no result card dumps unbounded metadata text.
+  Complexity: M
+
+- [ ] P1 — Add cache quota diagnostics and recovery controls
+  Why: Offline searches and scan caches are capped internally, but users have no way to inspect storage pressure or clear only recoverable caches when browser storage is evicted or stale.
+  Evidence: `index.html:612`, `index.html:614`, `index.html:833`; MDN StorageManager estimate API.
+  Touches: `index.html` diagnostics/storage UI, IndexedDB/localStorage cache helpers, `tests/smoke.spec.js`.
+  Acceptance: diagnostics shows cache counts plus estimated usage/quota when available, users can clear scan cache and offline-search cache independently without deleting favorites/tokens, and tests cover IndexedDB plus localStorage fallback behavior.
+  Complexity: M
+
+- [ ] P1 — Test source adapters against failure and drift shapes
+  Why: Adapter tests cover representative success payloads, but real sources fail through empty pages, malformed HTML, proxy wrappers, 403/429 rate limits, and changed markup.
+  Evidence: `tests/adapter.spec.js:4`, `index.html:1056`, GitHub Search API docs, OpenUserJS/Userscript.Zone/Gist scrape paths.
+  Touches: `tests/adapter.spec.js`, `tests/fixtures/source-adapters.js`, `index.html` adapter normalizers/source-health handling.
+  Acceptance: deterministic fixtures cover empty, malformed, rate-limited, and proxy-error responses for every source class; UI records recoverable source errors without crashing; existing success fixtures still pass.
+  Complexity: M
+
+- [ ] P1 — Expose installed update and dependency provenance
+  Why: Userscript managers repeatedly show confusion around `@updateURL`, `@downloadURL`, install URL fallback, and cached `@require` dependencies; ScriptHunt has the data but not a dedicated installed-script provenance view.
+  Evidence: Tampermonkey#2015, Tampermonkey#2797, quoid/userscripts#248, violentmonkey#2453; `index.html:866`, `index.html:1180`.
+  Touches: `index.html` installed-state rendering, metadata scan findings, import/export schema, `tests/smoke.spec.js`.
+  Acceptance: installed matches display install/download/update URL status, warn when hosts or extensions disagree, call out floating or cache-prone `@require` URLs, and preserve this provenance in exported installed-script data.
+  Complexity: M
+
+### P2
+- [ ] P2 — Add manager backup import preview adapters
+  Why: Generic installed-list import is not enough for users migrating from real managers, where per-script includes/excludes and settings can be lost.
+  Evidence: ScriptCat#1484, ScriptCat#1483, violentmonkey#2169; `index.html:985`, `README.md:235`.
+  Touches: `index.html` import parser/preview UI, import/export schema, `tests/smoke.spec.js`, README import docs.
+  Acceptance: imports recognize ScriptHunt JSON plus at least two manager-style backup shapes via fixtures, show a preview with valid/invalid/skipped counts before committing, preserve include/exclude/update metadata where present, and never import executable code into storage.
+  Complexity: L
+
+- [ ] P2 — Explain browser site-access failures separately from `@connect`
+  Why: `GM_xmlhttpRequest` can fail because the browser denied extension site access even when `@connect` metadata is correct, which current risk labels do not explain.
+  Evidence: violentmonkey#2263, ScriptCat#1476; `index.html:1161`, `index.html:1190`.
+  Touches: `index.html` scan findings, trust details, diagnostics copy, `tests/smoke.spec.js`.
+  Acceptance: scan results distinguish script-declared `@connect` risk from manager/browser site-access requirements, diagnostics includes a non-secret troubleshooting hint, and tests cover `GM_xmlhttpRequest` plus explicit `@connect` hosts.
+  Complexity: S
+
+- [ ] P2 — Make source capability truth executable
+  Why: The app supports seven sources, README reflects seven, but the GitHub repo description still advertises four; source facts should not be hand-synced across code, docs, and distribution metadata.
+  Evidence: `index.html:1033`, `README.md:93`, `gh repo view SysAdminDoc/UserScriptHunt`.
+  Touches: `index.html` source registry, README source table/check script, package scripts, repository metadata update command.
+  Acceptance: each source declares endpoint type, proxy/CORS mode, page size, locale support, and metadata confidence in code; a local check fails when README source docs drift; the GitHub repo description is updated to match current source coverage.
+  Complexity: M
+
+- [ ] P2 — Improve GitHub discovery controls and rate-limit clarity
+  Why: GitHub repository/code search is valuable but broad, capped, and rate-limited; power users need controls that map to GitHub's documented qualifiers without editing raw queries.
+  Evidence: GitHub Search API docs; GitHub REST rate-limit docs; `index.html:1453`, `index.html:1556`.
+  Touches: `index.html` GitHub source query builder, settings/status UI, URL state, `tests/smoke.spec.js`.
+  Acceptance: users can constrain GitHub results by filename/extension/user.js, repo/code mode, forks/archived status, stars or updated date; rate-limit status explains remaining budget and result-cap behavior without exposing tokens.
+  Complexity: M
+
+- [ ] P2 — Add accessibility regressions for popovers and mobile states
+  Why: Current tests cover key controls, but dense popovers, diagnostics, saved searches, comparison, and mobile layouts need regression checks before more controls are added.
+  Evidence: `tests/smoke.spec.js:183`, `tests/smoke.spec.js:325`, `tests/smoke.spec.js:354`; Playwright accessibility testing docs.
+  Touches: `tests/smoke.spec.js`, `index.html` labels/focus handling/responsive CSS.
+  Acceptance: desktop and mobile Playwright tests verify accessible names, focus return, Escape behavior, aria-expanded/aria-live states, and no clipped primary controls across bookmarklet, saved-search, diagnostics, cache, and comparison surfaces.
+  Complexity: M
+
+- [ ] P2 — Normalize license and provenance evidence
+  Why: License filters currently depend on source strings, while catalogs and GitHub expose inconsistent license names that should be normalized without hiding unknowns.
+  Evidence: Greasy Fork API docs; GitHub Search API docs; `README.md:64`, `index.html:2202`.
+  Touches: `index.html` normalizers/filter logic/export schema, `tests/adapter.spec.js`, README source capability docs.
+  Acceptance: common SPDX aliases normalize to stable filter values, unknown/custom licenses remain visible as `unknown` or source text, exports include raw and normalized license/provenance fields, and adapter tests cover each source.
+  Complexity: S

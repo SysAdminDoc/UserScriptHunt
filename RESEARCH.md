@@ -1,89 +1,88 @@
-# Research - ScriptHunt
+# Research — ScriptHunt
 
 ## Executive Summary
-ScriptHunt is a static, single-file userscript discovery app that aggregates Greasy Fork, Sleazy Fork, GitHub repositories/code, OpenUserJS, Userscript.Zone, ScriptCat, and opt-in GitHub Gists with local trust scoring, metadata inspection, comparison, favorites, diagnostics, and offline recent-search recovery. Verified: the last ten commits already shipped the previous highest-value gaps around grant filtering, source diagnostics, URL state, adapter fixtures, accessibility, and offline cache, so the next direction is reliability under real source/proxy failure and more truthful manager-aware risk evidence. Priority opportunities: bound and cache raw-script scans; validate/test custom proxies in-app; expand security scoring around `@match`, `@connect`, `@require`, and update URL semantics; parse metadata variants such as localized names and `@exclude-match`; replace the stale remote-workflow roadmap idea with a local QA gate; version all import/export payloads; add PWA update recovery; and add lightweight live source canaries.
+[Verified] ScriptHunt is a zero-backend, single-file static/PWA userscript discovery tool that aggregates Greasy Fork, Sleazy Fork, GitHub repositories/code, OpenUserJS, Userscript.Zone, ScriptCat, and opt-in GitHub Gists with local trust scoring, metadata/security inspection, comparison, favorites, installed-script marking, saved searches, diagnostics, and offline recent-search recovery. Its strongest current shape is privacy-preserving cross-catalog vetting, not manager replacement. The highest-value direction is to make that vetting resilient under real manager metadata, source drift, cache pressure, and migration data. Priority opportunities: cap oversized metadata parsing/rendering; add cache quota diagnostics and recovery controls; harden source adapter failure tests; expose installed-script update/download provenance; recognize manager backup/import formats with preview; explain `@connect` versus browser site-access failures; make source capabilities executable so docs and repo metadata cannot drift; improve GitHub query/rate-limit controls; broaden accessibility regressions; normalize license/SPDX evidence.
 
 ## Product Map
-- Core workflows: search enabled userscript sources; filter by site/license/installs/freshness/grant/risk; inspect trust/security/metadata; compare scripts; favorite/export/import; recover recent searches offline.
-- User personas: cautious users vetting permissions before install; power users comparing competing scripts across catalogs; script authors checking competing implementations; mobile users discovering scripts for later installation in a manager.
-- Platforms and distribution: static GitHub Pages-style web app, PWA shell via `manifest.json` and `sw.js`, optional Cloudflare Worker CORS proxy in `cors-proxy/worker.js`, no runtime package dependencies.
-- Key integrations and data flows: JSON APIs for Greasy Fork/Sleazy Fork/GitHub/ScriptCat; proxied HTML scraping for OpenUserJS, Userscript.Zone, and Gists; localStorage for preferences/favorites/tokens/source health; IndexedDB/localStorage fallback for recent offline searches; Playwright and Node tests for local verification.
+- Core workflows: search enabled catalogs; filter by site, language, license, install count, update age, grant, and risk; inspect trust/security/metadata; compare scripts; favorite/export/import; mark installed/update states; save and refresh searches locally.
+- User personas: cautious users vetting install risk; power users comparing sources; script authors researching competing implementations; mobile/Safari users saving candidates for later manager install; operators troubleshooting source/proxy failures.
+- Platforms and distribution: static GitHub Pages-style app, PWA manifest/service worker, optional Cloudflare Worker CORS proxy, local-only storage, Playwright/Node local test suite, no runtime npm dependencies.
+- Key integrations and data flows: JSON APIs for Greasy Fork/Sleazy Fork/GitHub/ScriptCat; proxied HTML scraping for OpenUserJS, Userscript.Zone, and Gists; `localStorage` preferences/tokens/source health/fallback caches; IndexedDB searches and scan cache in `scripthunt-offline-v1`; export/import JSON for favorites and installed scripts.
 
 ## Competitive Landscape
-- Greasy Fork/Sleazy Fork: strong catalog APIs, by-site discovery, locale-aware catalogs, stats, and install metadata. Learn: domain and locale filters should be metadata-backed. Avoid: cloning forum/community features.
-- Userscript.Zone and Tampermonkey: good current-site discovery and manager handoff expectations. Learn: URL-context search must distinguish source-provided applies-to data from locally parsed metadata. Avoid: relying on opaque scrape results without diagnostics.
-- OpenUserJS: older but still useful catalog with RSS/version-history requests and long migration history. Learn: feed-style update discovery and version diffs are valuable. Avoid: treating undocumented HTML selectors as stable without fixtures and canaries.
-- ScriptCat: active manager/catalog with recent issues around migration, backup, Firefox/MV2 compatibility, and `GM_download`/`@connect` security semantics. Learn: manager semantics should feed risk labels. Avoid: turning ScriptHunt into a full manager or cloud backup system.
-- Violentmonkey and quoid/userscripts: manager projects define practical expectations for custom search sources, install/update URL normalization, `@require` behavior, and troubleshooting permissions. Learn: normalize install/update/download URLs and explain metadata risk in manager terms. Avoid: adopting extension-only sync/policy features in a static page.
-- Userscript-Plus and UserScript-Finder: prove demand for current-site helpers and installed-script awareness. Learn: bookmarklet/import flows are enough for ScriptHunt's static architecture. Avoid: making an extension the primary distribution.
-- SearXNG, npms, Socket, and OpenSSF Scorecard: adjacent search/trust systems expose ranking dimensions, source health, and security rationale. Learn: users trust visible evidence more than opaque totals. Avoid: ML/vector ranking before deterministic metadata quality is exhausted.
+- Greasy Fork/Sleazy Fork: strong by-site discovery, API-backed metadata, locale-aware catalogs, and external-script policy. Learn: source-provided applies-to and external dependency rules should be first-class trust evidence. Avoid: forum/review/community features owned by catalogs.
+- Tampermonkey: broad commercial-grade manager expectations around configurable search, sync/update flows, local file tracking, and update/download URL semantics. Learn: users need clear install/update provenance. Avoid: manager automation, WebDAV sync, or paid-tier style features in a static discovery app.
+- Violentmonkey: active WebExtensions manager with open requests for custom search sources, site-access troubleshooting hints, `@require` cache behavior, mass export, and permission ergonomics. Learn: distinguish script metadata permissions from browser extension permissions. Avoid: extension policy deployment and manager UI replication.
+- ScriptCat: active manager/catalog with recent security, migration, backup, Firefox/MV2, and `GM.xmlHttpRequest` permission issues. Learn: migration fidelity and isolation boundaries are trust features. Avoid: background/scheduled script execution and cloud backup ownership.
+- quoid/userscripts: Safari/iOS-focused manager work surfaces install/update, directory, iCloud, localization, huge metadata, and `@require` deprecation concerns. Learn: mobile memory limits and large metadata blocks can break otherwise valid scripts. Avoid: platform-specific App Store packaging as ScriptHunt's primary route.
+- OpenUserJS, Userscript.Zone, GitHub Gists, and awesome-userscripts: valuable long-tail sources with weaker contracts or scrape-only paths. Learn: adapter diagnostics and drift tests are mandatory before broadening source count. Avoid: treating undocumented HTML selectors as stable.
+- SearXNG and OpenSSF Scorecard: adjacent metasearch/trust systems show the value of visible source health and auditable trust dimensions. Learn: trust should explain evidence, not hide it behind one opaque rank. Avoid: ML/vector ranking before deterministic metadata quality is exhausted.
 
 ## Security, Privacy, and Reliability
-- Verified risk: `index.html:1291` and `index.html:1324` run grant/risk filters with `Promise.all()` over every visible result; raw-script scans can fan out into many direct/proxy fetches at once, stressing public proxy limits and GitHub/catalog rate limits.
-- Verified risk: `index.html:447` and `index.html:457` read a custom proxy URL from localStorage and call it directly; `index.html:10` injects the stored value into CSP without URL validation or a user-visible proxy test.
-- Verified risk: `index.html:2237` through `index.html:2244` import favorites as any JSON array and append raw items with only an `id` check; malformed old exports can persist inconsistent URLs or unescaped labels.
-- Verified reliability gap: `sw.js` uses cache-first shell behavior and immediate `skipWaiting()`/`clients.claim()` but has no update-available notification or recovery path if cached shell and source code drift.
-- Verified parser gap: `index.html:1258` treats only a short list of metadata keys as arrays and does not normalize localized keys (`@name:xx`), `@exclude-match`, or `@compatible`, all documented by manager metadata ecosystems.
-- Verified scanner gap: `index.html:790` through `index.html:850` catches common dangerous code and some metadata risk, but does not score broad `@match` patterns, enumerate `@connect` hosts, detect update/download URL mismatches, or distinguish pinned/versioned `@require` URLs.
-- Verified privacy posture: preferences, favorites, tokens, source health, and offline search caches are local-only; diagnostics already exclude secrets, but proxy/token configuration still needs safer in-app editing and validation.
-- Verified dependency posture: `npm audit --json` reports zero vulnerabilities, `package-lock.json` pins Playwright 1.61.1, and `npm outdated --json` returned no outdated package entries in the checked environment.
+- [Verified] Oversized metadata is not bounded for rendering: `parseMetaBlock` preserves repeated keys at `index.html:1795`, and `.card-metadata` renders full metadata text; quoid/userscripts#899 shows huge `@match` lists can stall userscript tooling.
+- [Verified] Cache recovery is incomplete: offline/search and scan caches are capped in code (`index.html:612`, `index.html:614`, `index.html:833`) but there is no UI to inspect quota/usage, clear only scan/offline caches, or recover from browser eviction; MDN StorageManager supports usage/quota estimates.
+- [Verified] Adapter tests are mostly success-shape tests: `tests/adapter.spec.js:4` normalizes representative fixtures, while real sources include API rate limits, proxy failures, malformed HTML, empty pages, and scrape drift.
+- [Verified] Installed update state lacks full provenance: `applyMetaUrls` stores `downloadURL`/`updateURL` at `index.html:866`, scanner warnings cover host drift at `index.html:1180`, but installed import/update UI does not show the install/download/update tuple that Tampermonkey/quoid users struggle to interpret.
+- [Verified] Import validation is safer than prior sessions but not manager-format aware: `parseScriptImportPayload` accepts ScriptHunt schemas, generic `scripts` arrays, and legacy arrays at `index.html:985`; it does not preview Tampermonkey/Violentmonkey ZIP/JSON or ScriptCat backup configuration before import.
+- [Verified] Site-access troubleshooting is missing: scanner labels `@connect` risk at `index.html:1161`, but Violentmonkey#2263 and ScriptCat#1476 show browser extension site permissions can still break `GM_xmlhttpRequest` even when script metadata is correct.
+- [Verified] Source capability truth can drift: code registers seven sources at `index.html:1033`, README lists seven at `README.md:93`, but `gh repo view` still describes only four sources; docs and repo metadata need an executable check/update path.
+- [Verified] Dependency posture is currently clean: `npm audit --json` reports zero vulnerabilities and `@playwright/test` is current at 1.61.1; avoid adding new audit/a11y dependencies unless the benefit beats license and maintenance cost.
 
 ## Architecture Assessment
-- The source adapter registry in `index.html:724` is the right extension boundary; more sources should wait until scan caching and live adapter canaries exist.
-- The CORS proxy path should become a first-class settings boundary: validate scheme/host, test one allowed source and one rejected host, surface response-shape errors, and keep custom URLs out of diagnostics.
-- Metadata/security scanning needs a cache keyed by normalized install/update URL plus version/hash, with bounded concurrency and stale invalidation; this preserves static operation while reducing source/proxy pressure.
-- Import/export should use versioned schemas for favorites, installed-script lists, and offline cache entries rather than accepting arbitrary arrays.
-- PWA update handling belongs in `sw.js` plus a toast/status control in `index.html`, not a backend.
-- Testing is strong for deterministic UI behavior, adapter fixtures, Worker allowlists, diagnostics, and offline cache; remaining gaps are local QA orchestration, import schema tests, scan-cache concurrency tests, and optional live canaries for proxied sources.
-- Documentation should remove or qualify the existing `ROADMAP.md` remote workflow item because repo rules require local builds/tests and no GitHub Actions workflows.
+- Keep the single-file architecture, but split internal boundaries conceptually: source capability records, parser limits, storage/cache service, import adapters, and diagnostics payloads can remain in `index.html` while gaining testable seams.
+- `index.html:1033` source registry should carry endpoint type, CORS/proxy path, page size, metadata confidence, locale support, and scan capability so UI, diagnostics, README checks, and repo metadata all derive from the same facts.
+- `index.html:1795` metadata parsing should normalize repeated/variant directives while enforcing render caps and preserving full data for filtering/scoring.
+- `index.html:1762` scan fetching and `index.html:795` cache reads are strong foundations; next work should expose cache state and recovery controls rather than increase concurrency.
+- `cors-proxy/worker.js:12` and `cors-proxy/worker.js:54` correctly constrain methods/origins/hosts; custom source/template work must not bypass the same allowlist mentality.
+- Testing is broad for UI smoke, Worker allowlists, diagnostics redaction, scan caching, PWA prompts, source toggles, and import validation, but needs edge fixtures for adapter failures, oversized metadata, manager import formats, storage pressure, mobile/popover accessibility, and source-doc drift.
+- Category coverage: security, accessibility, testing, docs, distribution, plugin/source extensibility, mobile, offline/recovery, migration, and upgrade strategy remain roadmap-relevant; full multi-user/cloud sync and full UI localization are rejected below because they conflict with the local static product.
 
 ## Rejected Ideas
-- Full backend search service - contradicts the static/no-backend design; use the Worker only for constrained CORS proxying.
-- User accounts, reviews, comments, and cloud sync - catalogs and managers already own identity and sync; ScriptHunt should keep user data local.
-- Full userscript manager replacement - manager issues are useful evidence, but ScriptHunt should remain discovery and vetting.
-- Extension-first distribution - current bookmarklet/PWA flow covers browser-context discovery without Web Store/AMO maintenance.
-- Remote build/test workflows - the repo policy forbids GitHub Actions for builds/tests; add local QA scripts instead.
-- Full UI localization - source-level locale filters and localized metadata parsing are a better fit than a translation framework in a single-file app.
-- ML/vector ranking - no verified need at the current result scale; deterministic trust dimensions are more auditable.
-- Public-proxy-only strategy - source failures and proxy limits make a validated self-hosted Worker path necessary.
+- Full userscript manager replacement — manager sources show valuable risk signals, but ScriptHunt should stay discovery/vetting rather than execute scripts or own browser permissions.
+- User accounts, reviews, comments, and cloud sync — Greasy Fork, OpenUserJS, ScriptCat, Tampermonkey, and Violentmonkey already own identity/sync domains; ScriptHunt's privacy value is local-only state.
+- Extension-first distribution — Chrome/Firefox WebExtensions `userScripts` and sandbox issues add review and maintenance burden; the existing PWA/bookmarklet/companion-userscript path fits the project better.
+- Arbitrary JavaScript adapter plugins — WECG sandbox and ScriptCat Firefox MV2 issues show untrusted code execution boundaries are hard; constrained JSON/API or URL templates are safer.
+- Remote CI workflows — repo policy and `Roadmap_Blocked.md` already prohibit GitHub Actions; keep all verification local.
+- Full UI localization framework — current value is source locale filtering and localized metadata preservation; a translation framework would add weight to a single-file app without evidence of demand.
+- ML/vector ranking — no source showed a current ranking failure that deterministic trust dimensions cannot explain; keep ranking auditable.
+- Public-proxy-only strategy — source/proxy failures make a validated self-hosted Worker option necessary.
 
 ## Sources
-### Project And Local Evidence
+### Project
 - https://github.com/SysAdminDoc/UserScriptHunt
 
-### Direct Competitors And Managers
+### Catalogs, Managers, And Issues
 - https://greasyfork.org/en/help/api
-- https://github.com/greasyfork-org/greasyfork
-- https://www.userscript.zone/
+- https://greasyfork.org/en/help/external-scripts
 - https://www.tampermonkey.net/documentation.php
-- https://github.com/OpenUserJs/OpenUserJS.org
-- https://github.com/OpenUserJs/OpenUserJS.org/issues/2026
-- https://github.com/scriptscat/scriptcat/issues/1506
-- https://github.com/scriptscat/scriptcat/issues/1484
-- https://github.com/scriptscat/scriptcat/issues/1483
+- https://github.com/Tampermonkey/tampermonkey/issues/2015
+- https://github.com/Tampermonkey/tampermonkey/issues/2797
+- https://violentmonkey.github.io/api/metadata-block/
 - https://github.com/violentmonkey/violentmonkey/issues/2540
 - https://github.com/violentmonkey/violentmonkey/issues/2263
 - https://github.com/violentmonkey/violentmonkey/issues/2453
-- https://github.com/quoid/userscripts/issues/836
+- https://github.com/violentmonkey/violentmonkey/issues/2169
+- https://github.com/scriptscat/scriptcat/issues/1470
+- https://github.com/scriptscat/scriptcat/issues/1476
+- https://github.com/scriptscat/scriptcat/issues/1483
+- https://github.com/scriptscat/scriptcat/issues/1484
+- https://github.com/quoid/userscripts
+- https://github.com/quoid/userscripts/issues/248
 - https://github.com/quoid/userscripts/issues/871
-- https://github.com/quoid/userscripts/issues/817
-- https://github.com/jae-jae/Userscript-Plus/issues/63
+- https://github.com/quoid/userscripts/issues/899
+- https://github.com/OpenUserJs/OpenUserJS.org
+- https://www.userscript.zone/
+- https://github.com/awesome-scripts/awesome-userscripts
+- https://github.com/searxng/searxng
+- https://github.com/ossf/scorecard
 
-### APIs, Specs, Proxies, And Trust Systems
+### Standards, APIs, Proxies, And Testing
 - https://docs.github.com/en/rest/search/search
 - https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
-- https://violentmonkey.github.io/api/metadata-block/
 - https://developer.chrome.com/docs/extensions/reference/api/userScripts
-- https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/userScripts
-- https://developer.mozilla.org/en-US/docs/Web/API/StorageManager
-- https://developers.cloudflare.com/workers/platform/limits/
-- https://codetabs.com/cors-proxy/cors-proxy.html
-- https://allorigins.win/
-- https://api-docs.npms.io/
-- https://github.com/ossf/scorecard
-- https://socket.dev/
+- https://github.com/w3c/webextensions/issues/637
+- https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/estimate
+- https://playwright.dev/docs/accessibility-testing
 
 ## Open Questions
-- Does ScriptCat guarantee the `https://scriptcat.org/scripts/code/<id>/...user.js` install URL pattern, or should ScriptHunt treat it as best-effort and cache failures separately?
-- Which self-hosted Worker URL, if any, should the public deployment recommend by default?
-- Which manager export shapes should installed-script import support first: Tampermonkey ZIP, Violentmonkey ZIP/JSON, quoid/userscripts export, or ScriptCat backup JSON?
+- None that block prioritization. ScriptCat install URL stability and exact manager backup shapes should be validated with fixtures when those roadmap items are implemented.
