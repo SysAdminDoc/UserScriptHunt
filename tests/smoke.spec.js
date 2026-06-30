@@ -84,6 +84,21 @@ const MATCHING_USER_SCRIPT = `// ==UserScript==
 console.log('match');
 `;
 
+const OVERSIZED_MATCH_DIRECTIVES = Array.from({ length: 1000 }, (_, index) => {
+  const host = index === 999 ? 'hidden999.example.com' : `site-${index}.example.com`;
+  return `// @match https://${host}/*`;
+}).join('\n');
+
+const OVERSIZED_USER_SCRIPT = `// ==UserScript==
+// @name YouTube Enhancer
+// @version 1.0.0
+// @description Oversized metadata fixture.
+${OVERSIZED_MATCH_DIRECTIVES}
+// @grant GM_xmlhttpRequest
+// ==/UserScript==
+console.log('oversized');
+`;
+
 const NONMATCHING_USER_SCRIPT = `// ==UserScript==
 // @name Dark Mode Helper
 // @match https://example.com/*
@@ -468,6 +483,31 @@ test('metadata viewer preserves localized and variant directives', async ({ page
   await expect(metadata).toContainText('chrome');
   await expect(metadata).toContainText('@incompatible');
   await expect(metadata).toContainText('@updateURL');
+});
+
+test('metadata viewer caps oversized repeated directives without losing parsed filter data', async ({ page }) => {
+  await page.unroute(/https:\/\/greasyfork\.org\/scripts\/101-.*/);
+  await page.route(/https:\/\/greasyfork\.org\/scripts\/101-.*/, async (route) => {
+    await route.fulfill({ contentType: 'text/javascript', body: OVERSIZED_USER_SCRIPT });
+  });
+
+  await page.goto('/');
+  await page.fill('#siteFilter', 'hidden999.example.com');
+  await runSearch(page, 'oversized');
+
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await expect(card.locator('.applies-matrix')).toContainText('Metadata match');
+  const metadataButton = card.locator('[data-action="meta"]');
+  await expect(metadataButton).toBeVisible();
+  await metadataButton.click();
+  const metadata = card.locator('.card-metadata.visible');
+  await expect(metadata).toBeVisible();
+
+  await expect(metadata).toContainText('+920 more @match directives hidden from display');
+  await expect(metadata).toContainText('filters and trust still use all 1000 parsed values');
+  await expect(metadata).toContainText('https://site-0.example.com/*');
+  await expect(metadata).not.toContainText('https://hidden999.example.com/*');
+  expect((await metadata.textContent()).length).toBeLessThan(20000);
 });
 
 test('URL restores complete search state', async ({ page }) => {

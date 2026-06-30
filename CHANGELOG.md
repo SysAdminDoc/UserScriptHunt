@@ -17,6 +17,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - GitHub token settings in Diagnostics with save/remove controls, rate-limit checks, authenticated search headers, and redacted diagnostics.
 - Manager-aware security scan findings for broad `@match`/`@include`, enumerated `@connect`, pinned vs floating `@require`, and update/download URL host drift.
 - Metadata parsing now preserves localized `@name`/`@description`, `@exclude-match`, compatibility directives, and repeated keys without overwriting values.
+- Metadata viewer output is now bounded for very large repeated directive blocks while keeping parsed metadata available for filters and trust scoring.
 - Installed-script exports with `scripthunt-installed` schema v1 plus stricter import validation that skips bad rows without aborting valid rows.
 - PWA update prompts with explicit refresh control plus cached-shell fallback notices when the service worker serves stale content offline.
 - Saved searches for local query/filter/source snapshots with manual refresh and new/updated result badges.

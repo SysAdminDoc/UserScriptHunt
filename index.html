@@ -245,7 +245,7 @@
         /* Metadata panel */
         .card-metadata{display:none;margin-top:8px;padding:10px;background:var(--bg-void);border-radius:8px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.7;color:var(--text-secondary);overflow-x:auto;white-space:pre}
         .card-metadata.visible{display:block;animation:cardIn 0.2s ease}
-        .meta-key{color:var(--accent)}.meta-val{color:var(--text-primary)}
+        .meta-key{color:var(--accent)}.meta-val{color:var(--text-primary)}.meta-overflow{color:var(--text-muted);font-style:italic}
         .meta-loading{color:var(--text-muted);font-style:italic;font-family:inherit}
 
         /* Comparison bar */
@@ -614,6 +614,8 @@
     var SCAN_CACHE_LIMIT = 300;
     var SCAN_CACHE_TTL = 7 * 864e5;
     var SCAN_CONCURRENCY = 4;
+    var META_DISPLAY_VALUE_LIMIT = 80;
+    var META_DISPLAY_CHAR_LIMIT = 500;
     var _offlineDbPromise = null;
 
     function offlineKey(rawQuery, siteVal, filters) {
@@ -2352,22 +2354,45 @@
             var sc = await fetchAndScan(item);
             if (!sc || sc.unavailable) { mp.innerHTML = '<span class="meta-loading">' + esc((sc && sc.reason) || 'Metadata unavailable: script fetch failed') + '</span>'; return; }
             if (!sc.meta) { mp.innerHTML = '<span class="meta-loading">Metadata unavailable: no userscript metadata block found</span>'; return; }
-            var mh = '', order = ['name','name:en','name:fr','namespace','version','description','description:en','description:fr','author','license','match','include','exclude','exclude-match','grant','require','connect','compatible','incompatible','run-at','noframes','icon','homepageURL','supportURL','downloadURL','updateURL'];
-            var shown = {};
-            for (var k = 0; k < order.length; k++) {
-                var key = order[k]; if (sc.meta[key] === undefined) continue; shown[key] = true;
-                var val = Array.isArray(sc.meta[key]) ? sc.meta[key].join('\n// @' + pad(key) + ' ') : sc.meta[key];
-                mh += '<span class="meta-key">@' + pad(key) + '</span> <span class="meta-val">' + esc(val) + '</span>\n';
-            }
-            Object.keys(sc.meta).forEach(function(k) { if (shown[k]) return;
-                var v = Array.isArray(sc.meta[k]) ? sc.meta[k].join('\n// @' + pad(k) + ' ') : sc.meta[k];
-                mh += '<span class="meta-key">@' + pad(k) + '</span> <span class="meta-val">' + esc(v) + '</span>\n';
-            });
-            mp.innerHTML = mh || '<span class="meta-loading">No metadata found</span>';
+            mp.innerHTML = renderMetadataPanel(sc.meta);
         }
     }
 
     function pad(s) { while (s.length < 16) s += ' '; return s; }
+
+    function trimMetaDisplayValue(value) {
+        var text = String(value === undefined || value === null ? '' : value);
+        if (text.length <= META_DISPLAY_CHAR_LIMIT) return text;
+        return text.slice(0, META_DISPLAY_CHAR_LIMIT) + ' ... [truncated ' + (text.length - META_DISPLAY_CHAR_LIMIT) + ' chars]';
+    }
+
+    function renderMetadataDirective(key, raw) {
+        var values = Array.isArray(raw) ? raw : [raw];
+        var displayCount = Math.min(values.length, META_DISPLAY_VALUE_LIMIT);
+        var html = '';
+        for (var i = 0; i < displayCount; i++) {
+            html += '<span class="meta-key">@' + pad(key) + '</span> <span class="meta-val">' + esc(trimMetaDisplayValue(values[i])) + '</span>\n';
+        }
+        if (values.length > displayCount) {
+            var hidden = values.length - displayCount;
+            html += '<span class="meta-key">@' + pad(key) + '</span> <span class="meta-overflow">+' + hidden + ' more @' + esc(key) + ' directives hidden from display; filters and trust still use all ' + values.length + ' parsed values.</span>\n';
+        }
+        return html;
+    }
+
+    function renderMetadataPanel(meta) {
+        if (!meta) return '<span class="meta-loading">No metadata found</span>';
+        var mh = '', order = ['name','name:en','name:fr','namespace','version','description','description:en','description:fr','author','license','match','include','exclude','exclude-match','grant','require','connect','compatible','incompatible','run-at','noframes','icon','homepageURL','supportURL','downloadURL','updateURL'];
+        var shown = {};
+        for (var k = 0; k < order.length; k++) {
+            var key = order[k]; if (meta[key] === undefined) continue; shown[key] = true;
+            mh += renderMetadataDirective(key, meta[key]);
+        }
+        Object.keys(meta).forEach(function(k) { if (shown[k]) return;
+            mh += renderMetadataDirective(k, meta[k]);
+        });
+        return mh || '<span class="meta-loading">No metadata found</span>';
+    }
 
     /* ===== Comparison Mode ===== */
     function updateCompareBar() {
