@@ -31,26 +31,6 @@
 ## Research-Driven Additions
 
 ### P1
-- [ ] P1 — Cap oversized metadata parsing and rendering
-  Why: Very large `@match` and repeated metadata blocks can stall manager tooling, and ScriptHunt currently preserves and renders metadata without an explicit display cap.
-  Evidence: quoid/userscripts#899; `index.html:1795`, `index.html:246`, `tests/smoke.spec.js:454`.
-  Touches: `index.html` metadata parser/viewer/filter summaries, `tests/smoke.spec.js`, `tests/fixtures/source-adapters.js`.
-  Acceptance: a fixture with 1,000+ metadata directives renders within the existing Playwright timeout, repeated directives show a visible overflow count, filters/risk scoring still use normalized data, and no result card dumps unbounded metadata text.
-  Complexity: M
-
-- [ ] P1 — Add cache quota diagnostics and recovery controls
-  Why: Offline searches and scan caches are capped internally, but users have no way to inspect storage pressure or clear only recoverable caches when browser storage is evicted or stale.
-  Evidence: `index.html:612`, `index.html:614`, `index.html:833`; MDN StorageManager estimate API.
-  Touches: `index.html` diagnostics/storage UI, IndexedDB/localStorage cache helpers, `tests/smoke.spec.js`.
-  Acceptance: diagnostics shows cache counts plus estimated usage/quota when available, users can clear scan cache and offline-search cache independently without deleting favorites/tokens, and tests cover IndexedDB plus localStorage fallback behavior.
-  Complexity: M
-
-- [ ] P1 — Test source adapters against failure and drift shapes
-  Why: Adapter tests cover representative success payloads, but real sources fail through empty pages, malformed HTML, proxy wrappers, 403/429 rate limits, and changed markup.
-  Evidence: `tests/adapter.spec.js:4`, `index.html:1056`, GitHub Search API docs, OpenUserJS/Userscript.Zone/Gist scrape paths.
-  Touches: `tests/adapter.spec.js`, `tests/fixtures/source-adapters.js`, `index.html` adapter normalizers/source-health handling.
-  Acceptance: deterministic fixtures cover empty, malformed, rate-limited, and proxy-error responses for every source class; UI records recoverable source errors without crashing; existing success fixtures still pass.
-  Complexity: M
 
 - [ ] P1 — Expose installed update and dependency provenance
   Why: Userscript managers repeatedly show confusion around `@updateURL`, `@downloadURL`, install URL fallback, and cached `@require` dependencies; ScriptHunt has the data but not a dedicated installed-script provenance view.
@@ -133,4 +113,29 @@
   Evidence: OpenUserJS#1023, Tampermonkey#2015, GitHub Search API docs; index.html:1438, index.html:1473, index.html:1573.
   Touches: index.html source normalizers/result cards/comparison modal, adapter fixtures, README source notes.
   Acceptance: result cards show source-history or diff links when a source provides a stable history/repository URL, omit them otherwise, and tests cover Greasy Fork, GitHub repository/code, and scrape-only fallback behavior.
+  Complexity: M
+
+## Research-Driven Additions
+
+### P1
+- [ ] P1 - Harden untrusted rendering and URL sinks
+  Why: ScriptHunt renders third-party catalog and metadata fields through many dynamic HTML and URL sinks; current escaping helpers need a central policy and hostile fixtures.
+  Evidence: `index.html:2287`, `index.html:2364`, `index.html:2470`, `index.html:3055`; MDN Trusted Types API.
+  Touches: `index.html` render helpers/result cards/status chips/metadata panels/favorites/imports, `tests/smoke.spec.js`, `tests/adapter.spec.js`.
+  Acceptance: malicious source names/descriptions/metadata/URLs render as inert text, unsafe URL protocols are rejected or disabled, Trusted Types-compatible helper/policy is used when available, and Playwright tests cover card, metadata, saved-search, favorite, and source-status sinks.
+  Complexity: M
+
+### P2
+- [ ] P2 - Add release and version drift checks
+  Why: Version truth is manually repeated across the app, service worker cache, package, README badge, and changelog, so releases can silently ship stale cache names.
+  Evidence: `index.html:377`, `package.json:3`, `sw.js:1`, `README.md:3`, `CHANGELOG.md:5`.
+  Touches: `tests/`, `package.json`, `index.html`, `sw.js`, `README.md`, `CHANGELOG.md`.
+  Acceptance: a local test/check fails when app/package/README/changelog/service-worker versions drift, confirms the service-worker cache name matches the app version, and runs through `npm run qa` without adding GitHub Actions.
+  Complexity: S
+
+- [ ] P2 - Add diagnostics snapshot replay fixtures
+  Why: Source/proxy failures are currently copyable but not replayable, making reported failures harder to turn into deterministic regressions without secrets.
+  Evidence: `index.html:3498`, `tests/adapter.spec.js:136`, Violentmonkey#2263, ScriptCat#1476.
+  Touches: `index.html` diagnostics schema/sanitizer, `tests/smoke.spec.js`, `tests/fixtures/source-adapters.js`, README diagnostics notes.
+  Acceptance: diagnostics exports include a schema version and sanitized replay section; a local fixture/test can load a diagnostics snapshot to recreate source status/rate-limit/proxy/cache states; tokens and custom proxy URLs remain redacted.
   Complexity: M
