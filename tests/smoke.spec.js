@@ -836,6 +836,22 @@ test('proxy failures show per-proxy reasons and retry control', async ({ page })
   await expect(chip.getByRole('button', { name: 'Retry OpenUserJS' })).toBeVisible();
 });
 
+test('malformed API source response records recoverable error without crashing', async ({ page }) => {
+  await page.unroute('https://api.greasyfork.org/**');
+  await page.route('https://api.greasyfork.org/**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: '{not-json' });
+  });
+
+  await page.goto('/');
+  await page.fill('#searchInput', 'drift');
+  await page.press('#searchInput', 'Enter');
+
+  const chip = page.locator('.source-chip.error').filter({ hasText: 'Greasy Fork' });
+  await expect(chip).toContainText('greasyfork.org invalid JSON');
+  await expect(chip.getByRole('button', { name: 'Retry Greasy Fork' })).toBeVisible();
+  await expect(page.locator('.state-empty')).toContainText('No results found');
+});
+
 test('source health cooldown persists across reloads', async ({ page }) => {
   await page.route('https://api.allorigins.win/**', async (route) => {
     await route.fulfill({ status: 502, body: 'allorigins down' });

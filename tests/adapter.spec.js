@@ -64,3 +64,149 @@ test('source adapters normalize representative source payloads', async ({ page }
     installUrl: 'https://gist.githubusercontent.com/gist-author/abc123/raw/Fixture.user.js',
   });
 });
+
+test('source adapters ignore empty and malformed drift shapes', async ({ page }) => {
+  await page.goto('/');
+
+  const normalized = await page.evaluate((data) => ({
+    apiRows: {
+      greasyfork: sourceRows(data.malformedGreasyForkRows).map((row) => normGF(row, 'greasyfork')),
+      github: sourceRows(data.malformedGitHubRows).map(normGH),
+      scriptcat: sourceRows(data.malformedScriptCatRows).map(normSC),
+    },
+    emptyCounts: {
+      openuserjs: parseOUJS(data.emptyHtml).length,
+      uszone: parseUSZ(data.emptyHtml).length,
+      gists: parseGists(data.emptyHtml).length,
+    },
+    driftHtml: {
+      openuserjs: parseOUJS(data.malformedOpenUserJsHtml),
+      uszone: parseUSZ(data.malformedUserscriptZoneHtml),
+      gists: parseGists(data.malformedGistHtml),
+    },
+  }), fixtures);
+
+  expect(normalized.apiRows.greasyfork).toHaveLength(1);
+  expect(normalized.apiRows.greasyfork[0]).toMatchObject({ id: 'greasyfork-211', name: 'Minimal Greasy Row' });
+  expect(normalized.apiRows.github).toHaveLength(1);
+  expect(normalized.apiRows.github[0]).toMatchObject({ id: 'github-311', name: 'fixture/minimal-gh', author: 'Unknown' });
+  expect(normalized.apiRows.scriptcat).toHaveLength(1);
+  expect(normalized.apiRows.scriptcat[0]).toMatchObject({ id: 'scriptcat-511', name: 'Minimal ScriptCat Row' });
+
+  expect(normalized.emptyCounts).toEqual({ openuserjs: 0, uszone: 0, gists: 0 });
+  expect(normalized.driftHtml.openuserjs).toHaveLength(1);
+  expect(normalized.driftHtml.openuserjs[0]).toMatchObject({ name: 'Drift Valid OpenUserJS', author: 'ou-author' });
+  expect(normalized.driftHtml.uszone).toHaveLength(1);
+  expect(normalized.driftHtml.uszone[0]).toMatchObject({ name: 'Drift Zone Script', installUrl: 'https://github.com/example/drift.user.js' });
+  expect(normalized.driftHtml.gists).toHaveLength(1);
+  expect(normalized.driftHtml.gists[0]).toMatchObject({ name: 'Drift.user.js', installUrl: 'https://gist.github.com/gist-author/def456/raw/Drift.user.js' });
+});
+
+test('source fetchers surface invalid JSON, rate limits, and proxy wrapper failures', async ({ page }) => {
+  await page.goto('/');
+
+  const failures = await page.evaluate(async (data) => {
+    const originalFetch = window.fetch;
+    const makeResponse = (body, options = {}) => new Response(body, {
+      status: options.status || 200,
+      headers: options.headers || {},
+    });
+    const capture = async (fn) => {
+      try {
+        return { ok: true, value: await fn() };
+      } catch (err) {
+        return { ok: false, message: err && err.message ? err.message : String(err) };
+      }
+    };
+    const resetState = () => {
+      _cache.clear();
+      _ghCooldown = 0;
+      _proxyHealth.lastUsed = '';
+      _proxyHealth.failures = {};
+      _proxyHealth.lastUsedBySource = {};
+      _proxyHealth.errorsBySource = {};
+    };
+
+    try {
+      resetState();
+      const resetAt = String(Math.floor(Date.now() / 1000) + 60);
+      window.fetch = async (url) => {
+        const target = String(url);
+        if (target.includes('api.greasyfork.org')) return makeResponse('{not-json');
+        if (target.includes('api.github.com/search/repositories')) {
+          return makeResponse(JSON.stringify({ message: 'rate limited' }), {
+            status: 429,
+            headers: {
+              'x-ratelimit-limit': '10',
+              'x-ratelimit-remaining': '0',
+              'x-ratelimit-reset': resetAt,
+              'x-ratelimit-resource': 'search',
+            },
+          });
+        }
+        if (target.includes('scriptcat.org/api')) return makeResponse(JSON.stringify({ code: 500, msg: 'drifted shape' }));
+        throw new Error('unexpected fetch ' + target);
+      };
+      const apiFailures = {
+        greasyfork: await capture(() => srcGF('bad-json', 1, 'greasyfork.org')),
+        github: await capture(() => srcGH('rate-limit', 1)),
+        scriptcat: await capture(() => srcSC('bad-shape', 1)),
+      };
+
+      resetState();
+      window.fetch = async (url) => {
+        const target = String(url);
+        if (target.includes('api.allorigins.win')) return makeResponse(JSON.stringify({ status: 'ok' }));
+        if (target.includes('api.codetabs.com')) return makeResponse(data.openUserJsHtml);
+        if (target.includes('everyorigin')) throw new Error('everyorigin should not be reached after codetabs success');
+        throw new Error('unexpected proxy fetch ' + target);
+      };
+      const proxyFallback = await capture(() => srcOUJS('proxy-fallback', 1));
+      const proxyFallbackHealth = {
+        lastUsed: _proxyHealth.lastUsedBySource.openuserjs,
+        alloriginsFailures: _proxyHealth.failures.allorigins || 0,
+        count: proxyFallback.ok ? proxyFallback.value.length : 0,
+      };
+
+      resetState();
+      window.fetch = async (url) => {
+        const target = String(url);
+        if (target.includes('api.allorigins.win')) return makeResponse(JSON.stringify({ status: 'missing contents' }));
+        if (target.includes('api.codetabs.com')) return makeResponse('bad gateway', { status: 502 });
+        if (target.includes('everyorigin')) return makeResponse(JSON.stringify({ contents: 42 }));
+        throw new Error('unexpected proxy fetch ' + target);
+      };
+      const proxyFailure = await capture(() => srcGists('proxy-failure', 1));
+      const proxyFailureHealth = {
+        errors: (_proxyHealth.errorsBySource.gists || []).slice(),
+        alloriginsFailures: _proxyHealth.failures.allorigins || 0,
+        codetabsFailures: _proxyHealth.failures.codetabs || 0,
+        everyoriginFailures: _proxyHealth.failures.everyorigin || 0,
+      };
+
+      return { apiFailures, proxyFallback, proxyFallbackHealth, proxyFailure, proxyFailureHealth };
+    } finally {
+      window.fetch = originalFetch;
+    }
+  }, fixtures);
+
+  expect(failures.apiFailures.greasyfork).toMatchObject({ ok: false, message: 'greasyfork.org invalid JSON' });
+  expect(failures.apiFailures.github.ok).toBe(false);
+  expect(failures.apiFailures.github.message).toContain('Rate limited');
+  expect(failures.apiFailures.scriptcat).toMatchObject({ ok: false, message: 'ScriptCat: drifted shape' });
+
+  expect(failures.proxyFallback).toMatchObject({ ok: true });
+  expect(failures.proxyFallbackHealth).toMatchObject({ lastUsed: 'codetabs', alloriginsFailures: 1, count: 1 });
+
+  expect(failures.proxyFailure.ok).toBe(false);
+  expect(failures.proxyFailure.message).toContain('all proxies failed');
+  expect(failures.proxyFailure.message).toContain('allorigins: invalid proxy response shape');
+  expect(failures.proxyFailure.message).toContain('codetabs: HTTP 502');
+  expect(failures.proxyFailure.message).toContain('everyorigin: invalid proxy response shape');
+  expect(failures.proxyFailureHealth.errors).toEqual([
+    'allorigins: invalid proxy response shape',
+    'codetabs: HTTP 502',
+    'everyorigin: invalid proxy response shape',
+  ]);
+  expect(failures.proxyFailureHealth).toMatchObject({ alloriginsFailures: 1, codetabsFailures: 1, everyoriginFailures: 1 });
+});

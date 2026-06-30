@@ -544,12 +544,22 @@
         return fetch(url.toString(), { signal: AbortSignal.timeout(ms || 10000) });
     }
 
+    async function readJsonOrThrow(response, label) {
+        try { return await response.json(); }
+        catch(e) { throw new Error(label + ' invalid JSON'); }
+    }
+
+    function proxyTextResponse(wrapper, fields) {
+        for (var i = 0; i < fields.length; i++) {
+            if (typeof wrapper[fields[i]] === 'string') return new Response(wrapper[fields[i]], { status: 200 });
+        }
+        throw new Error('invalid proxy response shape');
+    }
+
     async function customProxyFetch(proxyUrl, target, ms) {
         var r = await customProxyResponse(proxyUrl, target, ms);
         if (!r.ok) throw new Error('HTTP ' + r.status);
-        var wrapper = await r.json();
-        if (typeof wrapper.contents !== 'string') throw new Error('invalid proxy response shape');
-        return new Response(wrapper.contents, { status: 200 });
+        return proxyTextResponse(await readJsonOrThrow(r, 'custom proxy'), ['contents']);
     }
 
     async function selfTestCustomProxy(proxyUrl) {
@@ -581,9 +591,9 @@
             proxies.push({ name: 'custom', run: function() { return customProxyFetch(_customProxy, url, ms); } });
         }
         proxies.push(
-            { name: 'allorigins', run: function() { return fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(w) { return new Response(w.contents || '', { status: 200 }); }); } },
+            { name: 'allorigins', run: function() { return fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return readJsonOrThrow(r, 'allorigins'); }).then(function(w) { return proxyTextResponse(w, ['contents']); }); } },
             { name: 'codetabs', run: function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r; }); } },
-            { name: 'everyorigin', run: function() { return fetch('https://everyorigin.jwvbremen.nl/api/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(w) { return new Response(w.html || w.contents || '', { status: 200 }); }); } }
+            { name: 'everyorigin', run: function() { return fetch('https://everyorigin.jwvbremen.nl/api/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return readJsonOrThrow(r, 'everyorigin'); }).then(function(w) { return proxyTextResponse(w, ['html', 'contents']); }); } }
         );
         var errors = [];
         for (var i = 0; i < proxies.length; i++) {
@@ -1128,17 +1138,22 @@
     }
 
     /* -- Sources -- */
+    function sourceRows(value) {
+        if (!Array.isArray(value)) return [];
+        return value.filter(function(row) { return row && typeof row === 'object' && !Array.isArray(row); });
+    }
+
     var _savedSrc = _prefGet('sources', {});
     var SOURCES = {
         greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true, pageSize: 100,
-            search: function(q, p, site, locale) { return srcGF(q, p, 'greasyfork.org', site, locale).then(function(d) { return d.map(function(i) { var item = normGF(i, 'greasyfork'); if (site) item._appliesSource = { label: 'Greasy Fork site match', domain: site }; return item; }); }); } },
+            search: function(q, p, site, locale) { return srcGF(q, p, 'greasyfork.org', site, locale).then(function(d) { return sourceRows(d).map(function(i) { var item = normGF(i, 'greasyfork'); if (site) item._appliesSource = { label: 'Greasy Fork site match', domain: site }; return item; }); }); } },
         sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false, pageSize: 100,
-            search: function(q, p, site, locale) { return srcGF(q, p, 'sleazyfork.org', site, locale).then(function(d) { return d.map(function(i) { var item = normGF(i, 'sleazyfork'); if (site) item._appliesSource = { label: 'Sleazy Fork site match', domain: site }; return item; }); }); } },
+            search: function(q, p, site, locale) { return srcGF(q, p, 'sleazyfork.org', site, locale).then(function(d) { return sourceRows(d).map(function(i) { var item = normGF(i, 'sleazyfork'); if (site) item._appliesSource = { label: 'Sleazy Fork site match', domain: site }; return item; }); }); } },
         github: { id: 'github', name: 'GitHub', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true, pageSize: 30,
             search: function(q, p) {
                 return srcGH(q, p).then(function(raw) {
-                    var items = (raw.items || []).map(normGH);
-                    if (_ghToken && q) { return srcGHCode(q, p).then(function(cr) { return items.concat((cr.items || []).map(normGHCode)); }).catch(function(ce) { console.warn('[github-code]', ce.message); if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000); return items; }); }
+                    var items = sourceRows(raw.items).map(normGH);
+                    if (_ghToken && q) { return srcGHCode(q, p).then(function(cr) { return items.concat(sourceRows(cr.items).map(normGHCode)); }).catch(function(ce) { console.warn('[github-code]', ce.message); if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000); return items; }); }
                     return items;
                 });
             }, _getTotal: function(raw) { return raw.total_count; } },
@@ -1147,7 +1162,7 @@
         uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true, pageSize: 3,
             search: function(q, p) { return srcUSZ(q, p); } },
         scriptcat: { id: 'scriptcat', name: 'ScriptCat', color: '#10b981', dimColor: 'rgba(16,185,129,0.12)', enabled: _savedSrc.scriptcat !== undefined ? _savedSrc.scriptcat : true, pageSize: 30,
-            search: function(q, p) { return srcSC(q, p).then(function(r) { return { items: (r.items || []).map(normSC), total: r.total }; }); } },
+            search: function(q, p) { return srcSC(q, p).then(function(r) { return { items: sourceRows(r.items).map(normSC), total: r.total }; }); } },
         gists: { id: 'gists', name: 'GitHub Gists', color: '#6e7681', dimColor: 'rgba(110,118,129,0.1)', enabled: _savedSrc.gists !== undefined ? _savedSrc.gists : false, pageSize: 10,
             search: function(q, p) { return srcGists(q, p); } },
     };
@@ -1526,8 +1541,8 @@
         }
         var r = await fetch(url, { signal: AbortSignal.timeout(12000) });
         if (!r.ok) throw new Error(domain + ' HTTP ' + r.status);
-        var data = await r.json();
-        var result = Array.isArray(data) ? data : [];
+        var data = await readJsonOrThrow(r, domain);
+        var result = sourceRows(data);
         _cSet(ck, result);
         return result;
     }
@@ -1562,7 +1577,7 @@
         }
         if (r.status === 401) { _ghToken = ''; _prefRemove('ghtoken'); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
         if (!r.ok) throw new Error('GitHub HTTP ' + r.status);
-        var data = await r.json(); _cSet(ck, data); return data;
+        var data = await readJsonOrThrow(r, 'GitHub'); _cSet(ck, data); return data;
     }
 
     function normGH(item) {
@@ -1665,7 +1680,7 @@
         }
         if (r.status === 401) { _ghToken = ''; _prefRemove('ghtoken'); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
         if (!r.ok) throw new Error('GitHub Code HTTP ' + r.status);
-        var data = await r.json(); _cSet(ck, data); return data;
+        var data = await readJsonOrThrow(r, 'GitHub Code'); _cSet(ck, data); return data;
     }
 
     function normGHCode(item) {
@@ -1758,9 +1773,9 @@
         var cached = _cGet(ck); if (cached) return cached;
         var r = await fetch('https://scriptcat.org/api/v2/scripts?keyword=' + encodeURIComponent(query) + '&page=' + page + '&size=30', { signal: AbortSignal.timeout(12000) });
         if (!r.ok) throw new Error('ScriptCat HTTP ' + r.status);
-        var data = await r.json();
+        var data = await readJsonOrThrow(r, 'ScriptCat');
         if (data.code !== 0) throw new Error('ScriptCat: ' + (data.msg || 'unknown error'));
-        var result = { items: (data.data && data.data.list) || [], total: (data.data && data.data.total) || 0 };
+        var result = { items: sourceRows(data.data && data.data.list), total: (data.data && data.data.total) || 0 };
         _cSet(ck, result);
         return result;
     }

@@ -16,6 +16,12 @@ module.exports = {
     license: 'MIT',
   },
 
+  malformedGreasyForkRows: [
+    null,
+    'not a row',
+    { id: 211, name: 'Minimal Greasy Row', users: [], code_url: '', total_installs: 0 },
+  ],
+
   githubRepoItem: {
     id: 310,
     name: 'fixture-userscript',
@@ -31,6 +37,12 @@ module.exports = {
     language: 'JavaScript',
   },
 
+  malformedGitHubRows: [
+    false,
+    ['array row'],
+    { id: 311, name: '', full_name: 'fixture/minimal-gh', owner: null, html_url: 'https://github.com/fixture/minimal-gh' },
+  ],
+
   openUserJsHtml: `
     <div class="script-panel">
       <a href="/scripts/ou-author/fixture-openuserjs">Fixture OpenUserJS</a>
@@ -38,10 +50,26 @@ module.exports = {
       <span class="badge">1,234</span>
     </div>`,
 
+  emptyHtml: '<main><p>No scripts found.</p></main>',
+
+  malformedOpenUserJsHtml: `
+    <div class="script-panel">
+      <a href="/scripts/too-short">Bad OpenUserJS Link</a>
+    </div>
+    <a href="/scripts/ou-author/drift-valid">Drift Valid OpenUserJS</a>`,
+
   userscriptZoneHtml: `
     <div>
       <a href="https://greasyfork.org/scripts/410-fixture/code/Fixture.user.js">Fixture Zone Script</a>
       <small>Userscript.Zone fixture description.</small>
+    </div>`,
+
+  malformedUserscriptZoneHtml: `
+    <a href="javascript:alert(1)">Unsafe ignored</a>
+    <a href="/internal/path">Internal ignored</a>
+    <div>
+      <a href="https://github.com/example/drift.user.js">Drift Zone Script</a>
+      <small>Zone drift description.</small>
     </div>`,
 
   scriptCatItem: {
@@ -57,6 +85,12 @@ module.exports = {
     updatetime: 1767225600,
   },
 
+  malformedScriptCatRows: [
+    undefined,
+    42,
+    { id: 511, name: 'Minimal ScriptCat Row', username: '', script: null },
+  ],
+
   gistHtml: `
     <div class="gist-snippet">
       <a href="/gist-author/abc123">Fixture Gist Script</a>
@@ -64,4 +98,10 @@ module.exports = {
       <span class="author">gist-author</span>
       <div class="f6">Gist fixture description.</div>
     </div>`,
+
+  malformedGistHtml: `
+    <div class="gist-snippet">
+      <a href="#">Bad Gist Link</a>
+    </div>
+    <a href="/gist-author/def456/raw/Drift.user.js">Drift.user.js</a>`,
 };

@@ -17,6 +17,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - GitHub token settings in Diagnostics with save/remove controls, rate-limit checks, authenticated search headers, and redacted diagnostics.
 - Cache Diagnostics section with offline/scan cache counts, StorageManager quota estimates, and independent cache-clear controls.
 - Diagnostics, Bookmarklet, and Saved panels now open through a local fallback when the browser Popover API is unavailable.
+- Source adapters now have deterministic malformed/empty/rate-limit/proxy-wrapper drift coverage, with invalid JSON and proxy wrapper errors surfaced as recoverable source errors.
 - Manager-aware security scan findings for broad `@match`/`@include`, enumerated `@connect`, pinned vs floating `@require`, and update/download URL host drift.
 - Metadata parsing now preserves localized `@name`/`@description`, `@exclude-match`, compatibility directives, and repeated keys without overwriting values.
 - Metadata viewer output is now bounded for very large repeated directive blocks while keeping parsed metadata available for filters and trust scoring.
