@@ -101,3 +101,36 @@
   Touches: `index.html` normalizers/filter logic/export schema, `tests/adapter.spec.js`, README source capability docs.
   Acceptance: common SPDX aliases normalize to stable filter values, unknown/custom licenses remain visible as `unknown` or source text, exports include raw and normalized license/provenance fields, and adapter tests cover each source.
   Complexity: S
+
+## Research-Driven Additions
+
+### P1
+- [ ] P1 — Add @require and @resource integrity evidence
+  Why: Remote dependencies can change independently of the userscript, and current trust scoring distinguishes pinned/floating URLs but not hash or integrity evidence.
+  Evidence: Greasemonkey#2349, Tampermonkey documentation, MDN Subresource Integrity; index.html:1168, index.html:1798.
+  Touches: index.html metadata scanner/trust dimensions, metadata viewer, tests/smoke.spec.js.
+  Acceptance: scans recognize integrity/hash fragments or supported integrity directives for @require/@resource, warn on remote dependencies with no version or integrity evidence, display positive integrity evidence, and cover pinned/hashless/hashed fixtures.
+  Complexity: M
+
+### P2
+- [ ] P2 — Add metadata compatibility lint with fix guidance
+  Why: Manager ecosystems disagree on valid @connect, @match, @include, and license/antifeature semantics, and ScriptHunt should explain actionable metadata problems rather than only risk severity.
+  Evidence: ScriptCat#1451, Tampermonkey#1593, Tampermonkey#1864, Greasemonkey#3095, OpenUserJS#1971; index.html:1154, index.html:2355.
+  Touches: index.html metadata parser/viewer, security findings, result-card warnings, tests/smoke.spec.js.
+  Acceptance: metadata viewer surfaces compatibility warnings for invalid wildcard/TLD patterns, @connect wildcard misconceptions, missing/unknown license guidance, antifeature labels, and malformed directives, with tests for each warning and no blocking of valid scripts.
+  Complexity: M
+
+- [ ] P2 — Version local preference storage and migrations
+  Why: Preferences, source health, saved searches, caches, favorites, and installed lists live in separate storage keys without a migration/reset model, making future schema changes risky.
+  Evidence: ScriptCat#1517; index.html:504, index.html:840, index.html:910, index.html:2544, index.html:3281.
+  Touches: index.html storage helpers, diagnostics/reset controls, import/export schema, tests/smoke.spec.js.
+  Acceptance: storage includes a schema version, migration path, and diagnostics summary; users can reset preferences/source health without deleting favorites or installed data; tests cover migration from current keys and corrupted preference recovery.
+  Complexity: M
+
+### P3
+- [ ] P3 — Add source version-history and diff handoff links
+  Why: Users deciding whether to install or update need a quick path to source history, but ScriptHunt should link to catalog/GitHub history instead of hosting script versions itself.
+  Evidence: OpenUserJS#1023, Tampermonkey#2015, GitHub Search API docs; index.html:1438, index.html:1473, index.html:1573.
+  Touches: index.html source normalizers/result cards/comparison modal, adapter fixtures, README source notes.
+  Acceptance: result cards show source-history or diff links when a source provides a stable history/repository URL, omit them otherwise, and tests cover Greasy Fork, GitHub repository/code, and scrape-only fallback behavior.
+  Complexity: M
