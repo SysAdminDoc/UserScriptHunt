@@ -282,6 +282,8 @@
         /* Bookmarklet section */
         .bookmarklet-section{max-width:680px;margin:0 auto 20px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;inset:unset;position:relative}
         .bookmarklet-section:popover-open{display:block;animation:cardIn 0.2s ease}
+        .no-popover .bookmarklet-section{display:none}
+        .no-popover .bookmarklet-section.fallback-open{display:block;animation:cardIn 0.2s ease}
         .bookmarklet-title{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text-primary)}
         .bookmarklet-desc{font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5}
         .bookmarklet-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);color:#fff;font-size:12px;font-weight:600;text-decoration:none;cursor:grab;transition:all var(--transition)}
@@ -293,6 +295,11 @@
         .saved-search-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
         .diagnostics-output{width:100%;min-height:180px;resize:vertical;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.5;padding:10px}
         .diagnostics-actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end}
+        .cache-diagnostics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:8px 0}
+        .cache-stat{background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px}
+        .cache-stat-label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:4px}
+        .cache-stat-value{font-size:13px;font-weight:700;color:var(--text-primary)}
+        .cache-stat-note{font-size:11px;color:var(--text-muted);line-height:1.4;margin-top:3px}
         .proxy-settings{display:grid;gap:8px;margin-bottom:12px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-primary)}
         .proxy-settings-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
         .proxy-settings input{flex:1;min-width:220px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font:inherit;font-size:12px;padding:7px 10px}
@@ -430,6 +437,17 @@
                     <button class="tool-btn" id="btnRemoveGitHubToken" type="button">Remove</button>
                 </div>
                 <div class="proxy-settings-status" id="githubSettingsStatus" role="status">GitHub token is optional and stored locally.</div>
+            </div>
+            <div class="proxy-settings" aria-label="Cache diagnostics and recovery">
+                <label class="filter-label">Cache storage</label>
+                <div class="cache-diagnostics-grid" id="cacheDiagnosticsSummary" aria-live="polite">
+                    <div class="cache-stat"><span class="cache-stat-label">Cache status</span><div class="cache-stat-value">Not checked</div><div class="cache-stat-note">Open Diagnostics to inspect recoverable caches.</div></div>
+                </div>
+                <div class="proxy-settings-row">
+                    <button class="tool-btn" id="btnClearScanCache" type="button">Clear Scan Cache</button>
+                    <button class="tool-btn" id="btnClearOfflineCache" type="button">Clear Offline Cache</button>
+                </div>
+                <div class="proxy-settings-status" id="cacheSettingsStatus" role="status">Clearing caches does not remove favorites, installed lists, saved searches, proxy settings, or GitHub tokens.</div>
             </div>
             <textarea class="diagnostics-output" id="diagnosticsOutput" readonly aria-label="Diagnostics payload"></textarea>
             <div class="diagnostics-actions"><button class="tool-btn" id="btnCopyDiagnostics" type="button">Copy</button></div>
@@ -617,6 +635,9 @@
     var META_DISPLAY_VALUE_LIMIT = 80;
     var META_DISPLAY_CHAR_LIMIT = 500;
     var _offlineDbPromise = null;
+    var _cacheDiagnostics = null;
+    var _supportsNativePopover = typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
+    if (!_supportsNativePopover) document.documentElement.classList.add('no-popover');
 
     function offlineKey(rawQuery, siteVal, filters) {
         return JSON.stringify({
@@ -747,6 +768,16 @@
         await offlineReq(db.transaction(SCAN_STORE, 'readwrite').objectStore(SCAN_STORE).delete(key));
     }
 
+    async function idbStoreCount(storeName) {
+        var db = await offlineDb();
+        return offlineReq(db.transaction(storeName, 'readonly').objectStore(storeName).count());
+    }
+
+    async function idbStoreClear(storeName) {
+        var db = await offlineDb();
+        await offlineReq(db.transaction(storeName, 'readwrite').objectStore(storeName).clear());
+    }
+
     function lsScanEntries() {
         try { return JSON.parse(localStorage.getItem('sh_scan_cache') || '[]'); } catch(e) { return []; }
     }
@@ -837,6 +868,73 @@
             var all = [entry].concat(lsScanEntries().filter(function(old) { return old.key !== key; }));
             lsWriteScanEntries(all.slice(0, SCAN_CACHE_LIMIT));
         }
+    }
+
+    function byteSizeFromJson(value) {
+        try { return new Blob([JSON.stringify(value || null)]).size; }
+        catch(e) { return JSON.stringify(value || null).length; }
+    }
+
+    function fmtBytes(n) {
+        n = Number(n || 0);
+        if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
+        if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+        if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+        return n + ' B';
+    }
+
+    async function storageEstimate() {
+        if (!navigator.storage || !navigator.storage.estimate) return { supported: false, usage: 0, quota: 0, percent: 0 };
+        try {
+            var estimate = await navigator.storage.estimate();
+            var usage = estimate.usage || 0, quota = estimate.quota || 0;
+            return { supported: true, usage: usage, quota: quota, percent: quota ? Math.round((usage / quota) * 1000) / 10 : 0 };
+        } catch(e) {
+            return { supported: false, usage: 0, quota: 0, percent: 0, error: (e && e.message) || 'storage estimate failed' };
+        }
+    }
+
+    async function buildCacheDiagnostics() {
+        var idb = { available: true, offlineSearches: 0, scanCache: 0, error: '' };
+        try {
+            idb.offlineSearches = await idbStoreCount(OFFLINE_STORE);
+            idb.scanCache = await idbStoreCount(SCAN_STORE);
+        } catch(e) {
+            idb.available = false;
+            idb.error = (e && e.message) || 'IndexedDB unavailable';
+        }
+        var offlineLs = lsOfflineEntries();
+        var scanLs = lsScanEntries();
+        var estimate = await storageEstimate();
+        return {
+            generatedAt: new Date().toISOString(),
+            limits: {
+                offlineSearches: OFFLINE_LIMIT,
+                offlineResultsPerSearch: OFFLINE_RESULT_LIMIT,
+                scanCache: SCAN_CACHE_LIMIT,
+                scanCacheTtlDays: Math.round(SCAN_CACHE_TTL / 864e5),
+            },
+            indexedDB: idb,
+            localStorage: {
+                offlineSearches: offlineLs.length,
+                scanCache: scanLs.length,
+                offlineBytes: byteSizeFromJson(offlineLs),
+                scanBytes: byteSizeFromJson(scanLs),
+            },
+            storage: estimate,
+        };
+    }
+
+    async function clearOfflineCache() {
+        try { await idbStoreClear(OFFLINE_STORE); } catch(e) {}
+        try { localStorage.removeItem('sh_offline_searches'); } catch(e) {}
+        state.offlineCache = null;
+        renderOfflineCachePanel();
+    }
+
+    async function clearScanCache() {
+        try { await idbStoreClear(SCAN_STORE); } catch(e) {}
+        try { localStorage.removeItem('sh_scan_cache'); } catch(e) {}
     }
 
     /* -- Favorites (localStorage) -- */
@@ -3040,27 +3138,50 @@
     });
 
     // Bookmarklet
+    function bindPopoverFallback(btn, section, onOpen) {
+        if (_supportsNativePopover || !btn || !section) return;
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            var willOpen = !section.classList.contains('fallback-open');
+            document.querySelectorAll('.bookmarklet-section.fallback-open').forEach(function(openSection) {
+                if (openSection === section) return;
+                openSection.classList.remove('fallback-open');
+                var openBtn = document.querySelector('[popovertarget="' + openSection.id + '"]');
+                if (openBtn) openBtn.classList.remove('active');
+            });
+            section.classList.toggle('fallback-open', willOpen);
+            btn.classList.toggle('active', willOpen);
+            if (willOpen && typeof onOpen === 'function') onOpen();
+        });
+    }
+
     var bmBase = location.origin !== 'null' ? location.origin + location.pathname.replace(/[^/]*$/, '') : 'https://sysadmindoc.github.io/UserScriptHunt/';
     var bmCode = "javascript:void(window.open('" + bmBase + "?q=site:'+encodeURIComponent(location.hostname),'_blank'))";
     document.getElementById('bookmarkletLink').href = bmCode;
     var bmBtn = document.getElementById('btnBookmarklet');
-    document.getElementById('bookmarkletSection').addEventListener('toggle', function(e) {
+    var bmSection = document.getElementById('bookmarkletSection');
+    bindPopoverFallback(bmBtn, bmSection);
+    bmSection.addEventListener('toggle', function(e) {
         bmBtn.classList.toggle('active', e.newState === 'open');
     });
     var savedBtn = document.getElementById('btnSavedSearches');
+    var savedSection = document.getElementById('savedSearchSection');
     savedBtn.addEventListener('click', renderSavedSearches);
-    document.getElementById('savedSearchSection').addEventListener('toggle', function(e) {
+    bindPopoverFallback(savedBtn, savedSection, renderSavedSearches);
+    savedSection.addEventListener('toggle', function(e) {
         var open = e.newState === 'open';
         savedBtn.classList.toggle('active', open);
         if (open) renderSavedSearches();
     });
     document.getElementById('btnSaveCurrentSearch').addEventListener('click', saveCurrentSearch);
     var diagBtn = document.getElementById('btnDiagnostics');
+    var diagSection = document.getElementById('diagnosticsSection');
     diagBtn.addEventListener('click', renderGitHubSettings);
-    document.getElementById('diagnosticsSection').addEventListener('toggle', function(e) {
+    bindPopoverFallback(diagBtn, diagSection, function() { renderGitHubSettings(); refreshCacheDiagnostics(); });
+    diagSection.addEventListener('toggle', function(e) {
         var open = e.newState === 'open';
         diagBtn.classList.toggle('active', open);
-        if (open) renderGitHubSettings();
+        if (open) { renderGitHubSettings(); refreshCacheDiagnostics(); }
     });
     var proxyInput = document.getElementById('customProxyInput');
     var proxyStatus = document.getElementById('proxySettingsStatus');
@@ -3152,6 +3273,35 @@
         renderDiagnostics();
     });
     renderGitHubSettings();
+    renderCacheDiagnosticsSummary(_cacheDiagnostics);
+    var clearScanCacheBtn = document.getElementById('btnClearScanCache');
+    var clearOfflineCacheBtn = document.getElementById('btnClearOfflineCache');
+    clearScanCacheBtn.addEventListener('click', async function() {
+        clearScanCacheBtn.disabled = true;
+        setCacheStatus('Clearing scan cache...', '');
+        try {
+            await clearScanCache();
+            setCacheStatus('Scan cache cleared. Favorites, installed scripts, saved searches, and tokens were left untouched.', 'ok');
+            await refreshCacheDiagnostics();
+        } catch(err) {
+            setCacheStatus('Could not clear scan cache: ' + ((err && err.message) || 'unknown error'), 'error');
+        } finally {
+            clearScanCacheBtn.disabled = false;
+        }
+    });
+    clearOfflineCacheBtn.addEventListener('click', async function() {
+        clearOfflineCacheBtn.disabled = true;
+        setCacheStatus('Clearing offline search cache...', '');
+        try {
+            await clearOfflineCache();
+            setCacheStatus('Offline search cache cleared. Favorites, installed scripts, saved searches, and tokens were left untouched.', 'ok');
+            await refreshCacheDiagnostics();
+        } catch(err) {
+            setCacheStatus('Could not clear offline cache: ' + ((err && err.message) || 'unknown error'), 'error');
+        } finally {
+            clearOfflineCacheBtn.disabled = false;
+        }
+    });
     document.getElementById('btnCopyDiagnostics').addEventListener('click', function() {
         renderDiagnostics();
         var out = document.getElementById('diagnosticsOutput');
@@ -3290,6 +3440,46 @@
         return params.get('q') || '';
     }
 
+    function renderCacheDiagnosticsSummary(summary) {
+        var el = document.getElementById('cacheDiagnosticsSummary');
+        if (!el) return;
+        if (!summary) {
+            el.innerHTML = '<div class="cache-stat"><span class="cache-stat-label">Cache status</span><div class="cache-stat-value">Checking...</div><div class="cache-stat-note">Inspecting IndexedDB, localStorage, and browser quota.</div></div>';
+            return;
+        }
+        var idb = summary.indexedDB || {};
+        var ls = summary.localStorage || {};
+        var storage = summary.storage || {};
+        var limits = summary.limits || { offlineSearches: OFFLINE_LIMIT, scanCache: SCAN_CACHE_LIMIT };
+        var storageValue = storage.supported && storage.quota ? fmtBytes(storage.usage) + ' / ' + fmtBytes(storage.quota) : 'Unavailable';
+        var storageNote = storage.supported && storage.quota ? storage.percent + '% used by this origin' : 'StorageManager estimate not available';
+        el.innerHTML =
+            '<div class="cache-stat"><span class="cache-stat-label">Offline searches</span><div class="cache-stat-value">' + esc(String((idb.offlineSearches || 0) + (ls.offlineSearches || 0))) + '</div><div class="cache-stat-note">IndexedDB ' + esc(String(idb.offlineSearches || 0)) + ' / localStorage ' + esc(String(ls.offlineSearches || 0)) + '; limit ' + esc(String(limits.offlineSearches)) + '</div></div>' +
+            '<div class="cache-stat"><span class="cache-stat-label">Scan cache</span><div class="cache-stat-value">' + esc(String((idb.scanCache || 0) + (ls.scanCache || 0))) + '</div><div class="cache-stat-note">IndexedDB ' + esc(String(idb.scanCache || 0)) + ' / localStorage ' + esc(String(ls.scanCache || 0)) + '; limit ' + esc(String(limits.scanCache)) + '</div></div>' +
+            '<div class="cache-stat"><span class="cache-stat-label">Quota</span><div class="cache-stat-value">' + esc(storageValue) + '</div><div class="cache-stat-note">' + esc(storageNote) + '</div></div>' +
+            '<div class="cache-stat"><span class="cache-stat-label">Fallback bytes</span><div class="cache-stat-value">' + esc(fmtBytes((ls.offlineBytes || 0) + (ls.scanBytes || 0))) + '</div><div class="cache-stat-note">Recoverable localStorage cache payload only</div></div>';
+    }
+
+    function setCacheStatus(msg, cls) {
+        var el = document.getElementById('cacheSettingsStatus');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'proxy-settings-status' + (cls ? ' ' + cls : '');
+    }
+
+    async function refreshCacheDiagnostics() {
+        renderCacheDiagnosticsSummary(null);
+        try {
+            _cacheDiagnostics = await buildCacheDiagnostics();
+            renderCacheDiagnosticsSummary(_cacheDiagnostics);
+            renderDiagnostics();
+        } catch(e) {
+            _cacheDiagnostics = { error: (e && e.message) || 'cache diagnostics failed' };
+            renderCacheDiagnosticsSummary(_cacheDiagnostics);
+            renderDiagnostics();
+        }
+    }
+
     function buildDiagnosticsPayload() {
         return {
             app: 'ScriptHunt',
@@ -3309,6 +3499,7 @@
                 failures: _proxyHealth.failures,
                 errorsBySource: _proxyHealth.errorsBySource,
             },
+            cacheDiagnostics: _cacheDiagnostics || { status: 'checking' },
             filters: {
                 q: searchInput.value.trim(),
                 site: siteFilter.value.trim(),

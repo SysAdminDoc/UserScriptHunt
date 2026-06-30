@@ -180,6 +180,30 @@ async function waitForOfflineCache(page, query = 'youtube') {
   }, query);
 }
 
+async function idbStoreCount(page, storeName) {
+  return page.evaluate((store) => new Promise((resolve, reject) => {
+    const open = indexedDB.open('scripthunt-offline-v1');
+    open.onsuccess = () => {
+      const db = open.result;
+      const req = db.transaction(store, 'readonly').objectStore(store).count();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    };
+    open.onerror = () => reject(open.error);
+  }), storeName);
+}
+
+async function localStorageArrayCount(page, key) {
+  return page.evaluate((storageKey) => {
+    try {
+      const value = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      return Array.isArray(value) ? value.length : 0;
+    } catch {
+      return 0;
+    }
+  }, key);
+}
+
 test('page loads with search input and source toggles', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#searchInput')).toBeVisible();
@@ -859,6 +883,99 @@ test('diagnostics export includes health and excludes secrets', async ({ page })
   expect(payloadText).not.toContain('ghp_secret_should_not_export');
   expect(payloadText).not.toContain('secret-proxy.example');
   expect(payload.customProxyConfigured).toBe(false);
+});
+
+test('popover fallback opens diagnostics when native Popover API is unavailable', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLElement.prototype, 'showPopover', { configurable: true, value: undefined });
+    Object.defineProperty(HTMLElement.prototype, 'hidePopover', { configurable: true, value: undefined });
+    Object.defineProperty(HTMLElement.prototype, 'togglePopover', { configurable: true, value: undefined });
+  });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveClass(/no-popover/);
+
+  await page.click('#btnDiagnostics');
+  await expect(page.locator('#diagnosticsSection')).toHaveClass(/fallback-open/);
+  await expect(page.locator('#cacheDiagnosticsSummary')).toContainText('Offline searches');
+
+  await page.click('#btnSavedSearches');
+  await expect(page.locator('#savedSearchSection')).toHaveClass(/fallback-open/);
+  await expect(page.locator('#diagnosticsSection')).not.toHaveClass(/fallback-open/);
+});
+
+test('cache diagnostics report quota and clear IndexedDB caches without deleting user data', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+  await expect.poll(() => idbStoreCount(page, 'searches')).toBeGreaterThan(0);
+
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await card.locator('[data-action="scan"]').click();
+  await expect(card.locator('.scan-results')).toContainText('Security:');
+  await expect.poll(() => idbStoreCount(page, 'scans')).toBeGreaterThan(0);
+
+  await page.evaluate(() => {
+    localStorage.setItem('sh_favs', JSON.stringify([{ id: 'keep-favorite', name: 'Keep Favorite', url: 'https://example.com', source: 'greasyfork' }]));
+    localStorage.setItem('sh_pref_ghtoken', JSON.stringify('ghp_keep_me'));
+  });
+  await page.click('#btnDiagnostics');
+  await expect(page.locator('#cacheDiagnosticsSummary')).toContainText('Offline searches');
+  await expect(page.locator('#cacheDiagnosticsSummary')).toContainText('Scan cache');
+  await expect.poll(async () => {
+    const payload = JSON.parse(await page.locator('#diagnosticsOutput').inputValue());
+    return payload.cacheDiagnostics?.indexedDB?.scanCache || 0;
+  }).toBeGreaterThan(0);
+
+  const payload = JSON.parse(await page.locator('#diagnosticsOutput').inputValue());
+  expect(payload.cacheDiagnostics.indexedDB.offlineSearches).toBeGreaterThan(0);
+  expect(payload.cacheDiagnostics.storage).toHaveProperty('supported');
+
+  await page.click('#btnClearScanCache');
+  await expect(page.locator('#cacheSettingsStatus')).toContainText('Scan cache cleared');
+  await expect.poll(() => idbStoreCount(page, 'scans')).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_favs'))[0].id)).toBe('keep-favorite');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_keep_me');
+
+  await page.click('#btnClearOfflineCache');
+  await expect(page.locator('#cacheSettingsStatus')).toContainText('Offline search cache cleared');
+  await expect.poll(() => idbStoreCount(page, 'searches')).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_favs'))[0].id)).toBe('keep-favorite');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_keep_me');
+});
+
+test('cache diagnostics clear localStorage fallback caches without deleting user data', async ({ page }) => {
+  await page.addInitScript(() => {
+    try { delete window.indexedDB; } catch {}
+    Object.defineProperty(window, 'indexedDB', { configurable: true, value: undefined });
+  });
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+  await expect.poll(() => localStorageArrayCount(page, 'sh_offline_searches')).toBeGreaterThan(0);
+
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await card.locator('[data-action="scan"]').click();
+  await expect(card.locator('.scan-results')).toContainText('Security:');
+  await expect.poll(() => localStorageArrayCount(page, 'sh_scan_cache')).toBeGreaterThan(0);
+
+  await page.evaluate(() => {
+    localStorage.setItem('sh_favs', JSON.stringify([{ id: 'fallback-favorite', name: 'Fallback Favorite', url: 'https://example.com', source: 'greasyfork' }]));
+    localStorage.setItem('sh_pref_ghtoken', JSON.stringify('ghp_keep_fallback'));
+  });
+  await page.click('#btnDiagnostics');
+  await expect(page.locator('#cacheDiagnosticsSummary')).toContainText('localStorage 1');
+  await expect.poll(async () => {
+    const payload = JSON.parse(await page.locator('#diagnosticsOutput').inputValue());
+    return payload.cacheDiagnostics?.localStorage?.scanCache || 0;
+  }).toBeGreaterThan(0);
+
+  await page.click('#btnClearScanCache');
+  await expect(page.locator('#cacheSettingsStatus')).toContainText('Scan cache cleared');
+  expect(await page.evaluate(() => localStorage.getItem('sh_scan_cache'))).toBeNull();
+
+  await page.click('#btnClearOfflineCache');
+  await expect(page.locator('#cacheSettingsStatus')).toContainText('Offline search cache cleared');
+  expect(await page.evaluate(() => localStorage.getItem('sh_offline_searches'))).toBeNull();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_favs'))[0].id)).toBe('fallback-favorite');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_keep_fallback');
 });
 
 test('GitHub token settings save, check rate limit, and stay redacted', async ({ page }) => {

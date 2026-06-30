@@ -64,6 +64,7 @@ npm run qa
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
 | **Source Health** | Persists failing source cooldowns with retry controls and copyable diagnostics that omit secrets |
 | **Offline Recent Searches** | Stores recent successful searches locally, labels stale cached results, and exposes revalidation when online |
+| **Cache Diagnostics** | Shows offline/scan cache counts, browser quota estimates, and independent cache-clear recovery controls |
 | **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
 | **Live Status Chips** | Real-time per-source indicators with CORS proxy health and suspension status |
 | **Sort Controls** | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |
@@ -231,7 +232,7 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
 - **CORS Proxy** — allorigins.win → codetabs → everyorigin fallback chain with exponential backoff
 - **PWA** — manifest.json + service worker for installability, explicit update prompts, offline shell fallback notices, and local recent-search recovery
-- **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; no tracking, no cookies, no server-side state
+- **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; diagnostics can clear recoverable caches without deleting user records; no tracking, no cookies, no server-side state
 - **Versioned JSON payloads** - favorites and installed-list exports use schema v1; imports validate URLs, report skipped invalid rows, and still accept manager-style `scripts` arrays plus legacy arrays
 - **Local QA** - npm run qa runs npm audit, Worker tests, and Playwright smoke/adapter tests against the repo-local static server
 
