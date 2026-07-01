@@ -1090,7 +1090,7 @@ test('GitHub token settings save, check rate limit, and stay redacted', async ({
   await page.fill('#githubTokenInput', 'ghp_secret_should_not_export');
   await page.click('#btnSaveGitHubToken');
 
-  await expect(page.locator('#githubSettingsStatus')).toContainText('Search rate 28/30');
+  await expect(page.locator('#githubSettingsStatus')).toContainText('28 searches left');
   expect(authHeader).toBe('token ghp_secret_should_not_export');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_secret_should_not_export');
 

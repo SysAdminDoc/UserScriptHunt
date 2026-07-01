@@ -1757,11 +1757,12 @@
     }
 
     function githubRateText() {
-        var tokenState = _ghToken ? 'Token configured' : 'No token configured';
-        if (!_ghRate || !_ghRate.limit) return tokenState + '. GitHub rate limit not checked yet.';
-        var reset = _ghRate.reset ? new Date(_ghRate.reset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'unknown reset';
+        var tokenState = _ghToken ? 'Token configured (30 req/min, code search enabled)' : 'No token (10 req/min, repo search only)';
+        if (!_ghRate || !_ghRate.limit) return tokenState + '. Rate limit not checked yet.';
+        var reset = _ghRate.reset ? new Date(_ghRate.reset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'unknown';
         var cooldown = _ghCooldown > Date.now() ? ' Cooldown ' + Math.ceil((_ghCooldown - Date.now()) / 1000) + 's.' : '';
-        return tokenState + '. Search rate ' + _ghRate.remaining + '/' + _ghRate.limit + ' until ' + reset + '.' + cooldown;
+        var budget = _ghRate.remaining > 0 ? _ghRate.remaining + ' searches left' : 'Budget exhausted';
+        return tokenState + '. ' + budget + ' (' + _ghRate.remaining + '/' + _ghRate.limit + ', resets ' + reset + '). Results capped at 1,000 per query.' + cooldown;
     }
 
     function setGitHubStatus(msg, cls) {
