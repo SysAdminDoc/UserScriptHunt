@@ -42,12 +42,6 @@
   Complexity: L
 
 
-- [ ] P2 — Make source capability truth executable
-  Why: The app supports seven sources, README reflects seven, but the GitHub repo description still advertises four; source facts should not be hand-synced across code, docs, and distribution metadata.
-  Evidence: `index.html:1033`, `README.md:93`, `gh repo view SysAdminDoc/UserScriptHunt`.
-  Touches: `index.html` source registry, README source table/check script, package scripts, repository metadata update command.
-  Acceptance: each source declares endpoint type, proxy/CORS mode, page size, locale support, and metadata confidence in code; a local check fails when README source docs drift; the GitHub repo description is updated to match current source coverage.
-  Complexity: M
 
 - [ ] P2 — Improve GitHub discovery controls and rate-limit clarity
   Why: GitHub repository/code search is valuable but broad, capped, and rate-limited; power users need controls that map to GitHub's documented qualifiers without editing raw queries.

@@ -16,6 +16,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Version drift test (`tests/version-drift.test.js`) fails when app, package.json, service worker, README badge, or CHANGELOG versions disagree. Runs as part of `npm run qa`.
 - Security scanner now distinguishes `@connect` metadata risk from browser extension site-access requirements — warns when `GM_xmlhttpRequest` is granted without `@connect`, and explains that named `@connect` hosts may also need browser-level site-access permission.
 - License names are normalized to SPDX identifiers during source normalization — common aliases like "MIT License", "Apache License 2.0", "GNU GPL v3" map to stable filter values while unknown/custom licenses pass through as-is.
+- Source-docs drift test (`tests/source-docs.test.js`) fails when README source table count doesn't match the code source registry, or when sources are missing from README. GitHub repo description updated to list all 7 sources.
 
 ## [v0.4.1]
 
