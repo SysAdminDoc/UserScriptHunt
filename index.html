@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Unified search engine for userscripts — query Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and GitHub Gists from a single interface.">
-    <meta property="og:image" content="https://raw.githubusercontent.com/SysAdminDoc/UserScriptHunt/main/banner.png">
+    <meta property="og:image" content="https://raw.githubusercontent.com/SysAdminDoc/UserScriptHunt/main/icon.png">
     <meta name="theme-color" content="#1e1e2e">
     <script>(function(){var csp="default-src 'self' 'unsafe-inline' data:; connect-src https://api.greasyfork.org https://api.sleazyfork.org https://api.github.com https://raw.githubusercontent.com https://gist.github.com https://gist.githubusercontent.com https://openuserjs.org https://www.userscript.zone https://scriptcat.org https://api.allorigins.win https://api.codetabs.com https://everyorigin.jwvbremen.nl https://greasyfork.org https://sleazyfork.org; font-src https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:;";try{var cp=JSON.parse(localStorage.getItem('sh_pref_proxy'));var u=new URL(cp);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash){var p=(u.origin+u.pathname).replace(/\/$/,'');csp=csp.replace('https://api.allorigins.win',p+' https://api.allorigins.win')}}catch(e){}document.write('<meta id="csp-meta" http-equiv="Content-Security-Policy" content="'+csp.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">')})();</script>
     <title>ScriptHunt - Unified Userscript Search</title>
@@ -846,12 +846,12 @@
     }
 
     function hashString(str) {
-        var h = 2166136261;
+        var h = 2166136261 >>> 0;
         for (var i = 0; i < str.length; i++) {
             h ^= str.charCodeAt(i);
-            h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+            h = Math.imul(h, 16777619) >>> 0;
         }
-        return ('00000000' + (h >>> 0).toString(16)).slice(-8);
+        return ('00000000' + h.toString(16)).slice(-8);
     }
 
     function scanCacheKey(item) {
@@ -1079,6 +1079,7 @@
             importedAt: new Date().toISOString(),
             installed: items.map(normalizeImportedScript).filter(Boolean),
         }));
+        _installedCacheKey = null;
     }
 
     function urlKey(u) {
@@ -1093,12 +1094,20 @@
         return !!(a && b && String(a).trim() && String(b).trim() && String(a).trim() !== String(b).trim());
     }
 
+    var _installedCache = null;
+    var _installedCacheKey = null;
+    function getCachedInstalled() {
+        var raw = localStorage.getItem('sh_installed_scripts') || '[]';
+        if (raw !== _installedCacheKey) { _installedCacheKey = raw; _installedCache = getInstalledScripts(); }
+        return _installedCache;
+    }
+
     function installedState(item) {
         normalizeScriptUrls(item);
         var urls = [item.installUrl, item.downloadUrl, item.updateUrl, item.url].filter(Boolean).map(urlKey);
         var name = (item.name || '').trim().toLowerCase();
         var namespace = (item.namespace || '').trim().toLowerCase();
-        var installed = getInstalledScripts();
+        var installed = getCachedInstalled();
         for (var i = 0; i < installed.length; i++) {
             var rec = installed[i];
             var recUrls = [rec.installUrl, rec.downloadUrl, rec.updateUrl, rec.url].filter(Boolean).map(urlKey);
@@ -1714,7 +1723,8 @@
             var wordSet = new Set(words);
             if (words.length > 10 && wordSet.size < words.length * 0.3) return true;
         }
-        if (item.totalInstalls > 5000 && item.rating === 0 && item.badRating === 0) return true;
+        var sourceReportsRatings = item.source === 'greasyfork' || item.source === 'sleazyfork';
+        if (sourceReportsRatings && item.totalInstalls > 5000 && item.rating === 0 && item.badRating === 0) return true;
         return false;
     }
 
@@ -2333,7 +2343,11 @@
     }
 
     /* ===== Search Orchestrator ===== */
+    var _searchAbort = null;
     async function executeSearch(rawQuery, loadMore) {
+        if (_searchAbort && !loadMore) { _searchAbort.abort(); }
+        var searchController = new AbortController();
+        _searchAbort = searchController;
         var parsed = parseQuery(rawQuery);
         var filters = getVisibleFilters(parsed);
         var siteVal = document.getElementById('siteFilter').value.trim() || parsed.site;
@@ -2405,6 +2419,7 @@
         });
 
         var settled = await Promise.allSettled(promises);
+        if (searchController.signal.aborted) return;
         var newItems = settled.flatMap(function(r) { return r.status === 'fulfilled' ? r.value : []; });
         var existing = new Set(state.results.map(function(r) { return r.id; }));
         var nameMap = {};
@@ -2546,7 +2561,6 @@
             else if (item.updatedAt) meta.push('<span class="meta-item">' + ICO.clock + ' ' + timeAgo(item.updatedAt) + '</span>');
 
             var hasInstall = !!item.installUrl;
-            var canScan = true;
             var fav = isFav(item.id);
             var scanId = 'scan-' + i;
             var metaId = 'meta-' + i;
@@ -2579,15 +2593,15 @@
             h += '<div class="card-actions">';
             if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + safeHref(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' ' + (installed.updateAvailable ? 'Update' : installed.installed ? 'Installed' : 'Install') + '</a>';
             h += '<a class="card-btn card-btn-view" href="' + safeHref(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
-            if (canScan) h += '<button class="card-btn card-btn-icon" data-action="scan" data-idx="' + i + '" title="Security scan" aria-label="Security scan for ' + attr(item.name) + '">' + ICO.shield + '</button>';
-            if (canScan) h += '<button class="card-btn card-btn-icon" data-action="meta" data-idx="' + i + '" title="Metadata" aria-label="Metadata for ' + attr(item.name) + '">' + ICO.code + '</button>';
+            h += '<button class="card-btn card-btn-icon" data-action="scan" data-idx="' + i + '" title="Security scan" aria-label="Security scan for ' + attr(item.name) + '">' + ICO.shield + '</button>';
+            h += '<button class="card-btn card-btn-icon" data-action="meta" data-idx="' + i + '" title="Metadata" aria-label="Metadata for ' + attr(item.name) + '">' + ICO.code + '</button>';
             h += '<button class="card-btn card-btn-icon' + (fav ? ' fav-active' : '') + '" data-action="fav" data-idx="' + i + '" title="Favorite" aria-label="' + (fav ? 'Remove favorite ' : 'Add favorite ') + attr(item.name) + '">' + (fav ? ICO.heartFill : ICO.heart) + '</button>';
             if (navigator.share) h += '<button class="card-btn card-btn-icon" data-action="share" data-idx="' + i + '" title="Share" aria-label="Share ' + attr(item.name) + '">' + ICO.share + '</button>';
             h += '<button class="card-btn card-btn-icon' + (state.compareIds.indexOf(item.id) >= 0 ? ' active' : '') + '" data-action="compare" data-idx="' + i + '" title="Compare" aria-label="Compare ' + attr(item.name) + '">' + ICO.compare + '</button>';
             h += '</div>';
 
-            if (canScan) h += '<div class="scan-results" id="' + scanId + '"></div>';
-            if (canScan) h += '<div class="card-metadata" id="' + metaId + '"></div>';
+            h += '<div class="scan-results" id="' + scanId + '"></div>';
+            h += '<div class="card-metadata" id="' + metaId + '"></div>';
             card.innerHTML = h;
 
             // Wire events

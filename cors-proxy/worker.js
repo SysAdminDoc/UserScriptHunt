@@ -49,7 +49,7 @@ async function handleRequest(request) {
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = ALLOWED_ORIGINS.some(o => origin.startsWith(o));
+  const allowed = ALLOWED_ORIGINS.some(o => origin === o || origin.startsWith(o + ':') || origin.startsWith(o + '/'));
   return {
     'Access-Control-Allow-Origin': allowed ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
