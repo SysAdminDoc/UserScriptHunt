@@ -2,7 +2,7 @@
 
 All notable changes to ScriptHunt will be documented in this file.
 
-## [v0.4.2]
+## [v0.5.0]
 
 ### Security
 - Added `safeUrl`/`safeHref`/`safeOpen` URL protocol allowlist — only `http:` and `https:` URLs are allowed in `href` attributes and `window.open()` calls; `javascript:`, `data:`, and `vbscript:` URLs from malicious source data are rejected.
