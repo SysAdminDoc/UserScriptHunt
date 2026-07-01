@@ -1716,14 +1716,16 @@
     }
 
     function normGF(item, srcId) {
+        var pageUrl = item.url || ('https://greasyfork.org/en/scripts/' + item.id);
         return { id: srcId + '-' + item.id, source: srcId, name: item.name || 'Untitled', description: item.description || '',
             author: (item.users && item.users[0] && item.users[0].name) || 'Unknown',
-            url: item.url || ('https://greasyfork.org/en/scripts/' + item.id),
+            url: pageUrl,
             installUrl: item.code_url || '', version: item.version || '',
             dailyInstalls: item.daily_installs || 0, totalInstalls: item.total_installs || 0,
             rating: item.good_ratings || 0, badRating: item.bad_ratings || 0,
             createdAt: item.created_at || '', updatedAt: item.code_updated_at || '',
-            license: normalizeLicense(item.license), _gfId: item.id };
+            license: normalizeLicense(item.license), _gfId: item.id,
+            historyUrl: pageUrl ? pageUrl.replace(/\/?$/, '/versions') : '' };
     }
 
     /* ===== Source: GitHub Repos ===== */
@@ -1753,7 +1755,8 @@
             author: (item.owner && item.owner.login) || 'Unknown', url: item.html_url, installUrl: '',
             version: '', dailyInstalls: 0, totalInstalls: 0, rating: item.stargazers_count || 0, badRating: 0,
             createdAt: item.created_at || '', updatedAt: item.updated_at || '',
-            license: normalizeLicense(item.license && item.license.spdx_id), stars: item.stargazers_count || 0, forks: item.forks_count || 0, language: item.language || '' };
+            license: normalizeLicense(item.license && item.license.spdx_id), stars: item.stargazers_count || 0, forks: item.forks_count || 0, language: item.language || '',
+            historyUrl: item.html_url ? item.html_url + '/commits' : '' };
     }
 
     /* ===== Source: GitHub Code Search (authenticated) ===== */
@@ -2515,6 +2518,7 @@
             h += '<div class="card-meta">' + meta.join('') + '</div>';
             h += '<div class="trust-details" id="' + trustId + '">' + renderTrustDetails(item) + '</div>';
             var urlLinks = renderScriptUrlLinks(item);
+            if (item.historyUrl) urlLinks += '<a class="script-url-link" href="' + safeHref(item.historyUrl) + '" target="_blank" rel="noopener">Version History</a>';
             if (urlLinks) h += '<div class="script-url-list">' + urlLinks + '</div>';
             h += renderAppliesToEvidence(item._appliesTo);
             h += renderProvenance(item, installed);
