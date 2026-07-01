@@ -13,6 +13,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Security scanner detects integrity hash evidence (`#sha256=`, `#sha384=`, `#sha512=`, `#md5=`) on `@require` and `@resource` URLs. Hashed dependencies get an info-level finding; unhashed remote dependencies without version evidence get a warning.
 - `@resource` dependencies are now scanned for domain trust and integrity evidence, matching existing `@require` coverage.
 - Installed script matches now show install provenance details — install/download/update URL agreement status and version drift evidence on result cards.
+- Version drift test (`tests/version-drift.test.js`) fails when app, package.json, service worker, README badge, or CHANGELOG versions disagree. Runs as part of `npm run qa`.
 
 ## [v0.4.1]
 

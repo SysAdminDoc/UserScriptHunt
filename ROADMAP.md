@@ -104,12 +104,6 @@
 ## Research-Driven Additions
 
 ### P2
-- [ ] P2 - Add release and version drift checks
-  Why: Version truth is manually repeated across the app, service worker cache, package, README badge, and changelog, so releases can silently ship stale cache names.
-  Evidence: `index.html:377`, `package.json:3`, `sw.js:1`, `README.md:3`, `CHANGELOG.md:5`.
-  Touches: `tests/`, `package.json`, `index.html`, `sw.js`, `README.md`, `CHANGELOG.md`.
-  Acceptance: a local test/check fails when app/package/README/changelog/service-worker versions drift, confirms the service-worker cache name matches the app version, and runs through `npm run qa` without adding GitHub Actions.
-  Complexity: S
 
 - [ ] P2 - Add diagnostics snapshot replay fixtures
   Why: Source/proxy failures are currently copyable but not replayable, making reported failures harder to turn into deterministic regressions without secrets.
