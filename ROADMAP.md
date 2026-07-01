@@ -1,8 +1,5 @@
 # Roadmap
 
-## P2
-
-
 ## P3
 
 - [ ] P3 — Add custom source templates for power users
@@ -19,12 +16,6 @@
   Acceptance: bookmarklet opens ScriptHunt with the current URL/domain, optional installed-list import marks known scripts, and no browser extension is required.
   Complexity: M
 
-- [ ] P3 - Add optional live source canaries for adapter drift
-  Why: HTML-scraped sources can change markup without breaking deterministic fixtures, leaving failures visible only to users.
-  Evidence: `tests/fixtures/source-adapters.js`, OpenUserJS search HTML path, Userscript.Zone scrape path, Gist search scrape path.
-  Touches: `tests/`, `package.json`, README verification docs.
-  Acceptance: a local opt-in command exercises one low-volume query per proxied source, records pass/fail diagnostics without secrets, and is excluded from the default deterministic test suite.
-  Complexity: S
 
 - [ ] P3 — Add source version-history and diff handoff links
   Why: Users deciding whether to install or update need a quick path to source history, but ScriptHunt should link to catalog/GitHub history instead of hosting script versions itself.

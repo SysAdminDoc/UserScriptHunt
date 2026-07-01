@@ -6,7 +6,8 @@
     "qa": "npm audit && npm test",
     "test": "node --test tests/worker.test.js tests/version-drift.test.js tests/source-docs.test.js && playwright test",
     "test:install": "playwright install chromium",
-    "serve:test": "node tests/static-server.js 3217 ."
+    "serve:test": "node tests/static-server.js 3217 .",
+    "test:canary": "node --test tests/canary.test.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"
