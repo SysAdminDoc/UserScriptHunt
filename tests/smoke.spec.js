@@ -72,8 +72,10 @@ const MATCHING_USER_SCRIPT = `// ==UserScript==
 // @exclude-match https://ads.youtube.com/*
 // @connect api.youtube.com
 // @connect *
-// @require https://cdn.jsdelivr.net/npm/pinned-lib@1.2.3/dist/index.js
+// @require https://cdn.jsdelivr.net/npm/pinned-lib@1.2.3/dist/index.js#sha256=abc123
 // @require https://unpkg.com/floating-lib/dist/index.js
+// @resource css https://example.com/style.css#sha256=def456
+// @resource icon https://example.com/icon.png
 // @compatible firefox
 // @compatible chrome
 // @incompatible safari
@@ -485,8 +487,11 @@ test('security scan reports manager metadata risks', async ({ page }) => {
   await expect(panel).toContainText('Broad @match scope: *://*/*');
   await expect(panel).toContainText('@connect host allowed: api.youtube.com');
   await expect(panel).toContainText('@connect * - unrestricted cross-origin access');
+  await expect(panel).toContainText('@require integrity hash present: cdn.jsdelivr.net');
   await expect(panel).toContainText('Pinned @require dependency: cdn.jsdelivr.net');
   await expect(panel).toContainText('Floating @require version: unpkg.com');
+  await expect(panel).toContainText('@resource integrity hash present: example.com');
+  await expect(panel).toContainText('@resource has no integrity hash: example.com');
   await expect(panel).toContainText('updateURL host differs from install host');
 });
 

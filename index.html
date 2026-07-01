@@ -1260,10 +1260,16 @@
                 (/unpkg\.com$/.test(host) && !/@\d/.test(target)) ||
                 (/cdn\.jsdelivr\.net$/.test(host) && /\/npm\/[^@/?#]+(\/|$)/.test(target));
             var pinned = /@[0-9]+(\.[0-9]+){0,3}/.test(target) || /\/[a-f0-9]{40}(\/|$)/i.test(target) || /\/v?[0-9]+\.[0-9][^/]*(\/|$)/.test(target);
-            return { host: host, pinned: pinned && !floating, floating: floating };
+            var hasIntegrity = /[#?&](sha256|sha384|sha512|md5|integrity)=/i.test(u.hash + u.search);
+            return { host: host, pinned: pinned && !floating, floating: floating, integrity: hasIntegrity };
         } catch(e) {
-            return { host: '', pinned: false, floating: false };
+            return { host: '', pinned: false, floating: false, integrity: false };
         }
+    }
+
+    function resourceDepUrl(raw) {
+        var parts = String(raw || '').trim().split(/\s+/);
+        return parts.length >= 2 ? parts[parts.length - 1] : parts[0];
     }
 
     function addManagerMetadataFindings(meta, item, findings) {
@@ -1286,9 +1292,19 @@
             if (!TRUSTED_REQUIRE_DOMAINS.some(function(d) { return req.host === d || req.host.endsWith('.' + d); })) {
                 findings.push({ label: '@require from untrusted domain: ' + req.host, level: 'warn' });
             }
+            if (req.integrity) findings.push({ label: '@require integrity hash present: ' + req.host, level: 'info' });
+            else if (req.pinned || req.floating) { /* version evidence already covered below */ }
+            else findings.push({ label: '@require has no integrity hash: ' + req.host, level: 'warn' });
             if (req.floating) findings.push({ label: 'Floating @require version: ' + req.host, level: 'warn' });
             else if (req.pinned) findings.push({ label: 'Pinned @require dependency: ' + req.host, level: 'info' });
             else findings.push({ label: '@require version not obvious: ' + req.host, level: 'warn' });
+        });
+        listMeta(meta, 'resource').forEach(function(r) {
+            var depUrl = resourceDepUrl(r);
+            var req = requireStatus(depUrl);
+            if (!req.host) return;
+            if (req.integrity) findings.push({ label: '@resource integrity hash present: ' + req.host, level: 'info' });
+            else findings.push({ label: '@resource has no integrity hash: ' + req.host, level: 'warn' });
         });
         var installHost = urlHost(item && (item.installUrl || item.downloadUrl || item.url));
         [['updateURL', 'updateURL'], ['downloadURL', 'downloadURL']].forEach(function(pair) {

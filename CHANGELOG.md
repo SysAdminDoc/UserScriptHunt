@@ -9,6 +9,10 @@ All notable changes to ScriptHunt will be documented in this file.
 - Fixed `esc()` misuse in attribute contexts (favorites view) — now uses proper `attr()` escaping via `safeHref`.
 - Added 3 hostile fixture Playwright tests verifying XSS payloads in source names/descriptions/authors render as inert text, dangerous URL protocols are stripped from all link and data-url sinks, and import validation rejects favorites with unsafe URLs.
 
+### Added
+- Security scanner detects integrity hash evidence (`#sha256=`, `#sha384=`, `#sha512=`, `#md5=`) on `@require` and `@resource` URLs. Hashed dependencies get an info-level finding; unhashed remote dependencies without version evidence get a warning.
+- `@resource` dependencies are now scanned for domain trust and integrity evidence, matching existing `@require` coverage.
+
 ## [v0.4.1]
 
 ### Added

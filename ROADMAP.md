@@ -84,14 +84,6 @@
 
 ## Research-Driven Additions
 
-### P1
-- [ ] P1 — Add @require and @resource integrity evidence
-  Why: Remote dependencies can change independently of the userscript, and current trust scoring distinguishes pinned/floating URLs but not hash or integrity evidence.
-  Evidence: Greasemonkey#2349, Tampermonkey documentation, MDN Subresource Integrity; index.html:1168, index.html:1798.
-  Touches: index.html metadata scanner/trust dimensions, metadata viewer, tests/smoke.spec.js.
-  Acceptance: scans recognize integrity/hash fragments or supported integrity directives for @require/@resource, warn on remote dependencies with no version or integrity evidence, display positive integrity evidence, and cover pinned/hashless/hashed fixtures.
-  Complexity: M
-
 ### P2
 - [ ] P2 — Add metadata compatibility lint with fix guidance
   Why: Manager ecosystems disagree on valid @connect, @match, @include, and license/antifeature semantics, and ScriptHunt should explain actionable metadata problems rather than only risk severity.
