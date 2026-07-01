@@ -965,9 +965,13 @@ test('diagnostics export includes health and excludes secrets', async ({ page })
   const payloadText = await page.locator('#diagnosticsOutput').inputValue();
   const payload = JSON.parse(payloadText);
 
+  expect(payload.schema).toBe('scripthunt-diagnostics');
+  expect(payload.schemaVersion).toBe(1);
   expect(payload.app).toBe('ScriptHunt');
   expect(payload.sources.length).toBeGreaterThan(0);
   expect(payload.proxyHealth).toBeTruthy();
+  expect(payload.preferences).toBeTruthy();
+  expect(payload.preferences.schemaVersion).toBeGreaterThan(0);
   expect(payloadText).not.toContain('ghp_secret_should_not_export');
   expect(payloadText).not.toContain('secret-proxy.example');
   expect(payload.customProxyConfigured).toBe(false);

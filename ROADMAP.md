@@ -9,12 +9,6 @@
   Acceptance: imports recognize ScriptHunt JSON plus at least two manager-style backup shapes via fixtures, show a preview with valid/invalid/skipped counts before committing, preserve include/exclude/update metadata where present, and never import executable code into storage.
   Complexity: L
 
-- [ ] P2 - Add diagnostics snapshot replay fixtures
-  Why: Source/proxy failures are currently copyable but not replayable, making reported failures harder to turn into deterministic regressions without secrets.
-  Evidence: `index.html:3498`, `tests/adapter.spec.js:136`, Violentmonkey#2263, ScriptCat#1476.
-  Touches: `index.html` diagnostics schema/sanitizer, `tests/smoke.spec.js`, `tests/fixtures/source-adapters.js`, README diagnostics notes.
-  Acceptance: diagnostics exports include a schema version and sanitized replay section; a local fixture/test can load a diagnostics snapshot to recreate source status/rate-limit/proxy/cache states; tokens and custom proxy URLs remain redacted.
-  Complexity: M
 
 ## P3
 

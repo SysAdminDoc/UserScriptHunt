@@ -21,6 +21,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Versioned preference storage (schema v2) with automatic migration on load. "Reset Preferences" button in diagnostics clears preferences, source health, caches, and saved searches without deleting favorites or installed scripts. Preference schema version appears in diagnostics export.
 - Accessibility regression tests for diagnostics popover (Escape close), saved searches popover visibility, and mobile viewport (375px) verifying no clipped primary controls.
 - GitHub rate-limit status now shows searches remaining, budget fraction, reset time, result cap (1,000), and whether code search is enabled (token vs. no-token).
+- Diagnostics exports now include `schema: "scripthunt-diagnostics"` and `schemaVersion: 1` for future replay/migration, plus preference schema diagnostics.
 
 ## [v0.4.1]
 
