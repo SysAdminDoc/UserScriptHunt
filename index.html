@@ -477,7 +477,7 @@
         <div class="offline-cache-panel" id="offlineCachePanel" aria-live="polite"></div>
 
         <div class="stats-bar" id="statsBar" style="display:none">
-            <div class="stats-left" id="statsText"></div>
+            <div class="stats-left" id="statsText" aria-live="polite"></div>
             <div class="stats-right">
                 <input type="text" class="site-filter" id="filterResults" placeholder="Filter results..." style="width:140px;padding:5px 10px;font-size:11px" aria-label="Filter loaded results" autocomplete="off">
                 <select class="sort-select" id="sortSelect" aria-label="Sort results by">
@@ -2127,7 +2127,10 @@
             var r;
             if (url.includes('openuserjs.org') || url.includes('userscript.zone') || url.includes('gist.github.com') || url.includes('gist.githubusercontent.com')) r = await fetchViaProxy(url, 10000, item.source || 'metadata');
             else r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            var contentLength = parseInt(r.headers.get('content-length') || '0', 10);
+            if (contentLength > 5242880) throw new Error('script too large (' + Math.round(contentLength / 1048576) + ' MB)');
             var code = await r.text();
+            if (code.length > 5242880) throw new Error('script too large (' + Math.round(code.length / 1048576) + ' MB)');
             var meta = parseMetaBlock(code);
             var scan = scanCode(code, meta, item);
             scan.meta = meta;
@@ -2795,7 +2798,7 @@
         modalReturnFocus = document.activeElement;
         var modal = document.getElementById('modalContent');
         var colW = items.length === 2 ? '1fr 1fr' : '1fr 1fr 1fr';
-        var h = '<div class="modal-header"><div class="modal-title">Script Comparison</div><button class="modal-close" id="modalCloseBtn" aria-label="Close comparison">&times;</button></div>';
+        var h = '<div class="modal-header"><h2 class="modal-title">Script Comparison</h2><button class="modal-close" id="modalCloseBtn" aria-label="Close comparison">&times;</button></div>';
         h += '<div class="compare-grid" style="grid-template-columns:' + colW + '">';
         items.forEach(function(item) {
             var trust = item._trust || computeTrust(item, null);
