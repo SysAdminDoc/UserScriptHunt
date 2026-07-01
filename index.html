@@ -1308,13 +1308,21 @@
         listMeta(meta, 'include').forEach(function(p) {
             if (broadUserscriptPattern(p)) findings.push({ label: 'Broad @include scope: ' + p, level: 'warn' });
         });
-        listMeta(meta, 'connect').forEach(function(c) {
+        var hasXhr = listMeta(meta, 'grant').some(function(g) { return /xmlhttp/i.test(g); });
+        var connectHosts = listMeta(meta, 'connect');
+        connectHosts.forEach(function(c) {
             var target = String(c || '').trim();
             if (!target) return;
             if (target === '*') findings.push({ label: '@connect * - unrestricted cross-origin access', level: 'danger' });
             else if (target.indexOf('*') >= 0) findings.push({ label: '@connect wildcard host: ' + target, level: 'warn' });
             else findings.push({ label: '@connect host allowed: ' + target, level: 'info' });
         });
+        if (hasXhr && connectHosts.length > 0 && !connectHosts.some(function(c) { return String(c).trim() === '*'; })) {
+            findings.push({ label: 'Cross-origin requests may also require browser extension site-access permission for each @connect host', level: 'info' });
+        }
+        if (hasXhr && connectHosts.length === 0) {
+            findings.push({ label: 'GM_xmlhttpRequest granted without @connect — some managers default to unrestricted access', level: 'warn' });
+        }
         listMeta(meta, 'require').forEach(function(r) {
             var req = requireStatus(r);
             if (!req.host) return;

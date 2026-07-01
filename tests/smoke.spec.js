@@ -499,6 +499,69 @@ test('security scan reports manager metadata risks', async ({ page }) => {
   await expect(panel).toContainText('updateURL host differs from install host');
 });
 
+test('scan distinguishes @connect risk from browser site-access requirements', async ({ page }) => {
+  const SITE_ACCESS_SCRIPT = `// ==UserScript==
+// @name Site Access Test
+// @match https://example.com/*
+// @connect api.example.com
+// @connect cdn.example.com
+// @grant GM_xmlhttpRequest
+// ==/UserScript==
+console.log('site-access');
+`;
+  const NO_CONNECT_SCRIPT = `// ==UserScript==
+// @name No Connect Test
+// @match https://example.com/*
+// @grant GM_xmlhttpRequest
+// ==/UserScript==
+console.log('no-connect');
+`;
+  await page.unroute('https://api.greasyfork.org/**');
+  await page.route('https://api.greasyfork.org/**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          id: 801, name: 'Site Access Test', description: 'Tests site-access findings.',
+          users: [{ name: 'tester' }],
+          url: 'https://greasyfork.org/en/scripts/801-site-access-test',
+          code_url: 'https://greasyfork.org/scripts/801-site-access-test/code/test.user.js',
+          version: '1.0.0', daily_installs: 1, total_installs: 10,
+          good_ratings: 0, bad_ratings: 0,
+          created_at: '2025-01-01T00:00:00Z', code_updated_at: '2026-01-01T00:00:00Z', license: 'MIT',
+        },
+        {
+          id: 802, name: 'No Connect Test', description: 'Tests missing @connect.',
+          users: [{ name: 'tester' }],
+          url: 'https://greasyfork.org/en/scripts/802-no-connect-test',
+          code_url: 'https://greasyfork.org/scripts/802-no-connect-test/code/test.user.js',
+          version: '1.0.0', daily_installs: 1, total_installs: 10,
+          good_ratings: 0, bad_ratings: 0,
+          created_at: '2025-01-01T00:00:00Z', code_updated_at: '2026-01-01T00:00:00Z', license: 'MIT',
+        },
+      ]),
+    });
+  });
+  await page.route(/https:\/\/greasyfork\.org\/scripts\/801-.*/, async (route) => {
+    await route.fulfill({ contentType: 'text/javascript', body: SITE_ACCESS_SCRIPT });
+  });
+  await page.route(/https:\/\/greasyfork\.org\/scripts\/802-.*/, async (route) => {
+    await route.fulfill({ contentType: 'text/javascript', body: NO_CONNECT_SCRIPT });
+  });
+
+  await page.goto('/');
+  await runSearch(page, 'site access');
+
+  const card1 = page.locator('.result-card').filter({ hasText: 'Site Access Test' });
+  await card1.locator('[data-action="scan"]').click();
+  await expect(card1.locator('.scan-results')).toContainText('@connect host allowed: api.example.com');
+  await expect(card1.locator('.scan-results')).toContainText('may also require browser extension site-access permission');
+
+  const card2 = page.locator('.result-card').filter({ hasText: 'No Connect Test' });
+  await card2.locator('[data-action="scan"]').click();
+  await expect(card2.locator('.scan-results')).toContainText('GM_xmlhttpRequest granted without @connect');
+});
+
 test('metadata viewer preserves localized and variant directives', async ({ page }) => {
   await page.goto('/');
   await runSearch(page, 'youtube');

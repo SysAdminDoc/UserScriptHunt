@@ -14,6 +14,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - `@resource` dependencies are now scanned for domain trust and integrity evidence, matching existing `@require` coverage.
 - Installed script matches now show install provenance details — install/download/update URL agreement status and version drift evidence on result cards.
 - Version drift test (`tests/version-drift.test.js`) fails when app, package.json, service worker, README badge, or CHANGELOG versions disagree. Runs as part of `npm run qa`.
+- Security scanner now distinguishes `@connect` metadata risk from browser extension site-access requirements — warns when `GM_xmlhttpRequest` is granted without `@connect`, and explains that named `@connect` hosts may also need browser-level site-access permission.
 
 ## [v0.4.1]
 

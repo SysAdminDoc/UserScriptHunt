@@ -41,12 +41,6 @@
   Acceptance: imports recognize ScriptHunt JSON plus at least two manager-style backup shapes via fixtures, show a preview with valid/invalid/skipped counts before committing, preserve include/exclude/update metadata where present, and never import executable code into storage.
   Complexity: L
 
-- [ ] P2 — Explain browser site-access failures separately from `@connect`
-  Why: `GM_xmlhttpRequest` can fail because the browser denied extension site access even when `@connect` metadata is correct, which current risk labels do not explain.
-  Evidence: violentmonkey#2263, ScriptCat#1476; `index.html:1161`, `index.html:1190`.
-  Touches: `index.html` scan findings, trust details, diagnostics copy, `tests/smoke.spec.js`.
-  Acceptance: scan results distinguish script-declared `@connect` risk from manager/browser site-access requirements, diagnostics includes a non-secret troubleshooting hint, and tests cover `GM_xmlhttpRequest` plus explicit `@connect` hosts.
-  Complexity: S
 
 - [ ] P2 — Make source capability truth executable
   Why: The app supports seven sources, README reflects seven, but the GitHub repo description still advertises four; source facts should not be hand-synced across code, docs, and distribution metadata.
