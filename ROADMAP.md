@@ -62,12 +62,6 @@
 
 ### P2
 
-- [ ] P2 — Version local preference storage and migrations
-  Why: Preferences, source health, saved searches, caches, favorites, and installed lists live in separate storage keys without a migration/reset model, making future schema changes risky.
-  Evidence: ScriptCat#1517; index.html:504, index.html:840, index.html:910, index.html:2544, index.html:3281.
-  Touches: index.html storage helpers, diagnostics/reset controls, import/export schema, tests/smoke.spec.js.
-  Acceptance: storage includes a schema version, migration path, and diagnostics summary; users can reset preferences/source health without deleting favorites or installed data; tests cover migration from current keys and corrupted preference recovery.
-  Complexity: M
 
 ### P3
 - [ ] P3 — Add source version-history and diff handoff links

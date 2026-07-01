@@ -446,6 +446,7 @@
                 <div class="proxy-settings-row">
                     <button class="tool-btn" id="btnClearScanCache" type="button">Clear Scan Cache</button>
                     <button class="tool-btn" id="btnClearOfflineCache" type="button">Clear Offline Cache</button>
+                    <button class="tool-btn" id="btnResetPrefs" type="button">Reset Preferences</button>
                 </div>
                 <div class="proxy-settings-status" id="cacheSettingsStatus" role="status">Clearing caches does not remove favorites, installed lists, saved searches, proxy settings, or GitHub tokens.</div>
             </div>
@@ -520,9 +521,47 @@
     }
 
     /* -- User Preferences (localStorage) — defined early for use by proxy/sources init -- */
+    var PREF_SCHEMA_VERSION = 2;
     function _prefGet(k, def) { try { var v = localStorage.getItem('sh_pref_' + k); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; } }
     function _prefSet(k, v) { try { localStorage.setItem('sh_pref_' + k, JSON.stringify(v)); } catch(e) {} }
     function _prefRemove(k) { try { localStorage.removeItem('sh_pref_' + k); } catch(e) {} }
+    function migratePreferences() {
+        var currentVersion = _prefGet('schema', 0);
+        if (currentVersion >= PREF_SCHEMA_VERSION) return;
+        if (currentVersion < 1) {
+            var oldSources = _prefGet('sources', null);
+            if (oldSources && typeof oldSources === 'object') _prefSet('sources', oldSources);
+        }
+        if (currentVersion < 2) {
+            var health = _prefGet('sourceHealth', null);
+            if (health) {
+                Object.keys(health).forEach(function(k) {
+                    if (health[k] && health[k].until && health[k].until < Date.now()) {
+                        health[k].fails = 0; health[k].until = 0;
+                    }
+                });
+                _prefSet('sourceHealth', health);
+            }
+        }
+        _prefSet('schema', PREF_SCHEMA_VERSION);
+    }
+    function resetPreferences() {
+        var keep = ['sh_favs', 'sh_installed_scripts'];
+        var preserved = {};
+        keep.forEach(function(k) { var v = localStorage.getItem(k); if (v !== null) preserved[k] = v; });
+        var keys = [];
+        for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && k.startsWith('sh_')) keys.push(k);
+        }
+        keys.forEach(function(k) { if (keep.indexOf(k) < 0) localStorage.removeItem(k); });
+        Object.keys(preserved).forEach(function(k) { localStorage.setItem(k, preserved[k]); });
+        _prefSet('schema', PREF_SCHEMA_VERSION);
+    }
+    function prefDiagnostics() {
+        return { schemaVersion: _prefGet('schema', 0), targetVersion: PREF_SCHEMA_VERSION, keyCount: Object.keys(localStorage).filter(function(k) { return k.startsWith('sh_'); }).length };
+    }
+    migratePreferences();
 
     function normalizeProxyUrl(value) {
         var raw = (value || '').trim();
@@ -3418,6 +3457,11 @@
             clearOfflineCacheBtn.disabled = false;
         }
     });
+    document.getElementById('btnResetPrefs').addEventListener('click', function() {
+        resetPreferences();
+        setCacheStatus('Preferences reset. Favorites and installed lists preserved. Reload to apply.', 'ok');
+        renderDiagnostics();
+    });
     document.getElementById('btnCopyDiagnostics').addEventListener('click', function() {
         renderDiagnostics();
         var out = document.getElementById('diagnosticsOutput');
@@ -3616,6 +3660,7 @@
                 errorsBySource: _proxyHealth.errorsBySource,
             },
             cacheDiagnostics: _cacheDiagnostics || { status: 'checking' },
+            preferences: prefDiagnostics(),
             filters: {
                 q: searchInput.value.trim(),
                 site: siteFilter.value.trim(),

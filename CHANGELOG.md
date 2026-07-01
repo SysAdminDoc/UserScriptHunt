@@ -18,6 +18,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - License names are normalized to SPDX identifiers during source normalization — common aliases like "MIT License", "Apache License 2.0", "GNU GPL v3" map to stable filter values while unknown/custom licenses pass through as-is.
 - Source-docs drift test (`tests/source-docs.test.js`) fails when README source table count doesn't match the code source registry, or when sources are missing from README. GitHub repo description updated to list all 7 sources.
 - Metadata compatibility lint in security scanner: warns on invalid `@match` wildcard syntax, TLD wildcards, `@connect` wildcard prefix misconceptions, missing `@license`, and declared antifeatures.
+- Versioned preference storage (schema v2) with automatic migration on load. "Reset Preferences" button in diagnostics clears preferences, source health, caches, and saved searches without deleting favorites or installed scripts. Preference schema version appears in diagnostics export.
 
 ## [v0.4.1]
 
