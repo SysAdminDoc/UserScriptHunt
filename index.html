@@ -1110,6 +1110,35 @@
         return { type: type, items: items, invalid: invalid };
     }
 
+    function renderProvenance(item, installed) {
+        if (!installed || !installed.installed || !installed.record) return '';
+        var rec = installed.record;
+        var rows = [];
+        var pairs = [
+            { label: 'Install URL', catalog: item.installUrl, local: rec.installUrl },
+            { label: 'Download URL', catalog: item.downloadUrl, local: rec.downloadUrl },
+            { label: 'Update URL', catalog: item.updateUrl, local: rec.updateUrl },
+        ];
+        pairs.forEach(function(p) {
+            var catKey = urlKey(p.catalog);
+            var locKey = urlKey(p.local);
+            if (!catKey && !locKey) return;
+            var match = catKey && locKey && catKey === locKey;
+            var hostDiff = false;
+            if (catKey && locKey && !match) {
+                hostDiff = urlHost(p.catalog) !== urlHost(p.local);
+            }
+            var cls = match ? 'applies-pill source' : hostDiff ? 'applies-pill exclude' : 'applies-pill miss';
+            var status = match ? 'match' : hostDiff ? 'host differs' : catKey && !locKey ? 'not in local record' : !catKey && locKey ? 'not in catalog' : 'URL differs';
+            rows.push('<div><span class="applies-pill">' + esc(p.label) + '</span> <span class="' + cls + '">' + esc(status) + '</span></div>');
+        });
+        if (installed.updateAvailable) {
+            rows.push('<div><span class="applies-pill miss">Version: local ' + esc(rec.version || '?') + ' → catalog ' + esc(item.version || '?') + '</span></div>');
+        }
+        if (!rows.length) return '';
+        return '<div class="applies-matrix"><strong>Install provenance:</strong>' + rows.join('') + '</div>';
+    }
+
     function renderScriptUrlLinks(item) {
         normalizeScriptUrls(item);
         var grouped = {};
@@ -2364,6 +2393,7 @@
             var urlLinks = renderScriptUrlLinks(item);
             if (urlLinks) h += '<div class="script-url-list">' + urlLinks + '</div>';
             h += renderAppliesToEvidence(item._appliesTo);
+            h += renderProvenance(item, installed);
 
             h += '<div class="card-actions">';
             if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + safeHref(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' ' + (installed.updateAvailable ? 'Update' : installed.installed ? 'Installed' : 'Install') + '</a>';

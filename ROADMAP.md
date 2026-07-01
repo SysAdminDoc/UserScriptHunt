@@ -32,12 +32,6 @@
 
 ### P1
 
-- [ ] P1 — Expose installed update and dependency provenance
-  Why: Userscript managers repeatedly show confusion around `@updateURL`, `@downloadURL`, install URL fallback, and cached `@require` dependencies; ScriptHunt has the data but not a dedicated installed-script provenance view.
-  Evidence: Tampermonkey#2015, Tampermonkey#2797, quoid/userscripts#248, violentmonkey#2453; `index.html:866`, `index.html:1180`.
-  Touches: `index.html` installed-state rendering, metadata scan findings, import/export schema, `tests/smoke.spec.js`.
-  Acceptance: installed matches display install/download/update URL status, warn when hosts or extensions disagree, call out floating or cache-prone `@require` URLs, and preserve this provenance in exported installed-script data.
-  Complexity: M
 
 ### P2
 - [ ] P2 — Add manager backup import preview adapters

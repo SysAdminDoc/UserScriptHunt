@@ -321,6 +321,10 @@ test('installed import marks matching scripts and update state', async ({ page }
   const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
   await expect(card).toContainText('Update available');
   await expect(card.locator('.card-btn-install')).toContainText('Update');
+  await expect(card).toContainText('Install provenance');
+  await expect(card).toContainText('Install URL');
+  await expect(card).toContainText('match');
+  await expect(card).toContainText('Version: local 0.9.0');
 
   const downloadPromise = page.waitForEvent('download');
   await page.click('#btnExportInstalled');
