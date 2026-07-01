@@ -63,12 +63,6 @@
   Acceptance: desktop and mobile Playwright tests verify accessible names, focus return, Escape behavior, aria-expanded/aria-live states, and no clipped primary controls across bookmarklet, saved-search, diagnostics, cache, and comparison surfaces.
   Complexity: M
 
-- [ ] P2 — Normalize license and provenance evidence
-  Why: License filters currently depend on source strings, while catalogs and GitHub expose inconsistent license names that should be normalized without hiding unknowns.
-  Evidence: Greasy Fork API docs; GitHub Search API docs; `README.md:64`, `index.html:2202`.
-  Touches: `index.html` normalizers/filter logic/export schema, `tests/adapter.spec.js`, README source capability docs.
-  Acceptance: common SPDX aliases normalize to stable filter values, unknown/custom licenses remain visible as `unknown` or source text, exports include raw and normalized license/provenance fields, and adapter tests cover each source.
-  Complexity: S
 
 ## Research-Driven Additions
 

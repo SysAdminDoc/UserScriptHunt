@@ -1600,6 +1600,28 @@
         return result;
     }
 
+    var LICENSE_ALIASES = {
+        'mit license': 'MIT', 'mit': 'MIT', 'the mit license': 'MIT',
+        'apache license 2.0': 'Apache-2.0', 'apache-2.0': 'Apache-2.0', 'apache 2.0': 'Apache-2.0', 'apache2': 'Apache-2.0', 'apache license, version 2.0': 'Apache-2.0',
+        'gpl-3.0-only': 'GPL-3.0', 'gpl-3.0-or-later': 'GPL-3.0', 'gpl-3.0': 'GPL-3.0', 'gnu gpl v3': 'GPL-3.0', 'gplv3': 'GPL-3.0', 'gnu general public license v3.0': 'GPL-3.0',
+        'gpl-2.0-only': 'GPL-2.0', 'gpl-2.0-or-later': 'GPL-2.0', 'gpl-2.0': 'GPL-2.0', 'gplv2': 'GPL-2.0', 'gnu general public license v2.0': 'GPL-2.0',
+        'lgpl-3.0': 'LGPL-3.0', 'lgpl-2.1': 'LGPL-2.1',
+        'bsd-2-clause': 'BSD-2-Clause', 'bsd-3-clause': 'BSD-3-Clause', 'bsd 2-clause': 'BSD-2-Clause', 'bsd 3-clause': 'BSD-3-Clause',
+        'isc license': 'ISC', 'isc': 'ISC',
+        'mpl-2.0': 'MPL-2.0', 'mozilla public license 2.0': 'MPL-2.0',
+        'unlicense': 'Unlicense', 'the unlicense': 'Unlicense',
+        'agpl-3.0-only': 'AGPL-3.0', 'agpl-3.0-or-later': 'AGPL-3.0', 'agpl-3.0': 'AGPL-3.0',
+        'cc0-1.0': 'CC0-1.0', 'cc-by-4.0': 'CC-BY-4.0', 'cc-by-sa-4.0': 'CC-BY-SA-4.0',
+        'noassertion': '', 'none': '', 'other': '', 'n/a': '',
+    };
+
+    function normalizeLicense(raw) {
+        if (!raw) return '';
+        var key = String(raw).trim().toLowerCase();
+        if (LICENSE_ALIASES.hasOwnProperty(key)) return LICENSE_ALIASES[key];
+        return String(raw).trim();
+    }
+
     function normGF(item, srcId) {
         return { id: srcId + '-' + item.id, source: srcId, name: item.name || 'Untitled', description: item.description || '',
             author: (item.users && item.users[0] && item.users[0].name) || 'Unknown',
@@ -1608,7 +1630,7 @@
             dailyInstalls: item.daily_installs || 0, totalInstalls: item.total_installs || 0,
             rating: item.good_ratings || 0, badRating: item.bad_ratings || 0,
             createdAt: item.created_at || '', updatedAt: item.code_updated_at || '',
-            license: item.license || '', _gfId: item.id };
+            license: normalizeLicense(item.license), _gfId: item.id };
     }
 
     /* ===== Source: GitHub Repos ===== */
@@ -1638,7 +1660,7 @@
             author: (item.owner && item.owner.login) || 'Unknown', url: item.html_url, installUrl: '',
             version: '', dailyInstalls: 0, totalInstalls: 0, rating: item.stargazers_count || 0, badRating: 0,
             createdAt: item.created_at || '', updatedAt: item.updated_at || '',
-            license: (item.license && item.license.spdx_id) || '', stars: item.stargazers_count || 0, forks: item.forks_count || 0, language: item.language || '' };
+            license: normalizeLicense(item.license && item.license.spdx_id), stars: item.stargazers_count || 0, forks: item.forks_count || 0, language: item.language || '' };
     }
 
     /* ===== Source: GitHub Code Search (authenticated) ===== */
