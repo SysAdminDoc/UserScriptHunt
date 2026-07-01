@@ -374,7 +374,7 @@
             </div>
             <p class="tagline">Unified search across every userscript source</p>
             <div class="header-meta">
-                <span class="version">v0.4.1</span>
+                <span class="version">v0.4.2</span>
                 <button class="theme-toggle" id="themeToggle" title="Switch theme" aria-label="Switch color theme">Auto</button>
             </div>
         </header>
@@ -506,7 +506,7 @@
 
     <script>
     /* =============================================
-       ScriptHunt v0.4.1 - Unified Userscript Search
+       ScriptHunt v0.4.2 - Unified Userscript Search
        Security Scanner + Trust Scoring + Comparison
        ============================================= */
 
@@ -1125,7 +1125,7 @@
         });
         return Object.keys(grouped).map(function(key) {
             var row = grouped[key];
-            return '<a class="script-url-link" href="' + attr(row.url) + '" target="_blank" rel="noopener">' + esc(row.labels.join(' / ') + ' URL') + '</a>';
+            return '<a class="script-url-link" href="' + safeHref(row.url) + '" target="_blank" rel="noopener">' + esc(row.labels.join(' / ') + ' URL') + '</a>';
         }).join('');
     }
 
@@ -2329,7 +2329,7 @@
 
             var h = '<div class="card-source-stripe"></div>';
             h += '<div class="card-top-row">';
-            h += '<div class="card-title" data-url="' + attr(item.url) + '">' + esc(item.name) + '</div>';
+            h += '<div class="card-title" data-url="' + safeHref(item.url) + '">' + esc(item.name) + '</div>';
             h += '<div class="card-badges">';
             h += '<button class="trust-badge trust-toggle ' + tCls + '" data-action="trust" data-idx="' + i + '" aria-expanded="false" aria-controls="' + trustId + '" title="Trust breakdown">Trust ' + trustScore + '</button>';
             if (item._sourceCount > 1) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Multi-source</span>';
@@ -2350,8 +2350,8 @@
             h += renderAppliesToEvidence(item._appliesTo);
 
             h += '<div class="card-actions">';
-            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + attr(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' ' + (installed.updateAvailable ? 'Update' : installed.installed ? 'Installed' : 'Install') + '</a>';
-            h += '<a class="card-btn card-btn-view" href="' + attr(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
+            if (hasInstall) h += '<a class="card-btn card-btn-install" href="' + safeHref(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' ' + (installed.updateAvailable ? 'Update' : installed.installed ? 'Installed' : 'Install') + '</a>';
+            h += '<a class="card-btn card-btn-view" href="' + safeHref(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
             if (canScan) h += '<button class="card-btn card-btn-icon" data-action="scan" data-idx="' + i + '" title="Security scan" aria-label="Security scan for ' + attr(item.name) + '">' + ICO.shield + '</button>';
             if (canScan) h += '<button class="card-btn card-btn-icon" data-action="meta" data-idx="' + i + '" title="Metadata" aria-label="Metadata for ' + attr(item.name) + '">' + ICO.code + '</button>';
             h += '<button class="card-btn card-btn-icon' + (fav ? ' fav-active' : '') + '" data-action="fav" data-idx="' + i + '" title="Favorite" aria-label="' + (fav ? 'Remove favorite ' : 'Add favorite ') + attr(item.name) + '">' + (fav ? ICO.heartFill : ICO.heart) + '</button>';
@@ -2364,7 +2364,7 @@
             card.innerHTML = h;
 
             // Wire events
-            card.querySelector('.card-title').addEventListener('click', function() { window.open(item.url, '_blank', 'noopener'); });
+            card.querySelector('.card-title').addEventListener('click', function() { safeOpen(item.url); });
             card.querySelectorAll('[data-action]').forEach(function(btn) {
                 btn.addEventListener('click', function(e) { e.stopPropagation(); handleCardAction(btn.dataset.action, parseInt(btn.dataset.idx), btn); });
             });
@@ -3028,15 +3028,15 @@
             var src = SOURCES[item.source] || {};
             card.style.setProperty('--stripe-color', src.color || 'var(--accent)');
             var h = '<div class="card-source-stripe"></div>';
-            h += '<div class="card-top-row"><div class="card-title" data-url="' + esc(item.url) + '">' + esc(item.name) + '</div>';
+            h += '<div class="card-top-row"><div class="card-title" data-url="' + safeHref(item.url) + '">' + esc(item.name) + '</div>';
             h += '<span class="card-source-badge" style="--badge-bg:' + (src.dimColor || 'var(--accent-glow)') + ';--badge-color:' + (src.color || 'var(--accent)') + '">' + esc(src.name || item.source) + '</span></div>';
             if (item.author) h += '<div class="card-author">by <span>' + esc(item.author) + '</span></div>';
             h += '<div class="card-actions">';
-            if (item.installUrl) h += '<a class="card-btn card-btn-install" href="' + esc(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' Install</a>';
-            h += '<a class="card-btn card-btn-view" href="' + esc(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
+            if (item.installUrl) h += '<a class="card-btn card-btn-install" href="' + safeHref(item.installUrl) + '" target="_blank" rel="noopener">' + ICO.install + ' Install</a>';
+            h += '<a class="card-btn card-btn-view" href="' + safeHref(item.url) + '" target="_blank" rel="noopener">' + ICO.ext + ' View</a>';
             h += '<button class="card-btn card-btn-icon fav-active" data-action="unfav" data-idx="' + i + '" title="Remove">' + ICO.heartFill + '</button></div>';
             card.innerHTML = h;
-            card.querySelector('.card-title').addEventListener('click', function() { window.open(item.url, '_blank', 'noopener'); });
+            card.querySelector('.card-title').addEventListener('click', function() { safeOpen(item.url); });
             card.querySelector('[data-action="unfav"]').addEventListener('click', function(e) {
                 e.stopPropagation();
                 var snapshot = getFavs().slice();
@@ -3054,6 +3054,14 @@
     /* -- Utilities -- */
     function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function attr(s) { return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    function safeUrl(url) {
+        if (!url || typeof url !== 'string') return '';
+        if (/^https?:\/\//i.test(url)) return url;
+        if (url.charAt(0) === '#' || url.charAt(0) === '/') return url;
+        return '';
+    }
+    function safeHref(url) { return attr(safeUrl(url)); }
+    function safeOpen(url) { var safe = safeUrl(url); if (safe) window.open(safe, '_blank', 'noopener'); }
     function fmtNum(n) { if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
     function timeAgo(d) { if (!d) return ''; var days = Math.floor((Date.now() - new Date(d)) / 864e5); if (days < 1) return 'today'; if (days === 1) return 'yesterday'; if (days < 30) return days+'d ago'; if (days < 365) return Math.floor(days/30)+'mo ago'; return Math.floor(days/365)+'y ago'; }
     function showToast(msg, type, dur, undoFn, actionLabel) {
@@ -3148,7 +3156,7 @@
         if (e.target.closest('.result-card') && e.key === 'Enter' && !e.target.closest('a, button')) {
             var c = e.target.closest('.result-card');
             var title = c.querySelector('.card-title');
-            if (title && title.dataset.url) window.open(title.dataset.url, '_blank', 'noopener');
+            if (title && title.dataset.url) safeOpen(title.dataset.url);
         }
     });
 

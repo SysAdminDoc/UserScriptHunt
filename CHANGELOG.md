@@ -2,6 +2,13 @@
 
 All notable changes to ScriptHunt will be documented in this file.
 
+## [v0.4.2]
+
+### Security
+- Added `safeUrl`/`safeHref`/`safeOpen` URL protocol allowlist — only `http:` and `https:` URLs are allowed in `href` attributes and `window.open()` calls; `javascript:`, `data:`, and `vbscript:` URLs from malicious source data are rejected.
+- Fixed `esc()` misuse in attribute contexts (favorites view) — now uses proper `attr()` escaping via `safeHref`.
+- Added 3 hostile fixture Playwright tests verifying XSS payloads in source names/descriptions/authors render as inert text, dangerous URL protocols are stripped from all link and data-url sinks, and import validation rejects favorites with unsafe URLs.
+
 ## [v0.4.1]
 
 ### Added

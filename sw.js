@@ -1,4 +1,4 @@
-var CACHE_NAME = 'scripthunt-v0.4.1';
+var CACHE_NAME = 'scripthunt-v0.4.2';
 var SHELL_ASSETS = ['./', './index.html', './icon.png', './manifest.json'];
 
 self.addEventListener('install', function(e) {

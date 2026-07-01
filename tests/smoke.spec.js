@@ -1154,3 +1154,135 @@ test('escape key closes modal', async ({ page }) => {
     await expect(page.locator('.compare-go')).toBeFocused();
   }
 });
+
+/* ===== XSS / hostile source data tests ===== */
+
+const XSS_GREASY_FORK_RESULTS = [
+  {
+    id: 901,
+    name: '<img src=x onerror=alert("xss-name")>',
+    description: '<script>alert("xss-desc")</script>Payload description',
+    users: [{ name: '<b onmouseover=alert("xss-author")>Evil</b>' }],
+    url: 'javascript:alert("xss-url")',
+    code_url: 'https://greasyfork.org/scripts/901-xss/code/xss.user.js',
+    version: '1.0.<img src=x>',
+    daily_installs: 1,
+    total_installs: 10,
+    good_ratings: 0,
+    bad_ratings: 0,
+    created_at: '2025-01-01T00:00:00Z',
+    code_updated_at: '2026-01-01T00:00:00Z',
+    license: '"><script>alert("xss-license")</script>',
+  },
+  {
+    id: 902,
+    name: 'Data URL Script',
+    description: 'Script with data: install URL',
+    users: [{ name: 'tester' }],
+    url: 'data:text/html,<script>alert(1)</script>',
+    code_url: 'data:text/javascript,alert(1)',
+    version: '1.0.0',
+    daily_installs: 1,
+    total_installs: 5,
+    good_ratings: 0,
+    bad_ratings: 0,
+    created_at: '2025-01-01T00:00:00Z',
+    code_updated_at: '2026-01-01T00:00:00Z',
+    license: 'MIT',
+  },
+];
+
+test('hostile source names and descriptions render as inert text', async ({ page }) => {
+  await page.unroute('https://api.greasyfork.org/**');
+  await page.route('https://api.greasyfork.org/**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(XSS_GREASY_FORK_RESULTS),
+    });
+  });
+
+  await page.goto('/');
+  await runSearch(page, 'xss');
+
+  const pageContent = await page.content();
+  expect(pageContent).not.toContain('<img src=x onerror');
+  expect(pageContent).not.toContain('<script>alert');
+  expect(pageContent).not.toContain('<b onmouseover');
+
+  const card = page.locator('.result-card').first();
+  await expect(card.locator('.card-title')).toContainText('<img src=x');
+  await expect(card.locator('.card-desc')).toContainText('<script>alert');
+  await expect(card.locator('.card-author')).toContainText('<b onmouseover');
+});
+
+test('javascript: and data: URLs are rejected from href and window.open sinks', async ({ page }) => {
+  await page.unroute('https://api.greasyfork.org/**');
+  await page.route('https://api.greasyfork.org/**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(XSS_GREASY_FORK_RESULTS),
+    });
+  });
+
+  await page.goto('/');
+  await runSearch(page, 'xss');
+
+  const hrefs = await page.locator('.result-card a[href]').evaluateAll((links) =>
+    links.map((a) => a.getAttribute('href'))
+  );
+  for (const href of hrefs) {
+    expect(href).not.toMatch(/^javascript:/i);
+    expect(href).not.toMatch(/^data:/i);
+    expect(href).not.toMatch(/^vbscript:/i);
+  }
+
+  const dataUrls = await page.locator('.result-card [data-url]').evaluateAll((els) =>
+    els.map((el) => el.getAttribute('data-url'))
+  );
+  for (const dataUrl of dataUrls) {
+    expect(dataUrl).not.toMatch(/^javascript:/i);
+    expect(dataUrl).not.toMatch(/^data:/i);
+  }
+});
+
+test('hostile favorites reject dangerous URLs at import and render safely', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.setItem('sh_favs', JSON.stringify([
+      {
+        id: 'xss-fav',
+        name: '<img src=x onerror=alert("fav-xss")>',
+        url: 'javascript:alert("fav-url")',
+        installUrl: 'javascript:alert("fav-install")',
+        source: 'greasyfork',
+        author: '<script>alert("fav-author")</script>',
+      },
+      {
+        id: 'safe-fav',
+        name: '<b>Bold Name</b>',
+        url: 'https://example.com',
+        installUrl: 'https://example.com/install.user.js',
+        source: 'greasyfork',
+        author: '<marquee>Fancy Author</marquee>',
+      },
+    ]));
+  });
+  await page.reload();
+  await page.click('#btnFavorites');
+
+  const card = page.locator('.result-card');
+  await expect(card).toHaveCount(1);
+  await expect(card.locator('.card-title')).toContainText('<b>Bold Name</b>');
+
+  const pageContent = await page.content();
+  expect(pageContent).not.toContain('</b>Bold');
+  expect(pageContent).not.toContain('<marquee>');
+
+  const hrefs = await card.locator('a[href]').evaluateAll((links) =>
+    links.map((a) => a.getAttribute('href'))
+  );
+  for (const href of hrefs) {
+    expect(href).not.toMatch(/^javascript:/i);
+    expect(href).not.toMatch(/^data:/i);
+  }
+});

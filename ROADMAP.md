@@ -117,14 +117,6 @@
 
 ## Research-Driven Additions
 
-### P1
-- [ ] P1 - Harden untrusted rendering and URL sinks
-  Why: ScriptHunt renders third-party catalog and metadata fields through many dynamic HTML and URL sinks; current escaping helpers need a central policy and hostile fixtures.
-  Evidence: `index.html:2287`, `index.html:2364`, `index.html:2470`, `index.html:3055`; MDN Trusted Types API.
-  Touches: `index.html` render helpers/result cards/status chips/metadata panels/favorites/imports, `tests/smoke.spec.js`, `tests/adapter.spec.js`.
-  Acceptance: malicious source names/descriptions/metadata/URLs render as inert text, unsafe URL protocols are rejected or disabled, Trusted Types-compatible helper/policy is used when available, and Playwright tests cover card, metadata, saved-search, favorite, and source-status sinks.
-  Complexity: M
-
 ### P2
 - [ ] P2 - Add release and version drift checks
   Why: Version truth is manually repeated across the app, service worker cache, package, README badge, and changelog, so releases can silently ship stale cache names.
