@@ -1353,6 +1353,23 @@
         });
         var updateHost = urlHost(meta && meta.updateURL), downloadHost = urlHost(meta && meta.downloadURL);
         if (updateHost && downloadHost && !sameHost(updateHost, downloadHost)) findings.push({ label: 'updateURL and downloadURL hosts differ: ' + updateHost + ' vs ' + downloadHost, level: 'warn' });
+
+        listMeta(meta, 'match').forEach(function(p) {
+            var s = String(p || '').trim();
+            if (/^\*\.\w/.test(s)) findings.push({ label: '@match "' + s + '" — invalid; use *://*.' + s.slice(2) + '/*', level: 'warn' });
+            if (/^[a-z]+:\/\/[^/]*\.\*/.test(s)) findings.push({ label: '@match TLD wildcard "' + s + '" — not supported by most managers', level: 'warn' });
+        });
+        connectHosts.forEach(function(c) {
+            var s = String(c || '').trim();
+            if (s.startsWith('*.')) findings.push({ label: '@connect "' + s + '" — use "' + s.slice(2) + '" without the wildcard prefix; managers match subdomains automatically', level: 'info' });
+        });
+        if (meta && !meta.license) {
+            findings.push({ label: 'No @license declared — some catalogs may flag this as unknown', level: 'info' });
+        }
+        var afs = listMeta(meta, 'antifeature');
+        afs.forEach(function(af) {
+            findings.push({ label: 'Antifeature declared: ' + af, level: 'warn' });
+        });
     }
 
     function scanCode(code, meta, item) {

@@ -826,7 +826,7 @@ test('ScriptCat raw install URLs expose scan and metadata panels', async ({ page
 
   const card = page.locator('.result-card').filter({ hasText: 'ScriptCat Helper' });
   await card.locator('[data-action="scan"]').click();
-  await expect(card.locator('.scan-results')).toContainText('No dangerous patterns detected');
+  await expect(card.locator('.scan-results')).toContainText('No @license declared');
   await card.locator('[data-action="meta"]').click();
   await expect(card.locator('.card-metadata')).toContainText('@grant');
 });

@@ -61,12 +61,6 @@
 ## Research-Driven Additions
 
 ### P2
-- [ ] P2 — Add metadata compatibility lint with fix guidance
-  Why: Manager ecosystems disagree on valid @connect, @match, @include, and license/antifeature semantics, and ScriptHunt should explain actionable metadata problems rather than only risk severity.
-  Evidence: ScriptCat#1451, Tampermonkey#1593, Tampermonkey#1864, Greasemonkey#3095, OpenUserJS#1971; index.html:1154, index.html:2355.
-  Touches: index.html metadata parser/viewer, security findings, result-card warnings, tests/smoke.spec.js.
-  Acceptance: metadata viewer surfaces compatibility warnings for invalid wildcard/TLD patterns, @connect wildcard misconceptions, missing/unknown license guidance, antifeature labels, and malformed directives, with tests for each warning and no blocking of valid scripts.
-  Complexity: M
 
 - [ ] P2 — Version local preference storage and migrations
   Why: Preferences, source health, saved searches, caches, favorites, and installed lists live in separate storage keys without a migration/reset model, making future schema changes risky.
