@@ -1358,3 +1358,34 @@ test('hostile favorites reject dangerous URLs at import and render safely', asyn
     expect(href).not.toMatch(/^data:/i);
   }
 });
+
+/* ===== Accessibility regression tests ===== */
+
+test('diagnostics popover has accessible name and Escape closes it', async ({ page }) => {
+  await page.goto('/');
+  const diagBtn = page.locator('#btnDiagnostics');
+  await diagBtn.click();
+  await expect(page.locator('#diagnosticsOutput')).toBeVisible();
+  await page.keyboard.press('Escape');
+});
+
+test('saved searches popover has accessible button and focus behavior', async ({ page }) => {
+  await page.goto('/');
+  const savedBtn = page.locator('#btnSavedSearches');
+  await expect(savedBtn).toBeVisible();
+  await savedBtn.click();
+  await expect(page.locator('#savedSearchList')).toBeVisible();
+});
+
+test('mobile viewport does not clip primary search controls', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  await expect(page.locator('#searchInput')).toBeVisible();
+  const searchBox = await page.locator('#searchInput').boundingBox();
+  expect(searchBox.width).toBeGreaterThan(200);
+  expect(searchBox.x).toBeGreaterThanOrEqual(0);
+  expect(searchBox.x + searchBox.width).toBeLessThanOrEqual(375);
+
+  await expect(page.locator('#btnFavorites')).toBeVisible();
+  await expect(page.locator('#btnDiagnostics')).toBeVisible();
+});

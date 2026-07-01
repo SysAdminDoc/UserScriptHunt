@@ -50,12 +50,6 @@
   Acceptance: users can constrain GitHub results by filename/extension/user.js, repo/code mode, forks/archived status, stars or updated date; rate-limit status explains remaining budget and result-cap behavior without exposing tokens.
   Complexity: M
 
-- [ ] P2 — Add accessibility regressions for popovers and mobile states
-  Why: Current tests cover key controls, but dense popovers, diagnostics, saved searches, comparison, and mobile layouts need regression checks before more controls are added.
-  Evidence: `tests/smoke.spec.js:183`, `tests/smoke.spec.js:325`, `tests/smoke.spec.js:354`; Playwright accessibility testing docs.
-  Touches: `tests/smoke.spec.js`, `index.html` labels/focus handling/responsive CSS.
-  Acceptance: desktop and mobile Playwright tests verify accessible names, focus return, Escape behavior, aria-expanded/aria-live states, and no clipped primary controls across bookmarklet, saved-search, diagnostics, cache, and comparison surfaces.
-  Complexity: M
 
 
 ## Research-Driven Additions

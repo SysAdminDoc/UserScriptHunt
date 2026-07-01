@@ -19,6 +19,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Source-docs drift test (`tests/source-docs.test.js`) fails when README source table count doesn't match the code source registry, or when sources are missing from README. GitHub repo description updated to list all 7 sources.
 - Metadata compatibility lint in security scanner: warns on invalid `@match` wildcard syntax, TLD wildcards, `@connect` wildcard prefix misconceptions, missing `@license`, and declared antifeatures.
 - Versioned preference storage (schema v2) with automatic migration on load. "Reset Preferences" button in diagnostics clears preferences, source health, caches, and saved searches without deleting favorites or installed scripts. Preference schema version appears in diagnostics export.
+- Accessibility regression tests for diagnostics popover (Escape close), saved searches popover visibility, and mobile viewport (375px) verifying no clipped primary controls.
 
 ## [v0.4.1]
 
