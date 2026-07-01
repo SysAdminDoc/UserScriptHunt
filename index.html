@@ -450,6 +450,16 @@
                 </div>
                 <div class="proxy-settings-status" id="cacheSettingsStatus" role="status">Clearing caches does not remove favorites, installed lists, saved searches, proxy settings, or GitHub tokens.</div>
             </div>
+            <div class="proxy-settings-row" style="flex-direction:column;align-items:stretch;gap:6px">
+                <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Custom Sources</div>
+                <div id="customSourceList" style="font-size:11px;color:var(--text-muted)"></div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap">
+                    <input class="proxy-settings-input" id="customSourceName" type="text" placeholder="Source name" style="flex:1;min-width:100px" aria-label="Custom source name">
+                    <input class="proxy-settings-input" id="customSourceUrl" type="text" placeholder="https://api.example.com/search?q={query}&page={page}" style="flex:3;min-width:200px" aria-label="Custom source URL template">
+                    <button class="tool-btn" id="btnAddCustomSource" type="button">Add</button>
+                </div>
+                <div class="proxy-settings-status" id="customSourceStatus" role="status">Custom sources must use HTTPS JSON APIs with {query} placeholder.</div>
+            </div>
             <textarea class="diagnostics-output" id="diagnosticsOutput" readonly aria-label="Diagnostics payload"></textarea>
             <div class="diagnostics-actions"><button class="tool-btn" id="btnCopyDiagnostics" type="button">Copy</button></div>
         </div>
@@ -1271,6 +1281,49 @@
         gists: { id: 'gists', name: 'GitHub Gists', color: '#6e7681', dimColor: 'rgba(110,118,129,0.1)', enabled: _savedSrc.gists !== undefined ? _savedSrc.gists : false, pageSize: 10,
             search: function(q, p) { return srcGists(q, p); } },
     };
+
+    /* -- Custom Sources (user-defined JSON API templates) -- */
+    var _customSources = _prefGet('customSources', []);
+    function validateCustomSource(src) {
+        if (!src || typeof src !== 'object') return 'Invalid source definition';
+        if (!src.name || typeof src.name !== 'string' || src.name.length > 50) return 'Name is required (max 50 chars)';
+        if (!src.urlTemplate || typeof src.urlTemplate !== 'string') return 'URL template is required';
+        if (!/^https:\/\//.test(src.urlTemplate)) return 'URL template must use HTTPS';
+        if (!/\{query\}/.test(src.urlTemplate)) return 'URL template must contain {query}';
+        if (/[{}]/.test(src.urlTemplate.replace(/\{query\}/g, '').replace(/\{page\}/g, ''))) return 'URL template contains unsupported placeholders';
+        return '';
+    }
+    function registerCustomSource(src) {
+        var id = 'custom-' + src.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
+        SOURCES[id] = {
+            id: id, name: src.name, color: '#9ca3af', dimColor: 'rgba(156,163,175,0.12)',
+            enabled: _savedSrc[id] !== undefined ? _savedSrc[id] : true, pageSize: 20, _custom: true,
+            search: function(q, p) {
+                var url = src.urlTemplate.replace(/\{query\}/g, encodeURIComponent(q)).replace(/\{page\}/g, p);
+                return fetch(url, { signal: AbortSignal.timeout(12000) })
+                    .then(function(r) { if (!r.ok) throw new Error(src.name + ' HTTP ' + r.status); return r.json(); })
+                    .then(function(data) {
+                        var items = Array.isArray(data) ? data : (data.items || data.list || data.results || data.data || []);
+                        return sourceRows(items).map(function(item) {
+                            return {
+                                id: id + '-' + (item.id || item.name || Math.random().toString(36).slice(2)),
+                                source: id, name: item.name || item.title || 'Untitled',
+                                description: item.description || item.desc || '',
+                                author: item.author || item.username || item.user || 'Unknown',
+                                url: item.url || item.homepage || item.html_url || '',
+                                installUrl: item.installUrl || item.install_url || item.code_url || '',
+                                version: item.version || '', dailyInstalls: item.daily_installs || 0,
+                                totalInstalls: item.total_installs || item.installs || 0,
+                                rating: item.rating || item.score || 0, badRating: 0,
+                                createdAt: item.created_at || '', updatedAt: item.updated_at || item.code_updated_at || '',
+                                license: normalizeLicense(item.license), historyUrl: '',
+                            };
+                        });
+                    });
+            },
+        };
+    }
+    _customSources.forEach(registerCustomSource);
 
     /* -- Source Health (auto-disable on repeated failures) -- */
     var _sourceHealth = _prefGet('sourceHealth', {});
@@ -3503,6 +3556,45 @@
         resetPreferences();
         setCacheStatus('Preferences reset. Favorites and installed lists preserved. Reload to apply.', 'ok');
         renderDiagnostics();
+    });
+    function renderCustomSourceList() {
+        var el = document.getElementById('customSourceList');
+        if (!el) return;
+        var sources = _prefGet('customSources', []);
+        if (!sources.length) { el.textContent = 'No custom sources configured.'; return; }
+        el.innerHTML = sources.map(function(src) {
+            return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0"><span>' + esc(src.name) + '</span><button class="tool-btn" data-remove-source="' + attr(src.name) + '" type="button" style="font-size:10px;padding:2px 6px">Remove</button></div>';
+        }).join('');
+        el.querySelectorAll('[data-remove-source]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var name = btn.getAttribute('data-remove-source');
+                var updated = _prefGet('customSources', []).filter(function(s) { return s.name !== name; });
+                _prefSet('customSources', updated);
+                var id = 'custom-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
+                delete SOURCES[id];
+                renderCustomSourceList(); renderSourceToggles(); renderDiagnostics();
+                document.getElementById('customSourceStatus').textContent = 'Removed "' + name + '". Reload to fully clear.';
+            });
+        });
+    }
+    renderCustomSourceList();
+    document.getElementById('btnAddCustomSource').addEventListener('click', function() {
+        var nameInput = document.getElementById('customSourceName');
+        var urlInput = document.getElementById('customSourceUrl');
+        var status = document.getElementById('customSourceStatus');
+        var src = { name: nameInput.value.trim(), urlTemplate: urlInput.value.trim() };
+        var err = validateCustomSource(src);
+        if (err) { status.textContent = err; return; }
+        var existing = _prefGet('customSources', []);
+        if (existing.some(function(s) { return s.name.toLowerCase() === src.name.toLowerCase(); })) {
+            status.textContent = 'A custom source with that name already exists.'; return;
+        }
+        existing.push(src);
+        _prefSet('customSources', existing);
+        registerCustomSource(src);
+        nameInput.value = ''; urlInput.value = '';
+        renderCustomSourceList(); renderSourceToggles(); renderDiagnostics();
+        status.textContent = 'Added "' + src.name + '". Toggle it in the source bar to use it.';
     });
     document.getElementById('btnCopyDiagnostics').addEventListener('click', function() {
         renderDiagnostics();

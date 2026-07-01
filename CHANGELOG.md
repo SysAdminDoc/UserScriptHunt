@@ -25,6 +25,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Installed-script import now recognizes Violentmonkey/ScriptCat manager backup formats (`meta.name`/`custom.includes` shape and `list` arrays) alongside ScriptHunt JSON and generic arrays. Manager backups show "(detected manager backup)" in the import toast.
 - Live source canary tests (`npm run test:canary`) verify Greasy Fork, ScriptCat, GitHub, and allorigins proxy are reachable with expected response shapes. Excluded from the default deterministic test suite.
 - Result cards show "Version History" links for Greasy Fork (versions page) and GitHub (commits page) sources. Scrape-only sources omit the link.
+- Custom source templates: power users can add HTTPS JSON API sources in Diagnostics with `{query}` and `{page}` URL placeholders. Sources are validated (HTTPS-only, no unsafe placeholders), persist in localStorage, and appear as toggleable sources in the search bar.
 
 ## [v0.4.1]
 
