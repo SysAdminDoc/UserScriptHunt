@@ -2,6 +2,29 @@
 
 All notable changes to ScriptHunt will be documented in this file.
 
+## [v0.5.1]
+
+### Security
+- Fixed CORS proxy origin confusion — `startsWith('http://localhost')` now requires exact origin match, preventing subdomain impersonation (e.g. `http://localhost.evil.com`). Regression test added.
+- Hardened CSP meta tag construction — proxy URLs with semicolons, single-quotes, or commas in the pathname are now rejected before CSP injection.
+- Custom source URLs from untrusted API responses are now sanitized through `safeUrl()` before rendering.
+- Script scan fetch now rejects responses larger than 5 MB to prevent memory exhaustion from malicious install URLs.
+
+### Fixed
+- Search race condition: overlapping searches from rapid typing now abort stale in-flight requests instead of concatenating results from different queries.
+- Spam detection no longer false-positives high-install scripts from sources that don't report ratings (GitHub, OpenUserJS, ScriptCat, Gists).
+- `hashString` FNV-1a implementation now uses `Math.imul` for correct 32-bit arithmetic, preventing cross-engine hash inconsistencies.
+- `installedState()` per-card localStorage parse replaced with cached reads — ~100x fewer JSON.parse calls during result rendering.
+- `setFavs`, `setInstalledScripts`, `setSavedSearches`, and `lsWriteOfflineEntries` now wrapped in try/catch with user-facing toast for localStorage quota errors.
+- Broken `og:image` meta tag pointed to nonexistent `banner.png` — now points to `icon.png`.
+- OLED theme result card border now uses `var(--border)` instead of hardcoded `#222`.
+- Removed dead CSS media query `@media (prefers-color-scheme: light) { html.theme-auto { } }`.
+- Removed dead `canScan` variable — always `true`, all conditional branches were unreachable.
+- Custom source IDs now use deterministic hashes instead of `Math.random()`, fixing cross-session deduplication.
+- Added `.trust-dim-score` CSS styling (monospace, proper color).
+- Modal title uses `<h2>` instead of `<div>` for proper heading hierarchy.
+- Stats bar text (`id="statsText"`) now has `aria-live="polite"` so screen readers announce result counts.
+
 ## [v0.5.0]
 
 ### Security
