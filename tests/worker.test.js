@@ -60,6 +60,20 @@ test('worker rejects unconfigured target hosts', async () => {
   }
 });
 
+test('worker rejects origin confusion attacks from subdomain impersonation', async () => {
+  const handleRequest = loadWorker(async () => {
+    return new Response('fixture body', { status: 200 });
+  });
+
+  const evilRequest = new Request('https://proxy.example/?url=' + encodeURIComponent('https://openuserjs.org/scripts'), {
+    headers: { Origin: 'http://localhost.evil.com' },
+  });
+  const response = await handleRequest(evilRequest);
+  const origin = response.headers.get('Access-Control-Allow-Origin');
+  assert.notEqual(origin, 'http://localhost.evil.com', 'Should not reflect attacker origin');
+  assert.equal(origin, 'https://sysadmindoc.github.io');
+});
+
 test('worker rejects non-GET proxied requests', async () => {
   const handleRequest = loadWorker(async () => {
     throw new Error('fetch should not run for rejected methods');
