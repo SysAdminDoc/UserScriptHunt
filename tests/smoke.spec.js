@@ -367,6 +367,44 @@ test('script imports skip invalid rows without aborting valid rows', async ({ pa
   expect(JSON.stringify(stored)).not.toContain('javascript:');
 });
 
+test('manager-style backup imports are recognized and normalized', async ({ page }) => {
+  await page.goto('/');
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.click('#btnImportInstalled');
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: 'violentmonkey-backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify([
+      {
+        meta: {
+          name: 'VM Exported Script',
+          version: '2.0.0',
+          namespace: 'https://example.com',
+          downloadURL: 'https://greasyfork.org/scripts/999/code.user.js',
+          updateURL: 'https://greasyfork.org/scripts/999/code.meta.js',
+        },
+        custom: {
+          origInclude: ['https://example.com/*'],
+          origExclude: ['https://ads.example.com/*'],
+        },
+      },
+      {
+        meta: { name: 'Another Script', version: '1.0.0' },
+        custom: {},
+      },
+    ])),
+  });
+
+  await expect(page.locator('.toast').last()).toContainText('Imported 2 installed scripts');
+  await expect(page.locator('.toast').last()).toContainText('manager backup');
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sh_installed_scripts')));
+  expect(stored.installed).toHaveLength(2);
+  expect(stored.installed[0].name).toBe('VM Exported Script');
+  expect(stored.installed[0].installUrl).toBe('https://greasyfork.org/scripts/999/code.user.js');
+});
+
 test('result icon buttons have accessible names', async ({ page }) => {
   await page.goto('/');
   await runSearch(page);

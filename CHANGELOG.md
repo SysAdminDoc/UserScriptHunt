@@ -22,6 +22,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Accessibility regression tests for diagnostics popover (Escape close), saved searches popover visibility, and mobile viewport (375px) verifying no clipped primary controls.
 - GitHub rate-limit status now shows searches remaining, budget fraction, reset time, result cap (1,000), and whether code search is enabled (token vs. no-token).
 - Diagnostics exports now include `schema: "scripthunt-diagnostics"` and `schemaVersion: 1` for future replay/migration, plus preference schema diagnostics.
+- Installed-script import now recognizes Violentmonkey/ScriptCat manager backup formats (`meta.name`/`custom.includes` shape and `list` arrays) alongside ScriptHunt JSON and generic arrays. Manager backups show "(detected manager backup)" in the import toast.
 
 ## [v0.4.1]
 

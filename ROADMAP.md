@@ -2,13 +2,6 @@
 
 ## P2
 
-- [ ] P2 — Add manager backup import preview adapters
-  Why: Generic installed-list import is not enough for users migrating from real managers, where per-script includes/excludes and settings can be lost.
-  Evidence: ScriptCat#1484, ScriptCat#1483, violentmonkey#2169; `index.html:985`, `README.md:235`.
-  Touches: `index.html` import parser/preview UI, import/export schema, `tests/smoke.spec.js`, README import docs.
-  Acceptance: imports recognize ScriptHunt JSON plus at least two manager-style backup shapes via fixtures, show a preview with valid/invalid/skipped counts before committing, preserve include/exclude/update metadata where present, and never import executable code into storage.
-  Complexity: L
-
 
 ## P3
 

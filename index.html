@@ -1125,11 +1125,43 @@
         };
     }
 
+    function normalizeManagerBackupRow(row) {
+        if (!row || typeof row !== 'object') return null;
+        if (row.meta && typeof row.meta === 'object') {
+            var m = row.meta;
+            var cust = row.custom || {};
+            return {
+                name: m.name || '', version: m.version || '', author: m.author || '',
+                namespace: m.namespace || '',
+                installUrl: m.downloadURL || m.installURL || '',
+                downloadUrl: m.downloadURL || '',
+                updateUrl: m.updateURL || '',
+                url: m.homepageURL || m.homepage || '',
+                _managerIncludes: cust.origInclude || cust.includes || [],
+                _managerExcludes: cust.origExclude || cust.excludes || [],
+            };
+        }
+        if (row.name && (row.options || row.config || row.position !== undefined)) {
+            return {
+                name: row.name || '', version: row.version || '', author: row.author || '',
+                namespace: row.namespace || '',
+                installUrl: row.downloadUrl || row.downloadURL || row.installUrl || '',
+                downloadUrl: row.downloadUrl || row.downloadURL || '',
+                updateUrl: row.updateUrl || row.updateURL || '',
+                url: row.homepage || row.homepageURL || '',
+            };
+        }
+        return null;
+    }
+
     function parseScriptImportPayload(payload, preferredType) {
         var type = preferredType || 'favorites';
         var rows = [];
+        var managerFormat = '';
         if (Array.isArray(payload)) {
-            rows = payload;
+            var firstManager = payload.length && normalizeManagerBackupRow(payload[0]);
+            if (firstManager) { rows = payload; managerFormat = 'manager-array'; }
+            else rows = payload;
         } else if (payload && typeof payload === 'object') {
             if (payload.schema && payload.version !== 1) throw new Error('Unsupported import version');
             if (payload.schema === 'scripthunt-installed') { type = 'installed'; rows = payload.installed || payload.scripts || []; }
@@ -1137,16 +1169,21 @@
             else if (payload.schema) throw new Error('Unsupported import schema');
             else if (Array.isArray(payload.installed) || Array.isArray(payload.scripts)) { type = 'installed'; rows = payload.installed || payload.scripts; }
             else if (Array.isArray(payload.favorites)) { type = 'favorites'; rows = payload.favorites; }
+            else if (Array.isArray(payload.list)) { type = 'installed'; rows = payload.list; managerFormat = 'manager-list'; }
         }
         if (!Array.isArray(rows)) throw new Error('Invalid import format');
         var invalid = 0;
         var items = rows.map(function(row) {
+            if (managerFormat) {
+                var mgr = normalizeManagerBackupRow(row);
+                if (mgr) return normalizeImportedScript(mgr);
+            }
             var normalized = normalizeImportedScript(row);
             if (!normalized) invalid++;
             return normalized;
         }).filter(Boolean);
         if (!items.length && rows.length) throw new Error('No valid script records');
-        return { type: type, items: items, invalid: invalid };
+        return { type: type, items: items, invalid: invalid, managerFormat: managerFormat };
     }
 
     function renderProvenance(item, installed) {
@@ -3513,7 +3550,9 @@
                 if (parsed.type === 'installed') {
                     setInstalledScripts(parsed.items);
                     if (state.results.length) sortAndRender();
-                    showToast('Imported ' + parsed.items.length + ' installed scripts' + (parsed.invalid ? ' (' + parsed.invalid + ' invalid skipped)' : ''), 'info', 3000);
+                    var importMsg = 'Imported ' + parsed.items.length + ' installed scripts' + (parsed.invalid ? ' (' + parsed.invalid + ' invalid skipped)' : '');
+                    if (parsed.managerFormat) importMsg += ' (detected manager backup)';
+                    showToast(importMsg, 'info', 3000);
                     return;
                 }
                 var existing = getFavs(), ids = new Set(existing.map(scriptRecordKey));
