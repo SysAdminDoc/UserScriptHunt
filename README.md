@@ -234,7 +234,7 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **PWA** — manifest.json + service worker for installability, explicit update prompts, offline shell fallback notices, and local recent-search recovery
 - **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; diagnostics can clear recoverable caches without deleting user records; no tracking, no cookies, no server-side state
 - **Versioned JSON payloads** - favorites and installed-list exports use schema v1; imports validate URLs, report skipped invalid rows, and still accept manager-style `scripts` arrays plus legacy arrays
-- **Local QA** - npm run qa runs npm audit, Worker tests, and Playwright smoke/adapter tests against the repo-local static server
+- **Local QA** - `npm run qa` runs npm audit, Worker tests, version/source-documentation drift checks, and browser tests against the repo-local static server; Playwright is pinned to the exact locally verified release
 
 ---
 

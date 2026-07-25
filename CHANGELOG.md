@@ -12,6 +12,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Added versioned source result envelopes and visible per-source provenance for partiality, pagination, latency, cache use, privacy route, HTTP status, and normalized failures.
 - Added a public-proxy fallback preference with target-URL disclosure and an explicit failure state when no allowed proxy route remains.
 - Added visible GitHub repository/authenticated-code modes, effective query qualifiers, incomplete-result warnings, and 1,000-result ceiling evidence while preserving repository results when code search fails.
+- Reconciled package and lockfile version metadata, pinned the verified Playwright release, and expanded version drift tests to cover both lockfile version fields and the dependency pin.
 
 ## [v0.5.1]
 

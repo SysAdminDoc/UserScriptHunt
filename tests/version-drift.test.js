@@ -11,7 +11,16 @@ function readFile(name) {
 
 test('all version strings match across files', () => {
   const pkg = JSON.parse(readFile('package.json'));
+  const lock = JSON.parse(readFile('package-lock.json'));
   const pkgVersion = pkg.version;
+  assert.equal(lock.version, pkgVersion, 'package-lock.json top-level version should match package.json');
+  assert.equal(lock.packages[''].version, pkgVersion, 'package-lock.json root package version should match package.json');
+  assert.equal(
+    lock.packages[''].devDependencies['@playwright/test'],
+    pkg.devDependencies['@playwright/test'],
+    'package-lock.json should preserve the deliberate Playwright pin'
+  );
+  assert.match(pkg.devDependencies['@playwright/test'], /^\d+\.\d+\.\d+$/, 'Playwright should use an exact tested version');
 
   const html = readFile('index.html');
   const htmlDisplayMatch = html.match(/<span class="version">v([^<]+)<\/span>/);
