@@ -689,6 +689,7 @@
     var OFFLINE_RESULT_LIMIT = 120;
     var SCAN_CACHE_LIMIT = 300;
     var SCAN_CACHE_TTL = 7 * 864e5;
+    var MAX_SCAN_BYTES = 5 * 1024 * 1024;
     var SCAN_CONCURRENCY = 4;
     var META_DISPLAY_VALUE_LIMIT = 80;
     var META_DISPLAY_CHAR_LIMIT = 500;
@@ -872,12 +873,17 @@
             updateUrl: item.updateUrl || '',
             codeHash: scan.codeHash || '',
             scan: {
+                status: scan.status || 'verified',
                 score: scan.score,
                 findings: scan.findings || [],
                 permLevel: scan.permLevel || 'unknown',
                 meta: scan.meta || null,
                 codeSize: scan.codeSize || 0,
                 codeHash: scan.codeHash || '',
+                sourceUrl: scan.sourceUrl || '',
+                fetchedAt: scan.fetchedAt || Date.now(),
+                httpStatus: scan.httpStatus || 200,
+                contentType: scan.contentType || '',
             },
         };
     }
@@ -885,12 +891,18 @@
     function hydrateScan(item, entry) {
         if (!entry || !entry.scan || Date.now() - (entry.savedAt || 0) > SCAN_CACHE_TTL) return null;
         var scan = {
+            status: entry.scan.status || 'verified',
             score: entry.scan.score,
             findings: entry.scan.findings || [],
             permLevel: entry.scan.permLevel || 'unknown',
             meta: entry.scan.meta || null,
             codeSize: entry.scan.codeSize || 0,
             codeHash: entry.scan.codeHash || entry.codeHash || '',
+            sourceUrl: entry.scan.sourceUrl || entry.url || '',
+            fetchedAt: entry.scan.fetchedAt || entry.savedAt || 0,
+            httpStatus: entry.scan.httpStatus || 200,
+            contentType: entry.scan.contentType || '',
+            cacheAgeMs: Math.max(0, Date.now() - (entry.savedAt || entry.scan.fetchedAt || Date.now())),
             cached: true,
         };
         item._scan = scan;
@@ -931,6 +943,11 @@
     function byteSizeFromJson(value) {
         try { return new Blob([JSON.stringify(value || null)]).size; }
         catch(e) { return JSON.stringify(value || null).length; }
+    }
+
+    function byteSizeFromText(value) {
+        try { return new Blob([String(value || '')]).size; }
+        catch(e) { return String(value || '').length; }
     }
 
     function fmtBytes(n) {
@@ -2087,8 +2104,21 @@
     }
 
     /* ===== Metadata + Security Scan ===== */
-    function scanUnavailable(reason) {
-        return { unavailable: true, reason: reason, score: 0, findings: [], meta: null, codeSize: 0 };
+    function scanUnavailable(reason, evidence) {
+        evidence = evidence || {};
+        return {
+            unavailable: true,
+            status: 'unknown',
+            reason: reason,
+            score: 0,
+            findings: [],
+            meta: null,
+            codeSize: 0,
+            sourceUrl: evidence.sourceUrl || '',
+            fetchedAt: evidence.fetchedAt || 0,
+            httpStatus: evidence.httpStatus || 0,
+            contentType: evidence.contentType || '',
+        };
     }
 
     function scanBlocker(item) {
@@ -2123,19 +2153,37 @@
         }
         var cached = await getCachedScan(item);
         if (cached) return cached;
+        var fetchedAt = Date.now();
+        var httpStatus = 0;
+        var contentType = '';
         try {
             var r;
             if (url.includes('openuserjs.org') || url.includes('userscript.zone') || url.includes('gist.github.com') || url.includes('gist.githubusercontent.com')) r = await fetchViaProxy(url, 10000, item.source || 'metadata');
             else r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            httpStatus = r.status;
+            contentType = (r.headers.get('x-upstream-content-type') || r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+            if (!r.ok) throw new Error('HTTP ' + r.status);
             var contentLength = parseInt(r.headers.get('content-length') || '0', 10);
-            if (contentLength > 5242880) throw new Error('script too large (' + Math.round(contentLength / 1048576) + ' MB)');
+            if (contentLength > MAX_SCAN_BYTES) throw new Error('script too large (' + Math.round(contentLength / 1048576) + ' MB)');
+            if (contentType && !/^(application\/(javascript|x-javascript|octet-stream)|text\/(javascript|plain))$/.test(contentType)) {
+                throw new Error('invalid content type (' + contentType + ')');
+            }
             var code = await r.text();
-            if (code.length > 5242880) throw new Error('script too large (' + Math.round(code.length / 1048576) + ' MB)');
+            var codeSize = byteSizeFromText(code);
+            if (codeSize > MAX_SCAN_BYTES) throw new Error('script too large (' + Math.round(codeSize / 1048576) + ' MB)');
+            if (!code.trim()) throw new Error('empty response');
             var meta = parseMetaBlock(code);
+            if (!meta) throw new Error('response is not a userscript');
             var scan = scanCode(code, meta, item);
+            scan.status = 'verified';
             scan.meta = meta;
-            scan.codeSize = code.length;
+            scan.codeSize = codeSize;
             scan.codeHash = hashString(code);
+            scan.sourceUrl = url;
+            scan.fetchedAt = fetchedAt;
+            scan.httpStatus = httpStatus;
+            scan.contentType = contentType;
+            scan.cacheAgeMs = 0;
             if (meta) applyMetaUrls(item, meta);
             item._scan = scan;
             item._meta = meta;
@@ -2143,7 +2191,12 @@
             await saveCachedScan(item, scan);
             return scan;
         } catch(e) {
-            item._scan = scanUnavailable('Scan unavailable: ' + ((e && e.message) || 'script fetch failed'));
+            item._scan = scanUnavailable('Scan unavailable: ' + ((e && e.message) || 'script fetch failed'), {
+                sourceUrl: url,
+                fetchedAt: fetchedAt,
+                httpStatus: httpStatus,
+                contentType: contentType,
+            });
             return item._scan;
         }
     }
@@ -2663,7 +2716,7 @@
             panel.innerHTML = '<span class="meta-loading">Running security scan...</span>';
             var scan = await fetchAndScan(item);
             if (!scan) { panel.innerHTML = '<span class="meta-loading">Scan unavailable: script fetch failed</span>'; return; }
-            if (scan.unavailable) { panel.innerHTML = '<span class="meta-loading">' + esc(scan.reason) + '</span>'; return; }
+            if (scan.unavailable) { panel.innerHTML = '<span class="meta-loading"><strong>Security: Unknown</strong><br>' + esc(scan.reason) + '</span>'; return; }
             var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="trust-badge ' + trustClass(scan.score) + '">Security: ' + scan.score + '/100</span>';
             if (scan.codeSize) html += '<span style="font-size:10px;color:var(--text-muted)">' + fmtNum(scan.codeSize) + ' bytes</span>';
             html += '</div>';
@@ -2820,7 +2873,7 @@
             h += '<div class="compare-row"><span class="compare-label">Updated</span><span class="compare-value">' + (item.updatedAt ? timeAgo(item.updatedAt) : 'N/A') + '</span></div>';
             if (state.siteFilter) h += '<div class="compare-row"><span class="compare-label">Applies to ' + esc(normalizeSiteHost(state.siteFilter)) + '</span><span class="compare-value">' + esc(appliesSummary(item._appliesTo)) + '</span></div>';
             if (item._scan) {
-                h += '<div class="compare-row"><span class="compare-label">Scan score</span><span class="compare-value">' + item._scan.score + '/100</span></div>';
+                h += '<div class="compare-row"><span class="compare-label">Scan score</span><span class="compare-value">' + (item._scan.unavailable ? 'Unknown' : item._scan.score + '/100') + '</span></div>';
                 h += '<div class="compare-row"><span class="compare-label">Code Size</span><span class="compare-value">' + fmtNum(item._scan.codeSize || 0) + 'B</span></div>';
             }
             h += '</div>';

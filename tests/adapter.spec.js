@@ -102,6 +102,113 @@ test('source adapters ignore empty and malformed drift shapes', async ({ page })
   expect(normalized.driftHtml.gists[0]).toMatchObject({ name: 'Drift.user.js', installUrl: 'https://gist.github.com/gist-author/def456/raw/Drift.user.js' });
 });
 
+test('security scans reject invalid responses and cache only verified userscripts', async ({ page }) => {
+  await page.goto('/');
+
+  const outcomes = await page.evaluate(async () => {
+    const originalFetch = window.fetch;
+    const validCode = `// ==UserScript==
+// @name Verified fixture
+// @version 1.0.0
+// @match https://example.com/*
+// ==/UserScript==
+console.log('verified');
+`;
+    const cases = {
+      'non-2xx': new Response('<h1>Not found</h1>', {
+        status: 404,
+        headers: { 'content-type': 'text/html' },
+      }),
+      'invalid-content': new Response('<html>login</html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }),
+      empty: new Response('', {
+        status: 200,
+        headers: { 'content-type': 'text/javascript' },
+      }),
+      'not-userscript': new Response('console.log("ordinary script")', {
+        status: 200,
+        headers: { 'content-type': 'application/javascript' },
+      }),
+      oversized: new Response('small body', {
+        status: 200,
+        headers: {
+          'content-type': 'text/javascript',
+          'content-length': String(5 * 1024 * 1024 + 1),
+        },
+      }),
+      verified: new Response(validCode, {
+        status: 200,
+        headers: { 'content-type': 'application/javascript; charset=utf-8' },
+      }),
+    };
+    const makeItem = (name) => ({
+      id: `scan-${name}`,
+      source: 'greasyfork',
+      name,
+      version: '1.0.0',
+      installUrl: `https://scan-fixture.invalid/${name}.user.js`,
+    });
+
+    try {
+      try { await idbStoreClear('scans'); } catch (err) {}
+      localStorage.removeItem('sh_scan_cache');
+      window.fetch = async (url) => {
+        const key = new URL(String(url)).pathname.slice(1, -'.user.js'.length);
+        return cases[key];
+      };
+
+      const results = {};
+      for (const key of ['non-2xx', 'invalid-content', 'empty', 'not-userscript', 'oversized', 'verified']) {
+        results[key] = await fetchAndScan(makeItem(key));
+      }
+      let stored = [];
+      try { stored = await idbScanEntries(); }
+      catch (err) { stored = JSON.parse(localStorage.getItem('sh_scan_cache') || '[]'); }
+
+      const cached = await fetchAndScan(makeItem('verified'));
+      return {
+        results,
+        storedCount: stored.length,
+        cached,
+      };
+    } finally {
+      window.fetch = originalFetch;
+    }
+  });
+
+  for (const key of ['non-2xx', 'invalid-content', 'empty', 'not-userscript', 'oversized']) {
+    expect(outcomes.results[key]).toMatchObject({
+      unavailable: true,
+      status: 'unknown',
+    });
+  }
+  expect(outcomes.results['non-2xx'].reason).toContain('HTTP 404');
+  expect(outcomes.results['invalid-content'].reason).toContain('invalid content type');
+  expect(outcomes.results.empty.reason).toContain('empty response');
+  expect(outcomes.results['not-userscript'].reason).toContain('not a userscript');
+  expect(outcomes.results.oversized.reason).toContain('script too large');
+  expect(outcomes.storedCount).toBe(1);
+
+  expect(outcomes.results.verified).toMatchObject({
+    status: 'verified',
+    sourceUrl: 'https://scan-fixture.invalid/verified.user.js',
+    httpStatus: 200,
+    contentType: 'application/javascript',
+    cacheAgeMs: 0,
+  });
+  expect(outcomes.results.verified.fetchedAt).toBeGreaterThan(0);
+  expect(outcomes.results.verified.codeHash).toMatch(/^[0-9a-f]{8}$/);
+  expect(outcomes.cached).toMatchObject({
+    status: 'verified',
+    cached: true,
+    sourceUrl: 'https://scan-fixture.invalid/verified.user.js',
+    httpStatus: 200,
+  });
+  expect(outcomes.cached.cacheAgeMs).toBeGreaterThanOrEqual(0);
+});
+
 test('source fetchers surface invalid JSON, rate limits, and proxy wrapper failures', async ({ page }) => {
   await page.goto('/');
 
