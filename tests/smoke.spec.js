@@ -315,7 +315,9 @@ test('installed import marks matching scripts and update state', async ({ page }
       }],
     })),
   });
-  await expect(page.locator('.toast').last()).toContainText('Imported 1 installed scripts');
+  await expect(page.getByRole('dialog', { name: 'Import preview' })).toContainText('Valid');
+  await page.click('#importReplace');
+  await expect(page.locator('.toast').last()).toContainText('Imported 1 installed records using replace');
 
   await runSearch(page);
   const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
@@ -359,7 +361,11 @@ test('script imports skip invalid rows without aborting valid rows', async ({ pa
     })),
   });
 
-  await expect(page.locator('.toast').last()).toContainText('Imported 1 installed scripts (2 invalid skipped)');
+  const preview = page.getByRole('dialog', { name: 'Import preview' });
+  await expect(preview).toContainText('Valid');
+  await expect(preview).toContainText('Invalid');
+  await page.click('#importReplace');
+  await expect(page.locator('.toast').last()).toContainText('Imported 1 installed records using replace');
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sh_installed_scripts')));
   expect(stored.schema).toBe('scripthunt-installed');
   expect(stored.version).toBe(1);
@@ -396,13 +402,84 @@ test('manager-style backup imports are recognized and normalized', async ({ page
     ])),
   });
 
-  await expect(page.locator('.toast').last()).toContainText('Imported 2 installed scripts');
-  await expect(page.locator('.toast').last()).toContainText('manager backup');
+  await expect(page.getByRole('dialog', { name: 'Import preview' })).toContainText('manager backup: manager-array');
+  await page.click('#importReplace');
+  await expect(page.locator('.toast').last()).toContainText('Imported 2 installed records using replace');
+  await expect(page.locator('.toast').last()).toContainText('manager backup detected');
 
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sh_installed_scripts')));
   expect(stored.installed).toHaveLength(2);
   expect(stored.installed[0].name).toBe('VM Exported Script');
   expect(stored.installed[0].installUrl).toBe('https://greasyfork.org/scripts/999/code.user.js');
+});
+
+test('import preview supports cancellation, conflict merge, snapshots, and rollback', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    setInstalledScripts([{
+      name: 'Existing Script',
+      version: '1.0.0',
+      installUrl: 'https://example.com/existing.user.js',
+    }]);
+  });
+  const payload = {
+    schema: 'scripthunt-installed',
+    version: 1,
+    installed: [
+      { name: 'Existing Script', version: '2.0.0', installUrl: 'https://example.com/existing.user.js' },
+      { name: 'New Script', version: '1.0.0', installUrl: 'https://example.com/new.user.js' },
+      { name: 'New Script', version: '1.0.0', installUrl: 'https://example.com/new.user.js' },
+      { name: 'Invalid Script', installUrl: 'javascript:alert(1)' },
+    ],
+  };
+  const chooseImport = async () => {
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.click('#btnImportInstalled');
+    const chooser = await chooserPromise;
+    await chooser.setFiles({
+      name: 'preview.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(payload)),
+    });
+  };
+
+  await chooseImport();
+  const preview = page.getByRole('dialog', { name: 'Import preview' });
+  const counts = preview.locator('.compare-col');
+  await expect(counts.nth(0)).toContainText('Valid3');
+  await expect(counts.nth(1)).toContainText('Invalid1');
+  await expect(counts.nth(2)).toContainText('Duplicates1');
+  await expect(counts.nth(3)).toContainText('Conflicts1');
+  await expect(counts.nth(4)).toContainText('New1');
+  await page.click('#importCancel');
+  expect(await page.evaluate(() => getInstalledScripts().map((item) => item.version))).toEqual(['1.0.0']);
+  expect(await page.evaluate(() => localStorage.getItem('sh_import_snapshot'))).toBeNull();
+
+  await chooseImport();
+  await page.click('#importMerge');
+  const merged = await page.evaluate(() => getInstalledScripts().map((item) => ({ name: item.name, version: item.version })));
+  expect(merged).toEqual([
+    { name: 'Existing Script', version: '2.0.0' },
+    { name: 'New Script', version: '1.0.0' },
+  ]);
+  const snapshot = await page.evaluate(() => JSON.parse(localStorage.getItem('sh_import_snapshot')));
+  expect(snapshot).toMatchObject({
+    schema: 'scripthunt-import-snapshot',
+    version: 1,
+    importType: 'installed',
+  });
+
+  await page.locator('.toast').last().getByRole('button', { name: 'Undo' }).click();
+  const restored = await page.evaluate(() => getInstalledScripts());
+  expect(restored).toHaveLength(1);
+  expect(restored[0]).toMatchObject({ name: 'Existing Script', version: '1.0.0' });
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.click('#btnExportInstalled');
+  const download = await downloadPromise;
+  const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
+  expect(exported.installed).toHaveLength(1);
+  expect(exported.installed[0]).toMatchObject({ name: 'Existing Script', version: '1.0.0' });
 });
 
 test('result icon buttons have accessible names', async ({ page }) => {

@@ -1248,6 +1248,116 @@
         return { type: type, items: items, invalid: invalid, managerFormat: managerFormat };
     }
 
+    function importRecordsEqual(a, b) {
+        return JSON.stringify(exportScriptRecord(a)) === JSON.stringify(exportScriptRecord(b));
+    }
+
+    function buildImportPreview(parsed) {
+        var existing = parsed.type === 'installed' ? getInstalledScripts() : getFavs();
+        var existingByKey = {};
+        existing.forEach(function(item) { existingByKey[scriptRecordKey(item)] = item; });
+        var incomingByKey = {}, duplicateRows = 0;
+        parsed.items.forEach(function(item) {
+            var key = scriptRecordKey(item);
+            if (incomingByKey[key]) duplicateRows++;
+            incomingByKey[key] = item;
+        });
+        var incoming = Object.keys(incomingByKey).map(function(key) { return incomingByKey[key]; });
+        var conflicts = 0, duplicates = duplicateRows, additions = 0;
+        incoming.forEach(function(item) {
+            var current = existingByKey[scriptRecordKey(item)];
+            if (!current) additions++;
+            else if (importRecordsEqual(current, item)) duplicates++;
+            else conflicts++;
+        });
+        return {
+            type: parsed.type,
+            items: incoming,
+            existing: existing,
+            valid: parsed.items.length,
+            invalid: parsed.invalid,
+            duplicates: duplicates,
+            conflicts: conflicts,
+            additions: additions,
+            managerFormat: parsed.managerFormat,
+        };
+    }
+
+    function saveImportSnapshot(type) {
+        var snapshot = {
+            schema: 'scripthunt-import-snapshot',
+            version: 1,
+            createdAt: new Date().toISOString(),
+            importType: type,
+            favorites: getFavs(),
+            installed: getInstalledScripts(),
+        };
+        localStorage.setItem('sh_import_snapshot', JSON.stringify(snapshot));
+        return snapshot;
+    }
+
+    function restoreImportSnapshot(snapshot) {
+        if (!snapshot || snapshot.schema !== 'scripthunt-import-snapshot' || snapshot.version !== 1) return false;
+        setFavs(snapshot.favorites || []);
+        setInstalledScripts(snapshot.installed || []);
+        if (state.showFavs) showFavorites();
+        else if (state.results.length) sortAndRender();
+        return true;
+    }
+
+    function applyImportPreview(preview, mode) {
+        var snapshot = saveImportSnapshot(preview.type);
+        var existingByKey = {};
+        preview.existing.forEach(function(item) { existingByKey[scriptRecordKey(item)] = item; });
+        var next;
+        if (mode === 'replace') {
+            next = preview.items.slice();
+        } else {
+            next = preview.existing.slice();
+            preview.items.forEach(function(item) {
+                var key = scriptRecordKey(item);
+                var index = next.findIndex(function(current) { return scriptRecordKey(current) === key; });
+                if (index < 0) next.push(item);
+                else if (mode === 'merge') next[index] = item;
+            });
+        }
+        if (preview.type === 'installed') {
+            setInstalledScripts(next);
+            if (state.results.length) sortAndRender();
+        } else {
+            setFavs(next);
+            if (state.showFavs) showFavorites();
+        }
+        closeCompareModal();
+        var manager = preview.managerFormat ? '; manager backup detected' : '';
+        showToast('Imported ' + preview.items.length + ' ' + preview.type + ' records using ' + mode + manager, 'info', 8000, function() {
+            if (restoreImportSnapshot(snapshot)) showToast('Import rolled back', 'info', 2500);
+        });
+    }
+
+    function openImportPreview(preview) {
+        modalReturnFocus = document.activeElement;
+        var overlay = document.getElementById('modalOverlay');
+        var modal = document.getElementById('modalContent');
+        overlay.setAttribute('aria-label', 'Import preview');
+        modal.innerHTML = '<div class="modal-header"><h2 class="modal-title">Import Preview</h2><button class="modal-close" id="modalCloseBtn" aria-label="Cancel import">&times;</button></div>' +
+            '<div class="compare-grid" style="grid-template-columns:repeat(5,minmax(0,1fr))">' +
+            '<div class="compare-col"><h3>Valid</h3><div class="compare-value">' + preview.valid + '</div></div>' +
+            '<div class="compare-col"><h3>Invalid</h3><div class="compare-value">' + preview.invalid + '</div></div>' +
+            '<div class="compare-col"><h3>Duplicates</h3><div class="compare-value">' + preview.duplicates + '</div></div>' +
+            '<div class="compare-col"><h3>Conflicts</h3><div class="compare-value">' + preview.conflicts + '</div></div>' +
+            '<div class="compare-col"><h3>New</h3><div class="compare-value">' + preview.additions + '</div></div></div>' +
+            '<p class="bookmarklet-desc">Type: ' + esc(preview.type) + (preview.managerFormat ? '; manager backup: ' + esc(preview.managerFormat) : '') + '. Merge updates conflicts, replace discards the current list, and skip keeps current conflicting records.</p>' +
+            '<div class="diagnostics-actions"><button class="tool-btn" id="importCancel" type="button">Cancel</button><button class="tool-btn" id="importSkip" type="button">Skip conflicts</button><button class="tool-btn" id="importReplace" type="button">Replace</button><button class="tool-btn" id="importMerge" type="button">Merge</button></div>';
+        overlay.classList.add('visible');
+        document.getElementById('modalCloseBtn').addEventListener('click', closeCompareModal);
+        document.getElementById('importCancel').addEventListener('click', closeCompareModal);
+        document.getElementById('importSkip').addEventListener('click', function() { applyImportPreview(preview, 'skip'); });
+        document.getElementById('importReplace').addEventListener('click', function() { applyImportPreview(preview, 'replace'); });
+        document.getElementById('importMerge').addEventListener('click', function() { applyImportPreview(preview, 'merge'); });
+        document.getElementById('importMerge').focus();
+    }
+
     function renderProvenance(item, installed) {
         if (!installed || !installed.installed || !installed.record) return '';
         var rec = installed.record;
@@ -3098,6 +3208,7 @@
     function closeCompareModal() {
         var overlay = document.getElementById('modalOverlay');
         overlay.classList.remove('visible');
+        overlay.setAttribute('aria-label', 'Script comparison detail');
         if (modalReturnFocus && document.contains(modalReturnFocus)) modalReturnFocus.focus();
         modalReturnFocus = null;
     }
@@ -3116,6 +3227,7 @@
         var items = state.compareIds.map(function(id) { return state.results.find(function(r) { return r.id === id; }); }).filter(Boolean);
         if (items.length < 2) return;
         modalReturnFocus = document.activeElement;
+        document.getElementById('modalOverlay').setAttribute('aria-label', 'Script comparison detail');
         var modal = document.getElementById('modalContent');
         var colW = items.length === 2 ? '1fr 1fr' : '1fr 1fr 1fr';
         var h = '<div class="modal-header"><h2 class="modal-title">Script Comparison</h2><button class="modal-close" id="modalCloseBtn" aria-label="Close comparison">&times;</button></div>';
@@ -3998,22 +4110,7 @@
         reader.onload = function(e) {
             try {
                 var parsed = parseScriptImportPayload(JSON.parse(e.target.result), importMode);
-                if (parsed.type === 'installed') {
-                    setInstalledScripts(parsed.items);
-                    if (state.results.length) sortAndRender();
-                    var importMsg = 'Imported ' + parsed.items.length + ' installed scripts' + (parsed.invalid ? ' (' + parsed.invalid + ' invalid skipped)' : '');
-                    if (parsed.managerFormat) importMsg += ' (detected manager backup)';
-                    showToast(importMsg, 'info', 3000);
-                    return;
-                }
-                var existing = getFavs(), ids = new Set(existing.map(scriptRecordKey));
-                var added = 0;
-                parsed.items.forEach(function(item) {
-                    var key = scriptRecordKey(item);
-                    if (key && !ids.has(key)) { existing.push(item); ids.add(key); added++; }
-                });
-                setFavs(existing); showFavorites();
-                showToast('Imported ' + added + ' new favorites (' + (parsed.items.length - added) + ' duplicates skipped' + (parsed.invalid ? ', ' + parsed.invalid + ' invalid skipped' : '') + ')', 'info', 3000);
+                openImportPreview(buildImportPreview(parsed));
             } catch(err) { showToast('Invalid import file', 'error', 3000); }
         };
         reader.readAsText(file); this.value = '';

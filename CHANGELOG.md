@@ -15,6 +15,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Reconciled package and lockfile version metadata, pinned the verified Playwright release, and expanded version drift tests to cover both lockfile version fields and the dependency pin.
 - Replaced implied trust for unscanned/unavailable evidence with explicit Unknown, stale-evidence, and dependency-unverified labels, with inspectable scan URL, timestamp, status, hash, and cache age.
 - Added optional bounded-concurrency, non-executing HTTPS integrity checks for `@require` and `@resource` dependencies, including canonical provenance, pinning state, declared hash verification, failures, content changes, and parent-scan caching.
+- Added installed/favorite import previews with valid, invalid, duplicate, conflict, and manager-format counts; merge, replace, skip-conflict, and cancel actions; and versioned pre-import snapshots with one-click rollback.
 
 ## [v0.5.1]
 

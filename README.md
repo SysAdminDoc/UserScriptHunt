@@ -56,9 +56,9 @@ npm run qa
 | **Dependency Integrity** | Optional, non-executing HTTPS checks for up to 12 `@require`/`@resource` URLs with 1 MB/7 second limits, pinned/floating provenance, declared hash verification, change detection, and cached evidence |
 | **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
-| **Favorites** | Save scripts to localStorage with versioned JSON export/import and undo on removal |
+| **Favorites** | Save scripts locally with versioned JSON export/import, conflict preview, recovery snapshots, and undo |
 | **Saved Searches** | Save query/filter/source combinations locally and manually refresh them to badge new or updated results |
-| **Installed Import/Export** | Import and export installed-script lists locally to mark installed scripts and available updates in search results |
+| **Installed Import/Export** | Preview manager/app backups before merge, replace, or conflict-skip; every write creates a versioned local snapshot with one-click rollback |
 | **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
 | **Advanced Filters** | Visible controls for source, license, installs, updated date, catalog language, @grant, risk, and applies-to domain |
 | **Applies-To Evidence** | Site-filtered results show source site matches alongside parsed `@match`, `@include`, and `@exclude` metadata evidence |
@@ -234,7 +234,7 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **CORS Proxy** — optional custom route followed by an opt-out public allorigins.win → codetabs → everyorigin fallback chain with explicit target-URL disclosure
 - **PWA** — manifest.json + service worker for installability, explicit update prompts, offline shell fallback notices, and local recent-search recovery
 - **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; diagnostics can clear recoverable caches without deleting user records; no tracking, no cookies, no server-side state
-- **Versioned JSON payloads** - favorites and installed-list exports use schema v1; imports validate URLs, report skipped invalid rows, and still accept manager-style `scripts` arrays plus legacy arrays
+- **Versioned JSON payloads** - favorites and installed-list exports use schema v1; imports validate URLs, preview invalid/duplicate/conflict counts and manager provenance, then snapshot both local lists before mutation for rollback
 - **Local QA** - `npm run qa` runs npm audit, Worker tests, version/source-documentation drift checks, and browser tests against the repo-local static server; Playwright is pinned to the exact locally verified release
 
 ---
