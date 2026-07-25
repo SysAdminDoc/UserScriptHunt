@@ -82,7 +82,7 @@ npm run qa
 | **Content Security Policy** | Static parser-safe CSP limits network requests to HTTPS while URL validation and source/proxy contracts constrain destinations |
 | **View Transitions** | GPU-accelerated smooth transitions between search states |
 | **Themes** | Dark, Light, OLED black, and Auto (follows OS preference) |
-| **PWA** | Installable Progressive Web App with update prompts, offline shell fallback notices, and recent-search cache |
+| **PWA** | Installable Progressive Web App with 192px/512px icons, update prompts, offline shell fallback notices, and recent-search cache |
 | **Responsive Design** | Full mobile/tablet/desktop support with CSS container queries |
 | **Runtime Zero Dependencies** | Single HTML file, no app runtime dependencies; npm is used only for local tests via `npm run qa` |
 

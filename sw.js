@@ -3,6 +3,8 @@ var SHELL_ASSETS = [
   './',
   './index.html',
   './icon.png',
+  './icon-192.png',
+  './icon-512.png',
   './manifest.json',
   './fonts/jetbrains-mono-latin.woff2',
   './fonts/jetbrains-mono-latin-ext.woff2',

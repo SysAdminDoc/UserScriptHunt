@@ -80,3 +80,25 @@ test('package release metadata identifies the public application', () => {
   assert.equal(pkg.homepage, 'https://sysadmindoc.github.io/UserScriptHunt/');
   assert.match(pkg.description, /seven built-in catalogs/);
 });
+
+test('PWA manifest declares install-grade PNG icons with matching dimensions', () => {
+  const manifest = JSON.parse(readFile('manifest.json'));
+  const expected = new Map([[192, 'icon-192.png'], [512, 'icon-512.png']]);
+  const icons = Array.isArray(manifest.icons) ? manifest.icons : [];
+
+  for (const [size, filename] of expected) {
+    const icon = icons.find((entry) => entry.src === filename);
+    assert.ok(icon, `manifest should declare ${filename}`);
+    assert.equal(icon.sizes, `${size}x${size}`);
+    assert.equal(icon.type, 'image/png');
+    const png = fs.readFileSync(path.join(root, filename));
+    assert.equal(png.toString('hex', 0, 8), '89504e470d0a1a0a', `${filename} should be a PNG`);
+    assert.equal(png.readUInt32BE(16), size, `${filename} width should match manifest`);
+    assert.equal(png.readUInt32BE(20), size, `${filename} height should match manifest`);
+  }
+
+  const serviceWorker = readFile('sw.js');
+  for (const filename of expected.values()) {
+    assert.ok(serviceWorker.includes(`'./${filename}'`), `${filename} should be in the offline shell`);
+  }
+});
