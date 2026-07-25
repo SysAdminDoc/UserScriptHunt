@@ -1181,11 +1181,11 @@ test('source health cooldown persists across reloads', async ({ page }) => {
 });
 
 test('diagnostics export includes health and excludes secrets', async ({ page }) => {
-  await page.goto('/');
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     localStorage.setItem('sh_pref_ghtoken', JSON.stringify('ghp_secret_should_not_export'));
     localStorage.setItem('sh_pref_proxy', JSON.stringify('https://secret-proxy.example'));
   });
+  await page.goto('/');
   await page.click('#btnDiagnostics');
   await expect(page.locator('#diagnosticsOutput')).toHaveValue(/ScriptHunt/);
   const payloadText = await page.locator('#diagnosticsOutput').inputValue();
@@ -1200,7 +1200,10 @@ test('diagnostics export includes health and excludes secrets', async ({ page })
   expect(payload.preferences.schemaVersion).toBeGreaterThan(0);
   expect(payloadText).not.toContain('ghp_secret_should_not_export');
   expect(payloadText).not.toContain('secret-proxy.example');
-  expect(payload.customProxyConfigured).toBe(false);
+  expect(payload.customProxyConfigured).toBe(true);
+  expect(payload.githubTokenConfigured).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem('sh_pref_ghtoken'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('sh_session_ghtoken'))).toBe('ghp_secret_should_not_export');
 });
 
 test('popover fallback opens diagnostics when native Popover API is unavailable', async ({ page }) => {
@@ -1233,7 +1236,7 @@ test('cache diagnostics report quota and clear IndexedDB caches without deleting
 
   await page.evaluate(() => {
     localStorage.setItem('sh_favs', JSON.stringify([{ id: 'keep-favorite', name: 'Keep Favorite', url: 'https://example.com', source: 'greasyfork' }]));
-    localStorage.setItem('sh_pref_ghtoken', JSON.stringify('ghp_keep_me'));
+    sessionStorage.setItem('sh_session_ghtoken', 'ghp_keep_me');
   });
   await page.click('#btnDiagnostics');
   await expect(page.locator('#cacheDiagnosticsSummary')).toContainText('Offline searches');
@@ -1251,13 +1254,13 @@ test('cache diagnostics report quota and clear IndexedDB caches without deleting
   await expect(page.locator('#cacheSettingsStatus')).toContainText('Scan cache cleared');
   await expect.poll(() => idbStoreCount(page, 'scans')).toBe(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_favs'))[0].id)).toBe('keep-favorite');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_keep_me');
+  expect(await page.evaluate(() => sessionStorage.getItem('sh_session_ghtoken'))).toBe('ghp_keep_me');
 
   await page.click('#btnClearOfflineCache');
   await expect(page.locator('#cacheSettingsStatus')).toContainText('Offline search cache cleared');
   await expect.poll(() => idbStoreCount(page, 'searches')).toBe(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_favs'))[0].id)).toBe('keep-favorite');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_keep_me');
+  expect(await page.evaluate(() => sessionStorage.getItem('sh_session_ghtoken'))).toBe('ghp_keep_me');
 });
 
 test('cache diagnostics clear localStorage fallback caches without deleting user data', async ({ page }) => {
@@ -1276,7 +1279,7 @@ test('cache diagnostics clear localStorage fallback caches without deleting user
 
   await page.evaluate(() => {
     localStorage.setItem('sh_favs', JSON.stringify([{ id: 'fallback-favorite', name: 'Fallback Favorite', url: 'https://example.com', source: 'greasyfork' }]));
-    localStorage.setItem('sh_pref_ghtoken', JSON.stringify('ghp_keep_fallback'));
+    sessionStorage.setItem('sh_session_ghtoken', 'ghp_keep_fallback');
   });
   await page.click('#btnDiagnostics');
   await expect(page.locator('#cacheDiagnosticsSummary')).toContainText('localStorage 1');
@@ -1293,10 +1296,10 @@ test('cache diagnostics clear localStorage fallback caches without deleting user
   await expect(page.locator('#cacheSettingsStatus')).toContainText('Offline search cache cleared');
   expect(await page.evaluate(() => localStorage.getItem('sh_offline_searches'))).toBeNull();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_favs'))[0].id)).toBe('fallback-favorite');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_keep_fallback');
+  expect(await page.evaluate(() => sessionStorage.getItem('sh_session_ghtoken'))).toBe('ghp_keep_fallback');
 });
 
-test('GitHub token settings save, check rate limit, and stay redacted', async ({ page }) => {
+test('GitHub token settings use tab-scoped storage, survive reload, and stay redacted', async ({ page, browser }) => {
   let authHeader = '';
   await page.route('https://api.github.com/rate_limit', async (route) => {
     authHeader = route.request().headers().authorization || '';
@@ -1322,7 +1325,8 @@ test('GitHub token settings save, check rate limit, and stay redacted', async ({
 
   await expect(page.locator('#githubSettingsStatus')).toContainText('28 searches left');
   expect(authHeader).toBe('token ghp_secret_should_not_export');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_ghtoken')))).toBe('ghp_secret_should_not_export');
+  expect(await page.evaluate(() => sessionStorage.getItem('sh_session_ghtoken'))).toBe('ghp_secret_should_not_export');
+  expect(await page.evaluate(() => localStorage.getItem('sh_pref_ghtoken'))).toBeNull();
 
   const payloadText = await page.locator('#diagnosticsOutput').inputValue();
   const payload = JSON.parse(payloadText);
@@ -1330,9 +1334,22 @@ test('GitHub token settings save, check rate limit, and stay redacted', async ({
   expect(payload.githubRateLimit.remaining).toBe(28);
   expect(payloadText).not.toContain('ghp_secret_should_not_export');
 
+  await page.reload();
+  await page.click('#btnDiagnostics');
+  await expect(page.locator('#githubSettingsStatus')).toContainText('Tab-scoped token configured');
+  expect(JSON.parse(await page.locator('#diagnosticsOutput').inputValue()).githubTokenConfigured).toBe(true);
+
+  const freshContext = await browser.newContext();
+  const freshPage = await freshContext.newPage();
+  await freshPage.goto('http://localhost:3217/');
+  await freshPage.click('#btnDiagnostics');
+  expect(JSON.parse(await freshPage.locator('#diagnosticsOutput').inputValue()).githubTokenConfigured).toBe(false);
+  await freshContext.close();
+
   await page.click('#btnRemoveGitHubToken');
   await expect(page.locator('#githubSettingsStatus')).toContainText('GitHub token removed');
   expect(await page.evaluate(() => localStorage.getItem('sh_pref_ghtoken'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('sh_session_ghtoken'))).toBeNull();
 });
 
 test('custom proxy settings validate, self-test, and stay redacted', async ({ page }) => {

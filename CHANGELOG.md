@@ -8,6 +8,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Hardened the optional Cloudflare Worker with exact HTTPS target allowlisting, redirect rejection, bounded 5 MB response streaming, upstream timeout/failure handling, and status/content-type propagation.
 - Prevented failed, empty, oversized, invalid-content, and non-userscript responses from receiving or caching a clean security score, and retained successful scan provenance.
 - Replaced parser-blocking dynamic `document.write` CSP injection with a static policy compatible with validated HTTPS custom sources, proxies, and dependency checks.
+- Moved GitHub tokens from persistent localStorage to tab-scoped session storage, with one-time legacy migration, reset/invalid-token cleanup, reload persistence, and fresh-tab isolation.
 
 ### Fixed
 - Propagated each search AbortSignal through direct, proxy, GitHub code, and custom-source requests so replacement searches cancel network work instead of only ignoring late results.

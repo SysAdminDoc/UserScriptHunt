@@ -161,7 +161,7 @@ Default state:
 
 ### GitHub Authenticated Search
 
-For higher rate limits and `.user.js` file-level code search, open **Diagnostics -> GitHub token**, save a token locally, then use **Check** to view the current GitHub search rate limit. Diagnostics exports include only whether a token is configured and the rate-limit numbers; the token value is never exported.
+For higher rate limits and `.user.js` file-level code search, open **Diagnostics -> GitHub token**, save a token for the current browser tab, then use **Check** to view the current GitHub search rate limit. The token survives reloads in that tab but is not written to persistent localStorage; closing the tab removes it. Legacy localStorage tokens migrate once into tab-scoped session storage. Diagnostics exports include only whether a token is configured and the rate-limit numbers; the token value is never exported.
 
 ### CORS Proxies
 

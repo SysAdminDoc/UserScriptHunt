@@ -439,7 +439,7 @@
                     <button class="tool-btn" id="btnCheckGitHubRate" type="button">Check</button>
                     <button class="tool-btn" id="btnRemoveGitHubToken" type="button">Remove</button>
                 </div>
-                <div class="proxy-settings-status" id="githubSettingsStatus" role="status">GitHub token is optional and stored locally.</div>
+                <div class="proxy-settings-status" id="githubSettingsStatus" role="status">GitHub token is optional and retained only for this browser tab.</div>
             </div>
             <div class="proxy-settings" aria-label="Cache diagnostics and recovery">
                 <label class="filter-label">Cache storage</label>
@@ -552,6 +552,26 @@
     function _prefGet(k, def) { try { var v = localStorage.getItem('sh_pref_' + k); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; } }
     function _prefSet(k, v) { try { localStorage.setItem('sh_pref_' + k, JSON.stringify(v)); } catch(e) {} }
     function _prefRemove(k) { try { localStorage.removeItem('sh_pref_' + k); } catch(e) {} }
+    var GH_TOKEN_SESSION_KEY = 'sh_session_ghtoken';
+    function loadGitHubToken() {
+        var token = '';
+        try { token = sessionStorage.getItem(GH_TOKEN_SESSION_KEY) || ''; } catch(e) {}
+        var legacy = _prefGet('ghtoken', '');
+        if (legacy) {
+            token = String(legacy);
+            try { sessionStorage.setItem(GH_TOKEN_SESSION_KEY, token); } catch(e) {}
+            _prefRemove('ghtoken');
+        }
+        return token;
+    }
+    function saveGitHubToken(token) {
+        _prefRemove('ghtoken');
+        try { sessionStorage.setItem(GH_TOKEN_SESSION_KEY, token); } catch(e) {}
+    }
+    function clearGitHubToken() {
+        _prefRemove('ghtoken');
+        try { sessionStorage.removeItem(GH_TOKEN_SESSION_KEY); } catch(e) {}
+    }
     function migratePreferences() {
         var currentVersion = _prefGet('schema', 0);
         if (currentVersion >= PREF_SCHEMA_VERSION) return;
@@ -583,6 +603,7 @@
         }
         keys.forEach(function(k) { if (keep.indexOf(k) < 0) localStorage.removeItem(k); });
         Object.keys(preserved).forEach(function(k) { localStorage.setItem(k, preserved[k]); });
+        clearGitHubToken();
         _prefSet('schema', PREF_SCHEMA_VERSION);
     }
     function prefDiagnostics() {
@@ -2393,7 +2414,7 @@
             renderGitHubSettings();
             throw new Error('Rate limited — retrying in ' + Math.ceil(waitMs / 1000) + 's');
         }
-        if (r.status === 401) { _ghToken = ''; _prefRemove('ghtoken'); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
+        if (r.status === 401) { _ghToken = ''; clearGitHubToken(); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
         if (!r.ok) throw new Error('GitHub HTTP ' + r.status);
         var data = await readJsonOrThrow(r, 'GitHub'); _cSet(ck, data); return data;
     }
@@ -2408,7 +2429,7 @@
     }
 
     /* ===== Source: GitHub Code Search (authenticated) ===== */
-    var _ghToken = _prefGet('ghtoken', '');
+    var _ghToken = loadGitHubToken();
     var _ghRate = _prefGet('ghrate', { limit: 0, remaining: 0, reset: 0, resource: 'search', authenticated: !!_ghToken, checkedAt: 0 });
 
     function githubHeaders() {
@@ -2445,7 +2466,7 @@
     }
 
     function githubRateText() {
-        var tokenState = _ghToken ? 'Token configured (30 req/min, code search enabled)' : 'No token (10 req/min, repo search only)';
+        var tokenState = _ghToken ? 'Tab-scoped token configured (30 req/min, code search enabled)' : 'No token (10 req/min, repo search only)';
         if (!_ghRate || !_ghRate.limit) return tokenState + '. Rate limit not checked yet.';
         var reset = _ghRate.reset ? new Date(_ghRate.reset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'unknown';
         var cooldown = _ghCooldown > Date.now() ? ' Cooldown ' + Math.ceil((_ghCooldown - Date.now()) / 1000) + 's.' : '';
@@ -2473,7 +2494,7 @@
         updateGitHubRateFromResponse(r);
         if (r.status === 401) {
             _ghToken = '';
-            _prefRemove('ghtoken');
+            clearGitHubToken();
             renderGitHubSettings();
             throw new Error('GitHub token rejected');
         }
@@ -2499,7 +2520,7 @@
             renderGitHubSettings();
             throw new Error('Rate limited');
         }
-        if (r.status === 401) { _ghToken = ''; _prefRemove('ghtoken'); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
+        if (r.status === 401) { _ghToken = ''; clearGitHubToken(); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
         if (!r.ok) throw new Error('GitHub Code HTTP ' + r.status);
         var data = await readJsonOrThrow(r, 'GitHub Code'); _cSet(ck, data); return data;
     }
@@ -4281,11 +4302,11 @@
         var token = githubTokenInput.value.trim();
         if (!token) { setGitHubStatus('Enter a GitHub token before saving.', 'error'); return; }
         _ghToken = token;
-        _prefSet('ghtoken', token);
+        saveGitHubToken(token);
         githubTokenInput.value = '';
-        setGitHubStatus('GitHub token saved locally. Checking rate limit...', 'ok');
+        setGitHubStatus('GitHub token saved for this tab. Checking rate limit...', 'ok');
         try { await refreshGitHubRate(); }
-        catch(err) { setGitHubStatus('GitHub token saved, but rate check failed: ' + ((err && err.message) || 'unknown error'), 'error'); }
+        catch(err) { setGitHubStatus('GitHub token saved for this tab, but rate check failed: ' + ((err && err.message) || 'unknown error'), 'error'); }
         renderDiagnostics();
     });
     githubCheckBtn.addEventListener('click', async function() {
@@ -4297,7 +4318,7 @@
     githubRemoveBtn.addEventListener('click', function() {
         _ghToken = '';
         _ghRate = { limit: 0, remaining: 0, reset: 0, resource: 'search', authenticated: false, checkedAt: 0 };
-        _prefRemove('ghtoken');
+        clearGitHubToken();
         _prefRemove('ghrate');
         githubTokenInput.value = '';
         setGitHubStatus('GitHub token removed. Unauthenticated search limits apply.', 'ok');
@@ -4335,6 +4356,8 @@
     });
     document.getElementById('btnResetPrefs').addEventListener('click', function() {
         resetPreferences();
+        _ghToken = '';
+        _ghRate = { limit: 0, remaining: 0, reset: 0, resource: 'search', authenticated: false, checkedAt: 0 };
         setCacheStatus('Preferences reset. Favorites and installed lists preserved. Reload to apply.', 'ok');
         renderDiagnostics();
     });
