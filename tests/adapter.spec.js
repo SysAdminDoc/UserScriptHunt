@@ -492,3 +492,53 @@ test('source fetchers surface invalid JSON, rate limits, and proxy wrapper failu
   ]);
   expect(failures.proxyFailureHealth).toMatchObject({ alloriginsFailures: 1, codetabsFailures: 1, everyoriginFailures: 1 });
 });
+
+test('starting a new search aborts active per-source requests', async ({ page }) => {
+  await page.goto('/');
+
+  const outcome = await page.evaluate(async () => {
+    const originalFetch = window.fetch;
+    let firstAborted = false;
+    let startedResolve;
+    const started = new Promise((resolve) => { startedResolve = resolve; });
+    window.fetch = async (url, options = {}) => {
+      const target = String(url);
+      if (target.includes('q=first')) {
+        startedResolve();
+        return new Promise((resolve, reject) => {
+          options.signal.addEventListener('abort', () => {
+            firstAborted = true;
+            reject(new DOMException('Aborted', 'AbortError'));
+          }, { once: true });
+        });
+      }
+      if (target.includes('q=second')) {
+        return new Response(JSON.stringify([{
+          id: 901,
+          name: 'Second Search Result',
+          users: [{ name: 'fixture' }],
+          url: 'https://greasyfork.org/scripts/901-second',
+          code_url: 'https://greasyfork.org/scripts/901-second/code.user.js',
+        }]), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      throw new Error(`unexpected fetch ${target}`);
+    };
+    try {
+      const first = executeSearch('first');
+      await started;
+      await executeSearch('second');
+      await first;
+      return {
+        firstAborted,
+        query: state.query,
+        names: state.results.map((item) => item.name),
+      };
+    } finally {
+      window.fetch = originalFetch;
+    }
+  });
+
+  expect(outcome.firstAborted).toBe(true);
+  expect(outcome.query).toBe('second');
+  expect(outcome.names).toEqual(['Second Search Result']);
+});

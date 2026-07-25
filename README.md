@@ -49,7 +49,7 @@ npm run qa
 | Feature | Description |
 |---------|-------------|
 | **7-Source Search** | Queries Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and GitHub Gists simultaneously |
-| **Parallel Fetching** | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
+| **Parallel Fetching** | Sources search concurrently via `Promise.allSettled()` and a replacement query aborts every active source request |
 | **Cross-Source Dedup** | Eliminates duplicate scripts with trust boost for scripts found on 2+ platforms |
 | **Trust Scoring** | Weighted popularity, security, freshness, metadata, and source-health dimensions; unscanned, unavailable, stale, and dependency-unverified evidence is labeled instead of implied safe |
 | **Security Scanner** | Pattern and metadata analysis for validated raw `.user.js` responses with source URL, fetch time, status, hash, and cache age; failed or non-userscript responses remain Unknown |
@@ -79,7 +79,7 @@ npm run qa
 | **Keyboard Navigation** | Tab/arrow key navigation, Enter to open, Escape to close modals |
 | **Accessibility** | Labeled controls, tested source-toggle keyboard semantics, live regions, and trapped/restored modal focus |
 | **Web Share API** | Native mobile sharing via share button on result cards |
-| **Content Security Policy** | Dynamic CSP restricting connections to known API domains (supports custom proxies) |
+| **Content Security Policy** | Static parser-safe CSP limits network requests to HTTPS while URL validation and source/proxy contracts constrain destinations |
 | **View Transitions** | GPU-accelerated smooth transitions between search states |
 | **Themes** | Dark, Light, OLED black, and Auto (follows OS preference) |
 | **PWA** | Installable Progressive Web App with update prompts, offline shell fallback notices, and recent-search cache |

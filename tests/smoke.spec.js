@@ -213,6 +213,15 @@ test('page loads with search input and source toggles', async ({ page }) => {
   await expect(page.locator('.version')).toContainText('v0.');
 });
 
+test('CSP is static and does not block parser startup', async ({ page }) => {
+  await page.goto('/');
+  const content = await page.locator('#csp-meta').getAttribute('content');
+  expect(content).toContain('connect-src https:');
+  const html = await fs.readFile(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  expect(html).not.toContain("document.write('<meta id=\"csp-meta\"");
+  await expect(page.locator('#searchInput')).toBeEditable();
+});
+
 test('search returns results from at least one source', async ({ page }) => {
   await page.goto('/');
   await runSearch(page);
