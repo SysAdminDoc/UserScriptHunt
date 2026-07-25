@@ -62,11 +62,11 @@ npm run qa
 | **Advanced Filters** | Visible controls for source, license, installs, updated date, catalog language, @grant, risk, and applies-to domain |
 | **Applies-To Evidence** | Site-filtered results show source site matches alongside parsed `@match`, `@include`, and `@exclude` metadata evidence |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
-| **Source Health** | Persists failing source cooldowns with retry controls and copyable diagnostics that omit secrets |
+| **Source Health** | Persists failing source cooldowns with retry controls and versioned per-source provenance for partiality, route, latency, HTTP status, and cache use |
 | **Offline Recent Searches** | Stores recent successful searches locally, labels stale cached results, and exposes revalidation when online |
 | **Cache Diagnostics** | Shows offline/scan cache counts, browser quota estimates, and independent cache-clear recovery controls |
 | **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
-| **Live Status Chips** | Real-time per-source indicators with CORS proxy health and suspension status |
+| **Live Status Chips** | Real-time per-source indicators with partial-result reasons, search mode, privacy route, latency, cache use, and suspension status |
 | **Sort Controls** | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |
 | **Infinite Scroll** | Automatic pagination fetches next page from all active sources |
 | **Staleness Indicators** | Active/Aging/Stale badges on result cards based on last update date |
@@ -210,10 +210,10 @@ To use your custom proxy, open **Diagnostics**, enter the HTTPS Worker URL, save
 ## FAQ / Troubleshooting
 
 **GitHub results seem broad / not all are userscripts**
-GitHub source searches repositories (not individual files) using keyword matching against `userscript OR tampermonkey OR greasemonkey`. With a GitHub token set, code search additionally finds individual `.user.js` files for more precise results.
+GitHub source searches repositories (not individual files) using keyword matching against `userscript OR tampermonkey OR greasemonkey`. With a GitHub token set, authenticated code search additionally finds individual `.user.js` files. Status chips and diagnostics disclose the active mode, effective qualifiers, incomplete responses, code-search failures, and GitHub's 1,000-result ceiling.
 
 **OpenUserJS or Gists return no results or fail**
-These sources depend on CORS proxy availability. If all proxies are down or rate-limited, the source will show a "Failed" status chip and auto-pause with exponential backoff. Results from other sources will still display normally.
+These sources depend on CORS proxy availability. Public proxy services receive the target search or script URL. Diagnostics lets you disable public fallback and use only a custom proxy; without either route, proxy-dependent sources fail explicitly while other source results remain available.
 
 **Rate limits**
 GitHub enforces 10 search requests/minute for unauthenticated users (30/min with a token). Heavy pagination or rapid searching may trigger a 403 response — the app tracks rate limits and auto-backs off.
@@ -228,9 +228,9 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **Single-file HTML** — no build step, no bundler, no framework
 - **Vanilla JavaScript (ES2022)** — async/await, Promise.allSettled, AbortController, DOMParser, Popover API
 - **CSS Custom Properties** — full theming via variables with 4 theme modes
-- **Source Adapter Registry** — adding a new source requires only a `SOURCES` entry with a `search()` function
+- **Source Adapter Registry** — built-in searches return a schema-v1 envelope with items, totals/pagination, partiality, latency, cache, route, HTTP status, and normalized failure evidence
 - **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
-- **CORS Proxy** — allorigins.win → codetabs → everyorigin fallback chain with exponential backoff
+- **CORS Proxy** — optional custom route followed by an opt-out public allorigins.win → codetabs → everyorigin fallback chain with explicit target-URL disclosure
 - **PWA** — manifest.json + service worker for installability, explicit update prompts, offline shell fallback notices, and local recent-search recovery
 - **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; diagnostics can clear recoverable caches without deleting user records; no tracking, no cookies, no server-side state
 - **Versioned JSON payloads** - favorites and installed-list exports use schema v1; imports validate URLs, report skipped invalid rows, and still accept manager-style `scripts` arrays plus legacy arrays

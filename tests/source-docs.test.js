@@ -13,7 +13,7 @@ test('README source table matches code source registry', () => {
   const html = readFile('index.html');
   const readme = readFile('README.md');
 
-  const sourceMatch = html.match(/var SOURCES\s*=\s*\{([\s\S]*?)\n\s*\};/);
+  const sourceMatch = html.match(/var SOURCES\s*=\s*\{([\s\S]*?)\n\s*\};\s*\n\s*\/\* -- Custom Sources/);
   assert.ok(sourceMatch, 'SOURCES registry should exist in index.html');
 
   const nameMatches = sourceMatch[1].matchAll(/name:\s*'([^']+)'/g);
@@ -41,7 +41,7 @@ test('README source table matches code source registry', () => {
 
 test('each source declares page size in code', () => {
   const html = readFile('index.html');
-  const sourceMatch = html.match(/var SOURCES\s*=\s*\{([\s\S]*?)\n\s*\};/);
+  const sourceMatch = html.match(/var SOURCES\s*=\s*\{([\s\S]*?)\n\s*\};\s*\n\s*\/\* -- Custom Sources/);
   assert.ok(sourceMatch);
 
   const idMatches = sourceMatch[1].matchAll(/(\w+):\s*\{\s*id:/g);

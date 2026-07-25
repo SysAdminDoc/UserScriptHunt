@@ -102,6 +102,81 @@ test('source adapters ignore empty and malformed drift shapes', async ({ page })
   expect(normalized.driftHtml.gists[0]).toMatchObject({ name: 'Drift.user.js', installUrl: 'https://gist.github.com/gist-author/def456/raw/Drift.user.js' });
 });
 
+test('built-in sources return versioned provenance envelopes and preserve partial GitHub results', async ({ page }) => {
+  await page.goto('/');
+
+  const result = await page.evaluate(async (data) => {
+    const originalFetch = window.fetch;
+    const originalToken = _ghToken;
+    _cache.clear();
+    try {
+      _ghToken = 'ghp_fixture';
+      window.fetch = async (url) => {
+        const target = String(url);
+        if (target.includes('api.greasyfork.org')) {
+          return new Response(JSON.stringify([data.greasyForkApiItem]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (target.includes('/search/repositories')) {
+          return new Response(JSON.stringify({
+            total_count: 1501,
+            incomplete_results: true,
+            items: [data.githubRepoItem],
+          }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (target.includes('/search/code')) {
+          return new Response(JSON.stringify({ message: 'code unavailable' }), {
+            status: 502,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        throw new Error(`unexpected fetch ${target}`);
+      };
+
+      return {
+        greasyfork: await SOURCES.greasyfork.search('fixture', 1, '', 'en'),
+        github: await SOURCES.github.search('fixture', 1),
+      };
+    } finally {
+      window.fetch = originalFetch;
+      _ghToken = originalToken;
+    }
+  }, fixtures);
+
+  expect(result.greasyfork).toMatchObject({
+    schema: 'scripthunt-source-results',
+    schemaVersion: 1,
+    source: 'greasyfork',
+    total: null,
+    hasMore: false,
+    partial: false,
+    route: 'direct',
+    httpStatus: 200,
+    errorClass: '',
+  });
+  expect(result.greasyfork.items).toHaveLength(1);
+  expect(result.greasyfork.latencyMs).toBeGreaterThanOrEqual(0);
+
+  expect(result.github).toMatchObject({
+    schemaVersion: 1,
+    source: 'github',
+    total: 1501,
+    hasMore: true,
+    partial: true,
+    mode: 'repository + authenticated code',
+  });
+  expect(result.github.items).toHaveLength(1);
+  expect(result.github.partialReason).toContain('incomplete results');
+  expect(result.github.partialReason).toContain('1,000-result ceiling');
+  expect(result.github.partialReason).toContain('Code search failed');
+  expect(result.github.query).toContain('extension:user.js');
+});
+
 test('security scans reject invalid responses and cache only verified userscripts', async ({ page }) => {
   await page.goto('/');
 

@@ -902,6 +902,52 @@ test('GitHub repository results explain missing raw script scans', async ({ page
   await expect(card.locator('.scan-results')).toContainText('no raw .user.js URL is available');
 });
 
+test('GitHub partial repository results expose mode, cap, and query provenance', async ({ page }) => {
+  await page.route('https://api.github.com/search/repositories**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        total_count: 1501,
+        incomplete_results: true,
+        items: [{
+          id: 78,
+          name: 'partial-userscript',
+          full_name: 'tester/partial-userscript',
+          description: 'Partial GitHub fixture.',
+          owner: { login: 'tester' },
+          html_url: 'https://github.com/tester/partial-userscript',
+          stargazers_count: 4,
+          forks_count: 1,
+          updated_at: '2026-01-01T00:00:00Z',
+        }],
+      }),
+    });
+  });
+
+  await page.goto('/');
+  await page.getByLabel('Greasy Fork source').click();
+  await page.getByLabel('GitHub source').click();
+  await runSearch(page, 'partial');
+
+  const chip = page.locator('.source-chip.done').filter({ hasText: 'GitHub' });
+  await expect(chip).toContainText('(partial)');
+  await expect(chip).toHaveAttribute('title', /Repository search reported incomplete results/);
+  await expect(chip).toHaveAttribute('title', /1,000-result ceiling/);
+  await expect(chip).toHaveAttribute('title', /repository only/);
+
+  await page.click('#btnDiagnostics');
+  const payload = JSON.parse(await page.locator('#diagnosticsOutput').inputValue());
+  const github = payload.sources.find((source) => source.id === 'github');
+  expect(github).toMatchObject({
+    envelopeVersion: 1,
+    partial: true,
+    mode: 'repository only',
+    route: 'direct',
+    httpStatus: 200,
+  });
+  expect(github.query).toContain('userscript OR tampermonkey OR greasemonkey');
+});
+
 test('Gist raw userscript URLs scan through the proxy chain', async ({ page }) => {
   await page.route('https://api.allorigins.win/**', async (route) => {
     const target = new URL(route.request().url()).searchParams.get('url') || '';
@@ -1179,6 +1225,32 @@ test('custom proxy settings validate, self-test, and stay redacted', async ({ pa
   await page.click('#btnRemoveProxy');
   await expect(page.locator('#proxySettingsStatus')).toContainText('Custom proxy removed');
   expect(await page.evaluate(() => localStorage.getItem('sh_pref_proxy'))).toBeNull();
+});
+
+test('public proxy fallback discloses target sharing and can be disabled', async ({ page }) => {
+  await page.goto('/');
+  await page.click('#btnDiagnostics');
+
+  const toggle = page.getByLabel('Allow public proxy fallback');
+  await expect(toggle).toBeChecked();
+  await expect(page.locator('#proxySettingsStatus')).toContainText('target search or script URL');
+  await toggle.uncheck();
+  await expect(page.locator('#proxySettingsStatus')).toContainText('Proxy-dependent sources will fail');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_allowPublicProxy')))).toBe(false);
+
+  const disabled = await page.evaluate(async () => {
+    try {
+      await fetchViaProxy('https://openuserjs.org/scripts?q=privacy', 1000, 'openuserjs');
+      return '';
+    } catch (err) {
+      return err.message;
+    }
+  });
+  expect(disabled).toContain('public proxy fallback disabled');
+
+  const diagnostics = JSON.parse(await page.locator('#diagnosticsOutput').inputValue());
+  expect(diagnostics.publicProxyFallbackEnabled).toBe(false);
+  expect(JSON.stringify(diagnostics)).not.toContain('contents');
 });
 
 test('service worker update and cache fallback prompts are visible', async ({ page }) => {

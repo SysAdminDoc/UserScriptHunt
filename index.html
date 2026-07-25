@@ -425,7 +425,8 @@
                     <button class="tool-btn" id="btnTestProxy" type="button">Test</button>
                     <button class="tool-btn" id="btnRemoveProxy" type="button">Remove</button>
                 </div>
-                <div class="proxy-settings-status" id="proxySettingsStatus" role="status">Custom proxy URLs are stored locally and omitted from diagnostics.</div>
+                <label class="filter-check"><input id="allowPublicProxy" type="checkbox"> Allow public proxy fallback</label>
+                <div class="proxy-settings-status" id="proxySettingsStatus" role="status">Proxy services receive each target search or script URL. Custom proxy URLs and response bodies are omitted from diagnostics.</div>
             </div>
             <div class="proxy-settings" aria-label="GitHub search settings">
                 <label class="filter-label" for="githubTokenInput">GitHub token</label>
@@ -626,6 +627,7 @@
     var _storedProxy = _prefGet('proxy', '');
     var _proxyNorm = normalizeProxyUrl(_storedProxy);
     var _customProxy = _proxyNorm.ok ? _proxyNorm.url : '';
+    var _allowPublicProxy = _prefGet('allowPublicProxy', true) !== false;
     if (_storedProxy && !_customProxy) _prefRemove('proxy');
     var _proxyHealth = { lastUsed: '', failures: {}, lastUsedBySource: {}, errorsBySource: {} };
     function proxyErr(name, err) {
@@ -638,11 +640,21 @@
         if (_customProxy) {
             proxies.push({ name: 'custom', run: function() { return customProxyFetch(_customProxy, url, ms); } });
         }
-        proxies.push(
-            { name: 'allorigins', run: function() { return fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return readJsonOrThrow(r, 'allorigins'); }).then(function(w) { return proxyTextResponse(w, ['contents']); }); } },
-            { name: 'codetabs', run: function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r; }); } },
-            { name: 'everyorigin', run: function() { return fetch('https://everyorigin.jwvbremen.nl/api/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return readJsonOrThrow(r, 'everyorigin'); }).then(function(w) { return proxyTextResponse(w, ['html', 'contents']); }); } }
-        );
+        if (_allowPublicProxy) {
+            proxies.push(
+                { name: 'allorigins', run: function() { return fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return readJsonOrThrow(r, 'allorigins'); }).then(function(w) { return proxyTextResponse(w, ['contents']); }); } },
+                { name: 'codetabs', run: function() { return fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r; }); } },
+                { name: 'everyorigin', run: function() { return fetch('https://everyorigin.jwvbremen.nl/api/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(ms) }).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return readJsonOrThrow(r, 'everyorigin'); }).then(function(w) { return proxyTextResponse(w, ['html', 'contents']); }); } }
+            );
+        }
+        if (!proxies.length) {
+            var disabled = 'public proxy fallback disabled and no custom proxy configured';
+            if (srcId) {
+                _proxyHealth.lastUsedBySource[srcId] = '';
+                _proxyHealth.errorsBySource[srcId] = [disabled];
+            }
+            throw new Error(disabled);
+        }
         var errors = [];
         for (var i = 0; i < proxies.length; i++) {
             var proxy = proxies[i];
@@ -653,6 +665,7 @@
                 if (srcId) {
                     _proxyHealth.lastUsedBySource[srcId] = proxy.name;
                     _proxyHealth.errorsBySource[srcId] = [];
+                    markSourceTrace(srcId, { route: proxy.name === 'custom' ? 'custom' : 'public:' + proxy.name, httpStatus: result.status || 200 });
                 }
                 return result;
             } catch (e) {
@@ -1285,28 +1298,93 @@
         return value.filter(function(row) { return row && typeof row === 'object' && !Array.isArray(row); });
     }
 
+    var SOURCE_ENVELOPE_VERSION = 1;
+    var _sourceTrace = {};
+    function markSourceTrace(srcId, patch) {
+        _sourceTrace[srcId] = Object.assign(_sourceTrace[srcId] || {}, patch || {});
+    }
+    function sourceErrorClass(error) {
+        var message = String((error && error.message) || error || '').toLowerCase();
+        if ((error && error.name === 'AbortError') || message.includes('abort')) return 'aborted';
+        if ((error && error.name === 'TimeoutError') || message.includes('timeout')) return 'timeout';
+        if (message.includes('rate limit')) return 'rate-limit';
+        if (message.includes('invalid json') || message.includes('invalid response') || message.includes('drift')) return 'invalid-response';
+        if (message.includes('http')) return 'http';
+        if (message.includes('proxy')) return 'proxy';
+        return 'network';
+    }
+    async function sourceAdapter(srcId, work) {
+        var startedAt = performance.now();
+        _sourceTrace[srcId] = { route: 'direct', httpStatus: 0, cacheHit: false };
+        var value = await work();
+        var options = Array.isArray(value) ? { items: value } : (value || {});
+        var items = sourceRows(options.items);
+        var trace = _sourceTrace[srcId] || {};
+        return {
+            schema: 'scripthunt-source-results',
+            schemaVersion: SOURCE_ENVELOPE_VERSION,
+            source: srcId,
+            items: items,
+            total: Number.isFinite(options.total) ? options.total : null,
+            hasMore: typeof options.hasMore === 'boolean' ? options.hasMore : null,
+            partial: !!options.partial,
+            partialReason: options.partialReason || '',
+            latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+            cacheHit: !!trace.cacheHit,
+            route: options.route || trace.route || 'direct',
+            httpStatus: options.httpStatus || trace.httpStatus || 200,
+            errorClass: options.errorClass || '',
+            mode: options.mode || '',
+            query: options.query || '',
+        };
+    }
+
     var _savedSrc = _prefGet('sources', {});
     var SOURCES = {
         greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true, pageSize: 100,
-            search: function(q, p, site, locale) { return srcGF(q, p, 'greasyfork.org', site, locale).then(function(d) { return sourceRows(d).map(function(i) { var item = normGF(i, 'greasyfork'); if (site) item._appliesSource = { label: 'Greasy Fork site match', domain: site }; return item; }); }); } },
+            search: function(q, p, site, locale) { return sourceAdapter('greasyfork', async function() { var d = await srcGF(q, p, 'greasyfork.org', site, locale); var items = sourceRows(d).map(function(i) { var item = normGF(i, 'greasyfork'); if (site) item._appliesSource = { label: 'Greasy Fork site match', domain: site }; return item; }); return { items: items, hasMore: items.length >= 100 }; }); } },
         sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false, pageSize: 100,
-            search: function(q, p, site, locale) { return srcGF(q, p, 'sleazyfork.org', site, locale).then(function(d) { return sourceRows(d).map(function(i) { var item = normGF(i, 'sleazyfork'); if (site) item._appliesSource = { label: 'Sleazy Fork site match', domain: site }; return item; }); }); } },
+            search: function(q, p, site, locale) { return sourceAdapter('sleazyfork', async function() { var d = await srcGF(q, p, 'sleazyfork.org', site, locale); var items = sourceRows(d).map(function(i) { var item = normGF(i, 'sleazyfork'); if (site) item._appliesSource = { label: 'Sleazy Fork site match', domain: site }; return item; }); return { items: items, hasMore: items.length >= 100 }; }); } },
         github: { id: 'github', name: 'GitHub', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true, pageSize: 30,
             search: function(q, p) {
-                return srcGH(q, p).then(function(raw) {
+                return sourceAdapter('github', async function() {
+                    var raw = await srcGH(q, p);
                     var items = sourceRows(raw.items).map(normGH);
-                    if (_ghToken && q) { return srcGHCode(q, p).then(function(cr) { return items.concat(sourceRows(cr.items).map(normGHCode)); }).catch(function(ce) { console.warn('[github-code]', ce.message); if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000); return items; }); }
-                    return items;
+                    var partialReasons = [];
+                    if (raw.incomplete_results) partialReasons.push('Repository search reported incomplete results');
+                    if ((raw.total_count || 0) > 1000) partialReasons.push('Repository results exceed GitHub’s 1,000-result ceiling');
+                    if (_ghToken && q) {
+                        try {
+                            var cr = await srcGHCode(q, p);
+                            items = items.concat(sourceRows(cr.items).map(normGHCode));
+                            if (cr.incomplete_results) partialReasons.push('Code search reported incomplete results');
+                            if ((cr.total_count || 0) > 1000) partialReasons.push('Code results exceed GitHub’s 1,000-result ceiling');
+                        } catch(ce) {
+                            console.warn('[github-code]', ce.message);
+                            partialReasons.push('Code search failed: ' + ((ce && ce.message) || 'unknown error'));
+                            if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000);
+                        }
+                    }
+                    var total = (raw.total_count || 0);
+                    return {
+                        items: items,
+                        total: total,
+                        hasMore: p * 30 < Math.min(total, 1000),
+                        partial: partialReasons.length > 0,
+                        partialReason: partialReasons.join('; '),
+                        mode: _ghToken ? 'repository + authenticated code' : 'repository only',
+                        query: q + ' userscript OR tampermonkey OR greasemonkey' + (_ghToken ? ' | ' + q + ' extension:user.js' : ''),
+                    };
                 });
             }, _getTotal: function(raw) { return raw.total_count; } },
         openuserjs: { id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: _savedSrc.openuserjs !== undefined ? _savedSrc.openuserjs : true, pageSize: 5,
-            search: function(q, p) { return srcOUJS(q, p); } },
+            search: function(q, p) { return sourceAdapter('openuserjs', async function() { var items = await srcOUJS(q, p); return { items: items, hasMore: items.length >= 5 }; }); } },
         uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true, pageSize: 3,
-            search: function(q, p) { return srcUSZ(q, p); } },
+            search: function(q, p) { return sourceAdapter('uszone', async function() { var items = await srcUSZ(q, p); return { items: items, hasMore: items.length >= 3 }; }); } },
         scriptcat: { id: 'scriptcat', name: 'ScriptCat', color: '#10b981', dimColor: 'rgba(16,185,129,0.12)', enabled: _savedSrc.scriptcat !== undefined ? _savedSrc.scriptcat : true, pageSize: 30,
-            search: function(q, p) { return srcSC(q, p).then(function(r) { return { items: sourceRows(r.items).map(normSC), total: r.total }; }); } },
+            search: function(q, p) { return sourceAdapter('scriptcat', async function() { var r = await srcSC(q, p); return { items: sourceRows(r.items).map(normSC), total: r.total, hasMore: p * 30 < r.total }; }); } },
         gists: { id: 'gists', name: 'GitHub Gists', color: '#6e7681', dimColor: 'rgba(110,118,129,0.1)', enabled: _savedSrc.gists !== undefined ? _savedSrc.gists : false, pageSize: 10,
-            search: function(q, p) { return srcGists(q, p); } },
+            search: function(q, p) { return sourceAdapter('gists', async function() { var items = await srcGists(q, p); return { items: items, hasMore: items.length >= 10 }; }); } },
     };
 
     /* -- Custom Sources (user-defined JSON API templates) -- */
@@ -1327,11 +1405,11 @@
             enabled: _savedSrc[id] !== undefined ? _savedSrc[id] : true, pageSize: 20, _custom: true,
             search: function(q, p) {
                 var url = src.urlTemplate.replace(/\{query\}/g, encodeURIComponent(q)).replace(/\{page\}/g, p);
-                return fetch(url, { signal: AbortSignal.timeout(12000) })
+                return sourceAdapter(id, function() { return fetch(url, { signal: AbortSignal.timeout(12000) })
                     .then(function(r) { if (!r.ok) throw new Error(src.name + ' HTTP ' + r.status); return r.json(); })
                     .then(function(data) {
                         var items = Array.isArray(data) ? data : (data.items || data.list || data.results || data.data || []);
-                        return sourceRows(items).map(function(item, idx) {
+                        var normalized = sourceRows(items).map(function(item, idx) {
                             var rawUrl = item.url || item.homepage || item.html_url || '';
                             var rawInstall = item.installUrl || item.install_url || item.code_url || '';
                             return {
@@ -1348,7 +1426,9 @@
                                 license: normalizeLicense(item.license), historyUrl: '',
                             };
                         });
+                        return { items: normalized, hasMore: normalized.length >= 20 };
                     });
+                });
             },
         };
     }
@@ -1393,7 +1473,7 @@
     }
 
     /* -- State -- */
-    var state = { query: '', rawQuery: '', siteFilter: '', results: [], sourcePages: {}, sourceStatus: {}, sourceCounts: {}, sourceHasMore: {}, sourceErrors: {}, searching: false, sortBy: 'relevance', loadingMore: false, compareIds: [], showFavs: false, offlineCache: null };
+    var state = { query: '', rawQuery: '', siteFilter: '', results: [], sourcePages: {}, sourceStatus: {}, sourceCounts: {}, sourceHasMore: {}, sourceErrors: {}, sourceMeta: {}, searching: false, sortBy: 'relevance', loadingMore: false, compareIds: [], showFavs: false, offlineCache: null };
 
     /* ===== SECURITY SCANNER ===== */
     var DANGER_PATTERNS = [
@@ -1759,8 +1839,9 @@
 
     async function srcGF(query, page, domain, site, locale) {
         locale = locale || 'en';
+        var srcId = domain === 'sleazyfork.org' ? 'sleazyfork' : 'greasyfork';
         var ck = _ck(domain, query, page, site || '', locale);
-        var cached = _cGet(ck); if (cached) return cached;
+        var cached = _cGet(ck); if (cached) { markSourceTrace(srcId, { cacheHit: true, httpStatus: 200 }); return cached; }
         var url;
         if (site && !query) {
             url = 'https://api.' + domain + '/' + gfLocalePath(locale) + '/scripts/by-site/' + encodeURIComponent(site) + '.json?page=' + page + gfLocaleQuery(locale);
@@ -1769,6 +1850,7 @@
             if (site) url += '&site=' + encodeURIComponent(site);
         }
         var r = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        markSourceTrace(srcId, { route: 'direct', httpStatus: r.status });
         if (!r.ok) throw new Error(domain + ' HTTP ' + r.status);
         var data = await readJsonOrThrow(r, domain);
         var result = sourceRows(data);
@@ -1816,9 +1898,10 @@
     async function srcGH(query, page) {
         if (_ghCooldown > Date.now()) throw new Error('Rate limited — retrying in ' + Math.ceil((_ghCooldown - Date.now()) / 1000) + 's');
         var ck = _ck('github', query, page);
-        var cached = _cGet(ck); if (cached) return cached;
+        var cached = _cGet(ck); if (cached) { markSourceTrace('github', { cacheHit: true, httpStatus: 200 }); return cached; }
         var q = encodeURIComponent(query + ' userscript OR tampermonkey OR greasemonkey');
         var r = await fetch('https://api.github.com/search/repositories?q=' + q + '&per_page=30&page=' + page + '&sort=stars&order=desc', { headers: githubHeaders(), signal: AbortSignal.timeout(12000) });
+        markSourceTrace('github', { route: 'direct', httpStatus: r.status });
         updateGitHubRateFromResponse(r);
         if (r.status === 403 || r.status === 429) {
             var reset = r.headers.get('x-ratelimit-reset');
@@ -1921,9 +2004,10 @@
         if (!_ghToken) return { items: [], total_count: 0 };
         if (_ghCooldown > Date.now()) throw new Error('Rate limited');
         var ck = _ck('ghcode', query, page);
-        var cached = _cGet(ck); if (cached) return cached;
+        var cached = _cGet(ck); if (cached) { markSourceTrace('github', { cacheHit: true, httpStatus: 200 }); return cached; }
         var q = encodeURIComponent(query + ' extension:user.js');
         var r = await fetch('https://api.github.com/search/code?q=' + q + '&per_page=30&page=' + page, { headers: githubHeaders(), signal: AbortSignal.timeout(12000) });
+        markSourceTrace('github', { route: 'direct', httpStatus: r.status });
         updateGitHubRateFromResponse(r);
         if (r.status === 403 || r.status === 429) {
             var reset = r.headers.get('x-ratelimit-reset');
@@ -1952,7 +2036,7 @@
     /* ===== Source: OpenUserJS ===== */
     async function srcOUJS(query, page) {
         var ck = _ck('openuserjs', query, page);
-        var cached = _cGet(ck); if (cached) return cached;
+        var cached = _cGet(ck); if (cached) { markSourceTrace('openuserjs', { cacheHit: true }); return cached; }
         var url = 'https://openuserjs.org/?q=' + encodeURIComponent(query) + '&orderBy=installs&orderDir=desc&p=' + page;
         var r = await fetchViaProxy(url, 20000, 'openuserjs');
         var html = await r.text();
@@ -2000,7 +2084,7 @@
     /* ===== Source: Userscript.Zone ===== */
     async function srcUSZ(query, page) {
         var start = (page - 1) * 10, ck = _ck('uszone', query, page);
-        var cached = _cGet(ck); if (cached) return cached;
+        var cached = _cGet(ck); if (cached) { markSourceTrace('uszone', { cacheHit: true }); return cached; }
         var r = await fetchViaProxy('https://www.userscript.zone/search?l=en&q=' + encodeURIComponent(query) + '&start=' + start, 15000, 'uszone');
         var results = parseUSZ(await r.text());
         _cSet(ck, results); return results;
@@ -2025,8 +2109,9 @@
     /* ===== Source: ScriptCat ===== */
     async function srcSC(query, page) {
         var ck = _ck('scriptcat', query, page);
-        var cached = _cGet(ck); if (cached) return cached;
+        var cached = _cGet(ck); if (cached) { markSourceTrace('scriptcat', { cacheHit: true, httpStatus: 200 }); return cached; }
         var r = await fetch('https://scriptcat.org/api/v2/scripts?keyword=' + encodeURIComponent(query) + '&page=' + page + '&size=30', { signal: AbortSignal.timeout(12000) });
+        markSourceTrace('scriptcat', { route: 'direct', httpStatus: r.status });
         if (!r.ok) throw new Error('ScriptCat HTTP ' + r.status);
         var data = await readJsonOrThrow(r, 'ScriptCat');
         if (data.code !== 0) throw new Error('ScriptCat: ' + (data.msg || 'unknown error'));
@@ -2050,7 +2135,7 @@
     /* ===== Source: GitHub Gists ===== */
     async function srcGists(query, page) {
         var ck = _ck('gists', query, page);
-        var cached = _cGet(ck); if (cached) return cached;
+        var cached = _cGet(ck); if (cached) { markSourceTrace('gists', { cacheHit: true }); return cached; }
         var p = (page - 1) * 10;
         var url = 'https://gist.github.com/search?q=' + encodeURIComponent(query + ' extension:user.js') + '&start=' + p;
         var r = await fetchViaProxy(url, 15000, 'gists');
@@ -2435,7 +2520,7 @@
 
         if (!loadMore) {
             _hAdd(state.rawQuery);
-            state.results = []; state.sourcePages = {}; state.sourceStatus = {}; state.sourceCounts = {}; state.sourceHasMore = {}; state.sourceErrors = {};
+            state.results = []; state.sourcePages = {}; state.sourceStatus = {}; state.sourceCounts = {}; state.sourceHasMore = {}; state.sourceErrors = {}; state.sourceMeta = {};
             Object.keys(SOURCES).forEach(function(s) { state.sourcePages[s] = 1; state.sourceHasMore[s] = true; });
             renderSkeletons();
         }
@@ -2458,9 +2543,12 @@
             var page = state.sourcePages[srcId] || 1;
             try {
                 var result = await srcDef.search(parsed.query, page, siteVal, filters.language);
-                var items = Array.isArray(result) ? result : (result.items || result);
+                if (!result || result.schemaVersion !== SOURCE_ENVELOPE_VERSION || !Array.isArray(result.items)) throw new Error('invalid source result envelope');
+                var items = result.items;
                 var total = result.total;
-                if (items.length < srcDef.pageSize || (total && page * srcDef.pageSize >= total)) state.sourceHasMore[srcId] = false;
+                state.sourceMeta[srcId] = result;
+                if (typeof result.hasMore === 'boolean') state.sourceHasMore[srcId] = result.hasMore;
+                else if (items.length < srcDef.pageSize || (total && page * srcDef.pageSize >= total)) state.sourceHasMore[srcId] = false;
                 state.sourcePages[srcId] = page + 1;
                 state.sourceCounts[srcId] = (state.sourceCounts[srcId] || 0) + items.length;
                 state.sourceStatus[srcId] = 'done';
@@ -2471,6 +2559,19 @@
                 console.warn('[' + srcId + ']', err.message);
                 state.sourceStatus[srcId] = 'error'; state.sourceHasMore[srcId] = false;
                 state.sourceErrors[srcId] = err.message || 'failed';
+                state.sourceMeta[srcId] = {
+                    schema: 'scripthunt-source-results',
+                    schemaVersion: SOURCE_ENVELOPE_VERSION,
+                    source: srcId,
+                    items: [],
+                    partial: false,
+                    partialReason: '',
+                    latencyMs: 0,
+                    cacheHit: false,
+                    route: (_sourceTrace[srcId] && _sourceTrace[srcId].route) || 'direct',
+                    httpStatus: (_sourceTrace[srcId] && _sourceTrace[srcId].httpStatus) || 0,
+                    errorClass: sourceErrorClass(err),
+                };
                 srcFail(srcId);
                 showToast(SOURCES[srcId].name + ': ' + err.message, 'error', 4000);
                 return [];
@@ -2940,10 +3041,16 @@
             var src = SOURCES[s], status = state.sourceStatus[s] || 'idle';
             if (status === 'idle') return '';
             var count = state.sourceCounts[s] || 0;
-            var label = status === 'loading' ? 'Searching...' : status === 'done' ? count + ' found' : status === 'suspended' ? 'Paused (' + ((state._suspendSecs && state._suspendSecs[s]) || '?') + 's)' : 'Failed';
+            var sourceMeta = state.sourceMeta[s] || {};
+            var label = status === 'loading' ? 'Searching...' : status === 'done' ? count + ' found' + (sourceMeta.partial ? ' (partial)' : '') : status === 'suspended' ? 'Paused (' + ((state._suspendSecs && state._suspendSecs[s]) || '?') + 's)' : 'Failed';
             var details = [];
             var usedProxy = _proxyHealth.lastUsedBySource[s];
-            if ((s === 'openuserjs' || s === 'uszone' || s === 'gists') && status === 'done' && usedProxy) details.push('via ' + usedProxy);
+            if (sourceMeta.partialReason) details.push(sourceMeta.partialReason);
+            if (sourceMeta.mode) details.push(sourceMeta.mode);
+            if (sourceMeta.route) details.push('route ' + sourceMeta.route);
+            if (sourceMeta.cacheHit) details.push('memory cache');
+            if (sourceMeta.latencyMs > 0) details.push(sourceMeta.latencyMs + ' ms');
+            if ((s === 'openuserjs' || s === 'uszone' || s === 'gists') && status === 'done' && usedProxy && !sourceMeta.route) details.push('via ' + usedProxy);
             if (status === 'error') details = (_proxyHealth.errorsBySource[s] || (state.sourceErrors[s] ? [state.sourceErrors[s]] : []));
             var detailText = details.length ? ' - ' + details.join('; ') : '';
             var retry = (status === 'error' || status === 'suspended') ? '<button type="button" class="chip-retry" data-retry-source="' + esc(s) + '" aria-label="Retry ' + esc(src.name) + '">Retry</button>' : '';
@@ -3511,7 +3618,9 @@
     var proxySaveBtn = document.getElementById('btnSaveProxy');
     var proxyTestBtn = document.getElementById('btnTestProxy');
     var proxyRemoveBtn = document.getElementById('btnRemoveProxy');
+    var publicProxyToggle = document.getElementById('allowPublicProxy');
     if (proxyInput) proxyInput.value = _customProxy;
+    if (publicProxyToggle) publicProxyToggle.checked = _allowPublicProxy;
     function setProxyStatus(msg, type) {
         proxyStatus.textContent = msg;
         proxyStatus.classList.toggle('ok', type === 'ok');
@@ -3544,7 +3653,14 @@
         proxyInput.value = '';
         _customProxy = '';
         _prefRemove('proxy');
-        setProxyStatus('Custom proxy removed. Public fallback proxies will be used.', 'ok');
+        setProxyStatus(_allowPublicProxy ? 'Custom proxy removed. Public fallback proxies will be used.' : 'Custom proxy removed. Proxy-dependent sources are unavailable while public fallback is disabled.', _allowPublicProxy ? 'ok' : 'error');
+        renderDiagnostics();
+    });
+    publicProxyToggle.addEventListener('change', function() {
+        _allowPublicProxy = publicProxyToggle.checked;
+        _prefSet('allowPublicProxy', _allowPublicProxy);
+        var msg = _allowPublicProxy ? 'Public fallback enabled. Proxy services receive each target URL.' : (_customProxy ? 'Public fallback disabled. Only the configured custom proxy will be used.' : 'Public fallback disabled. Proxy-dependent sources will fail until a custom proxy is configured.');
+        setProxyStatus(msg, _allowPublicProxy || _customProxy ? 'ok' : 'error');
         renderDiagnostics();
     });
     proxyTestBtn.addEventListener('click', async function() {
@@ -3859,10 +3975,31 @@
             online: navigator.onLine,
             userAgent: navigator.userAgent,
             customProxyConfigured: !!_customProxy,
+            publicProxyFallbackEnabled: _allowPublicProxy,
             githubTokenConfigured: !!_ghToken,
             githubRateLimit: _ghRate,
             sources: Object.keys(SOURCES).map(function(id) {
-                return { id: id, name: SOURCES[id].name, enabled: SOURCES[id].enabled, status: state.sourceStatus[id] || 'idle', count: state.sourceCounts[id] || 0, error: state.sourceErrors[id] || '' };
+                var meta = state.sourceMeta[id] || {};
+                return {
+                    id: id,
+                    name: SOURCES[id].name,
+                    enabled: SOURCES[id].enabled,
+                    status: state.sourceStatus[id] || 'idle',
+                    count: state.sourceCounts[id] || 0,
+                    error: state.sourceErrors[id] || '',
+                    envelopeVersion: meta.schemaVersion || SOURCE_ENVELOPE_VERSION,
+                    total: meta.total === undefined ? null : meta.total,
+                    hasMore: meta.hasMore === undefined ? null : meta.hasMore,
+                    partial: !!meta.partial,
+                    partialReason: meta.partialReason || '',
+                    latencyMs: meta.latencyMs || 0,
+                    cacheHit: !!meta.cacheHit,
+                    route: meta.route || '',
+                    httpStatus: meta.httpStatus || 0,
+                    errorClass: meta.errorClass || '',
+                    mode: meta.mode || '',
+                    query: meta.query || '',
+                };
             }),
             sourceHealth: _sourceHealth,
             proxyHealth: {

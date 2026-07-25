@@ -8,6 +8,11 @@ All notable changes to ScriptHunt will be documented in this file.
 - Hardened the optional Cloudflare Worker with exact HTTPS target allowlisting, redirect rejection, bounded 5 MB response streaming, upstream timeout/failure handling, and status/content-type propagation.
 - Prevented failed, empty, oversized, invalid-content, and non-userscript responses from receiving or caching a clean security score, and retained successful scan provenance.
 
+### Added
+- Added versioned source result envelopes and visible per-source provenance for partiality, pagination, latency, cache use, privacy route, HTTP status, and normalized failures.
+- Added a public-proxy fallback preference with target-URL disclosure and an explicit failure state when no allowed proxy route remains.
+- Added visible GitHub repository/authenticated-code modes, effective query qualifiers, incomplete-result warnings, and 1,000-result ceiling evidence while preserving repository results when code search fails.
+
 ## [v0.5.1]
 
 ### Security
