@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const { webcrypto } = require('node:crypto');
 
 function loadWorker(fetchImpl) {
   const code = fs.readFileSync(path.join(__dirname, '..', 'cors-proxy', 'worker.js'), 'utf8');
@@ -25,6 +26,27 @@ function proxyRequest(target, init = {}) {
     headers: { Origin: 'https://sysadmindoc.github.io' },
     ...init,
   });
+}
+
+function loadServiceWorker() {
+  const code = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  const context = {
+    self: {
+      addEventListener() {},
+      clients: { matchAll: async () => [], claim() {} },
+      skipWaiting() {},
+    },
+    caches: {},
+    fetch: async () => new Response(''),
+    crypto: webcrypto,
+    Request,
+    Response,
+    URL,
+    Uint8Array,
+  };
+  vm.createContext(context);
+  vm.runInContext(code, context);
+  return context;
 }
 
 test('worker allows only configured proxied userscript hosts', async () => {
@@ -175,4 +197,36 @@ test('worker rejects non-GET proxied requests', async () => {
   const response = await handleRequest(proxyRequest('https://openuserjs.org/scripts', { method: 'POST' }));
   assert.equal(response.status, 405);
   assert.equal(await response.text(), 'Only GET requests allowed');
+});
+
+test('service worker detects changed assets without false update notifications', async () => {
+  const sw = loadServiceWorker();
+
+  assert.equal(
+    await sw.assetResponsesDiffer(
+      new Response('cached', { headers: { ETag: '"v1"' } }),
+      new Response('different body', { headers: { ETag: '"v1"' } })
+    ),
+    false,
+    'matching strong validators should suppress an update'
+  );
+  assert.equal(
+    await sw.assetResponsesDiffer(
+      new Response('cached', { headers: { ETag: '"v1"' } }),
+      new Response('cached', { headers: { ETag: '"v2"' } })
+    ),
+    true,
+    'changed ETags should announce an update'
+  );
+  assert.equal(
+    await sw.assetResponsesDiffer(new Response('same body'), new Response('same body')),
+    false,
+    'matching body fingerprints should suppress an update'
+  );
+  assert.equal(
+    await sw.assetResponsesDiffer(new Response('old body'), new Response('new body')),
+    true,
+    'changed body fingerprints should announce an update'
+  );
+  assert.equal(await sw.assetResponsesDiffer(null, new Response('first cache fill')), false);
 });

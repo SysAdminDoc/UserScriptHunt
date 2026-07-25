@@ -32,9 +32,30 @@ self.addEventListener('message', function(e) {
 });
 
 function notifyClients(message) {
-  self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
     clients.forEach(function(client) { client.postMessage(message); });
   });
+}
+
+async function responseBodyHash(response) {
+  var bytes = await response.clone().arrayBuffer();
+  var digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(function(byte) { return byte.toString(16).padStart(2, '0'); }).join('');
+}
+
+async function assetResponsesDiffer(cached, fresh) {
+  if (!cached || !fresh) return false;
+  var cachedEtag = cached.headers.get('etag');
+  var freshEtag = fresh.headers.get('etag');
+  if (cachedEtag && freshEtag) return cachedEtag !== freshEtag;
+  var cachedModified = cached.headers.get('last-modified');
+  var freshModified = fresh.headers.get('last-modified');
+  var cachedLength = cached.headers.get('content-length');
+  var freshLength = fresh.headers.get('content-length');
+  if (cachedModified && freshModified && cachedLength && freshLength) {
+    return cachedModified !== freshModified || cachedLength !== freshLength;
+  }
+  return (await responseBodyHash(cached)) !== (await responseBodyHash(fresh));
 }
 
 self.addEventListener('fetch', function(e) {
@@ -70,11 +91,15 @@ self.addEventListener('fetch', function(e) {
   e.respondWith(
     caches.match(e.request).then(function(cached) {
       var fetched = fetch(e.request).then(function(resp) {
-        if (resp.ok) {
-          var clone = resp.clone();
-          caches.open(CACHE_NAME).then(function(c) { c.put(e.request, clone); });
-        }
-        return resp;
+        if (!resp.ok) return resp;
+        return assetResponsesDiffer(cached, resp).then(function(changed) {
+          return caches.open(CACHE_NAME).then(function(c) {
+            return c.put(e.request, resp.clone()).then(function() {
+              if (cached && changed) return notifyClients({ type: 'ASSET_UPDATED', url: e.request.url }).then(function() { return resp; });
+              return resp;
+            });
+          });
+        });
       }).catch(function() {
         if (cached) notifyClients({ type: 'CACHE_FALLBACK', url: e.request.url });
         return cached;

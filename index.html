@@ -4674,6 +4674,10 @@
         navigator.serviceWorker.addEventListener('message', function(e) {
             if (!e.data) return;
             if (e.data.type === 'CACHE_FALLBACK') showToast('Cached shell served while offline', 'info', 4000);
+            if (e.data.type === 'ASSET_UPDATED' && !window.__assetUpdateToastShown) {
+                window.__assetUpdateToastShown = true;
+                showToast('Updated application assets are ready', 'info', 15000, function() { location.reload(); }, 'Reload');
+            }
         });
         navigator.serviceWorker.addEventListener('controllerchange', function() {
             if (window.__pwaRefreshPending) location.reload();

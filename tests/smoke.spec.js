@@ -1497,6 +1497,15 @@ test('service worker update and cache fallback prompts are visible', async ({ pa
 
   await page.evaluate(() => window.__dispatchSwMessage({ type: 'CACHE_FALLBACK', url: './index.html' }));
   await expect(page.locator('.toast').last()).toContainText('Cached shell served while offline');
+
+  await page.evaluate(() => {
+    window.__assetReloadRequested = false;
+    window.__dispatchSwMessage({ type: 'ASSET_UPDATED', url: './fonts/outfit-latin.woff2' });
+    window.__dispatchSwMessage({ type: 'ASSET_UPDATED', url: './icon-192.png' });
+  });
+  const assetToast = page.locator('.toast').filter({ hasText: 'Updated application assets are ready' });
+  await expect(assetToast).toHaveCount(1);
+  await expect(assetToast.getByRole('button', { name: 'Reload' })).toBeVisible();
 });
 
 test('offline cache restores recent successful search', async ({ page, context }) => {
