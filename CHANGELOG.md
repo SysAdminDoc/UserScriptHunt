@@ -2,6 +2,11 @@
 
 All notable changes to ScriptHunt will be documented in this file.
 
+## [Unreleased]
+
+### Security
+- Hardened the optional Cloudflare Worker with exact HTTPS target allowlisting, redirect rejection, bounded 5 MB response streaming, upstream timeout/failure handling, and status/content-type propagation.
+
 ## [v0.5.1]
 
 ### Security
