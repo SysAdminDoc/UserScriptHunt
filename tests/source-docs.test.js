@@ -16,8 +16,21 @@ test('README source table matches code source registry', () => {
   const sourceMatch = html.match(/var SOURCES\s*=\s*\{([\s\S]*?)\n\s*\};\s*\n\s*\/\* -- Custom Sources/);
   assert.ok(sourceMatch, 'SOURCES registry should exist in index.html');
 
-  const nameMatches = sourceMatch[1].matchAll(/name:\s*'([^']+)'/g);
-  const codeSourceNames = Array.from(nameMatches, (m) => m[1]).sort();
+  const sourceRows = Array.from(sourceMatch[1].matchAll(
+    /(\w+):\s*\{\s*id:\s*'([^']+)',\s*name:\s*'([^']+)',\s*method:\s*'([^']+)',\s*route:\s*'([^']+)',\s*auth:\s*'([^']+)',\s*cors:\s*'([^']+)',\s*metadata:\s*'([^']+)',\s*capabilities:\s*'([^']+)'[\s\S]*?pageSize:\s*(\d+)/g
+  ), (match) => ({
+    key: match[1],
+    id: match[2],
+    name: match[3],
+    method: match[4],
+    route: match[5],
+    auth: match[6],
+    cors: match[7],
+    metadata: match[8],
+    capabilities: match[9],
+    pageSize: Number(match[10]),
+  }));
+  const codeSourceNames = sourceRows.map((source) => source.name).sort();
 
   assert.ok(codeSourceNames.length >= 6, 'Should have at least 6 sources in code');
 
@@ -37,6 +50,10 @@ test('README source table matches code source registry', () => {
     codeSourceNames.length,
     `README source table rows (${readmeSourceLines.length}) should match code source count (${codeSourceNames.length})`
   );
+  const expectedRows = sourceRows.map((source) =>
+    `| **${source.name}** | ${source.method} | ${source.route} | ${source.auth} | ${source.cors} | ${source.pageSize} | ${source.capabilities} | ${source.metadata} |`
+  );
+  assert.deepEqual(readmeSourceLines, expectedRows, 'README source rows should be generated from registry metadata');
 });
 
 test('each source declares page size in code', () => {
@@ -53,4 +70,13 @@ test('each source declares page size in code', () => {
     assert.ok(match, `Source "${id}" should declare a pageSize`);
     assert.ok(parseInt(match[1]) > 0, `Source "${id}" pageSize should be positive`);
   }
+});
+
+test('package release metadata identifies the public application', () => {
+  const pkg = JSON.parse(readFile('package.json'));
+  assert.equal(pkg.name, 'scripthunt');
+  assert.equal(pkg.license, 'MIT');
+  assert.equal(pkg.repository, 'github:SysAdminDoc/UserScriptHunt');
+  assert.equal(pkg.homepage, 'https://sysadmindoc.github.io/UserScriptHunt/');
+  assert.match(pkg.description, /seven built-in catalogs/);
 });

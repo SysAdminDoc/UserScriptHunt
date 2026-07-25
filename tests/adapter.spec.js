@@ -542,3 +542,133 @@ test('starting a new search aborts active per-source requests', async ({ page })
   expect(outcome.query).toBe('second');
   expect(outcome.names).toEqual(['Second Search Result']);
 });
+
+test('custom source manifests constrain mapping, limits, and legacy migration', async ({ page }) => {
+  await page.goto('/');
+
+  const outcome = await page.evaluate(async () => {
+    const originalFetch = window.fetch;
+    const manifest = {
+      schema: 'scripthunt-source-manifest',
+      schemaVersion: 1,
+      id: 'custom-fixture-api',
+      label: 'Fixture API',
+      request: {
+        urlTemplate: 'https://custom.invalid/search?q={query}&page={page}',
+        route: 'direct',
+        timeoutMs: 5000,
+        maxBytes: 4096,
+      },
+      response: {
+        itemsPath: 'payload.rows',
+        totalPath: 'meta.total',
+        hasMorePath: 'meta.hasMore',
+        partialPath: 'meta.partial',
+        partialReasonPath: 'meta.reason',
+        maxItems: 2,
+      },
+      mapping: {
+        id: 'key',
+        name: 'title',
+        description: 'summary',
+        author: 'owner.name',
+        url: 'links.page',
+        installUrl: 'links.install',
+        version: 'release',
+        dailyInstalls: 'metrics.daily',
+        totalInstalls: 'metrics.total',
+        rating: 'metrics.rating',
+        createdAt: 'dates.created',
+        updatedAt: 'dates.updated',
+        license: 'license',
+      },
+      capabilities: { pagination: true, totals: true, installUrls: true },
+    };
+    window.__customSourceExecuted = false;
+    window.fetch = async (url) => {
+      const query = new URL(String(url)).searchParams.get('q');
+      if (query === 'oversized') {
+        return new Response('{}', {
+          status: 200,
+          headers: { 'content-length': '4097', 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({
+        payload: {
+          rows: [{
+            key: 'one',
+            title: 'Mapped Script',
+            summary: 'Mapped declaratively.',
+            owner: { name: 'fixture' },
+            links: {
+              page: 'https://example.com/script',
+              install: 'https://example.com/script.user.js',
+            },
+            release: '1.2.3',
+            metrics: { daily: 2, total: 20, rating: 5 },
+            dates: { created: '2025-01-01', updated: '2026-01-01' },
+            license: 'MIT',
+            script: 'window.__customSourceExecuted = true',
+          }],
+        },
+        meta: { total: 5, hasMore: true, partial: true, reason: 'fixture page truncated' },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    try {
+      registerCustomSource(manifest);
+      const result = await SOURCES[manifest.id].search('mapped', 1);
+      let oversized = '';
+      try { await SOURCES[manifest.id].search('oversized', 1); }
+      catch (err) { oversized = err.message; }
+      const legacy = migrateCustomSource({
+        name: 'Legacy Source',
+        urlTemplate: 'https://legacy.invalid/search?q={query}&page={page}',
+      });
+      const unsafeError = validateCustomSource({
+        ...manifest,
+        id: 'custom-unsafe',
+        response: { ...manifest.response, itemsPath: '__proto__.rows' },
+      });
+      return {
+        result,
+        oversized,
+        legacy,
+        unsafeError,
+        executed: window.__customSourceExecuted,
+      };
+    } finally {
+      delete SOURCES[manifest.id];
+      window.fetch = originalFetch;
+      delete window.__customSourceExecuted;
+    }
+  });
+
+  expect(outcome.result).toMatchObject({
+    schemaVersion: 1,
+    source: 'custom-fixture-api',
+    total: 5,
+    hasMore: true,
+    partial: true,
+    partialReason: 'fixture page truncated',
+    route: 'direct',
+    httpStatus: 200,
+  });
+  expect(outcome.result.items[0]).toMatchObject({
+    name: 'Mapped Script',
+    author: 'fixture',
+    installUrl: 'https://example.com/script.user.js',
+    version: '1.2.3',
+    totalInstalls: 20,
+    license: 'MIT',
+  });
+  expect(outcome.executed).toBe(false);
+  expect(outcome.oversized).toContain('exceeds 4.0 KB limit');
+  expect(outcome.legacy).toMatchObject({
+    schema: 'scripthunt-source-manifest',
+    schemaVersion: 1,
+    id: 'custom-legacy-source',
+    label: 'Legacy Source',
+  });
+  expect(outcome.legacy.response.itemsPath).toBe('$legacy');
+  expect(outcome.unsafeError).toContain('safe declarative data paths');
+});

@@ -1369,6 +1369,59 @@ test('public proxy fallback discloses target sharing and can be disabled', async
   expect(JSON.stringify(diagnostics)).not.toContain('contents');
 });
 
+test('custom source settings accept only declarative versioned manifests', async ({ page }) => {
+  await page.goto('/');
+  await page.click('#btnDiagnostics');
+  await page.fill('#customSourceManifest', JSON.stringify({
+    schema: 'scripthunt-source-manifest',
+    schemaVersion: 1,
+    id: 'custom-ui-fixture',
+    label: 'UI Fixture',
+    request: {
+      urlTemplate: 'https://custom.invalid/search?q={query}&page={page}',
+      route: 'direct',
+      timeoutMs: 5000,
+      maxBytes: 65536,
+    },
+    response: {
+      itemsPath: 'items',
+      totalPath: 'total',
+      hasMorePath: 'hasMore',
+      partialPath: 'partial',
+      partialReasonPath: 'partialReason',
+      maxItems: 20,
+    },
+    mapping: {
+      id: 'id',
+      name: 'name',
+      description: 'description',
+      author: 'author',
+      url: 'url',
+      installUrl: 'installUrl',
+      version: 'version',
+      dailyInstalls: 'dailyInstalls',
+      totalInstalls: 'totalInstalls',
+      rating: 'rating',
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt',
+      license: 'license',
+    },
+    capabilities: { pagination: true, totals: true, installUrls: true },
+  }));
+  await page.click('#btnAddCustomSource');
+  await expect(page.locator('#customSourceStatus')).toContainText('manifest v1');
+  await expect(page.locator('#customSourceList')).toContainText('UI Fixture · manifest v1 · direct');
+  await expect(page.getByLabel('UI Fixture source')).toBeVisible();
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_customSources'))[0]);
+  expect(stored).toMatchObject({
+    schema: 'scripthunt-source-manifest',
+    schemaVersion: 1,
+    id: 'custom-ui-fixture',
+    label: 'UI Fixture',
+  });
+});
+
 test('service worker update and cache fallback prompts are visible', async ({ page }) => {
   await page.addInitScript(() => {
     window.__swMessages = [];

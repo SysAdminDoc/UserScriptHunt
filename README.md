@@ -90,15 +90,21 @@ npm run qa
 
 ## Supported Sources
 
-| Source | Method | Auth Required | CORS | Per-Page | Metadata |
-|--------|--------|:---:|:---:|:---:|----------|
-| **Greasy Fork** | JSON API + by-site.json | No | Native (`*`) | 100 | Installs, ratings, version, dates, license, author |
-| **Sleazy Fork** | JSON API (direct) | No | Native (`*`) | 100 | Same as Greasy Fork (adult-flagged scripts) |
-| **GitHub** | REST API v3 + Code Search | Optional token | Native CORS | 30 | Stars, forks, language, license, dates |
-| **OpenUserJS** | HTML scraping via proxy | No | Via proxy | ~25 | Name, author, install URL |
-| **Userscript.Zone** | HTML scraping via proxy | No | Via proxy | ~10 | Name, description, install URL |
-| **ScriptCat** | JSON API v2 | No | Native CORS | 30 | Installs, ratings, version, dates, author |
-| **GitHub Gists** | HTML scraping via proxy | No | Via proxy | ~10 | Name, author, install URL |
+| Source | Method | Route | Auth Required | CORS | Per-Page | Capabilities | Metadata |
+|--------|--------|-------|:---:|:---:|:---:|--------------|----------|
+| **Greasy Fork** | JSON API + by-site.json | direct | No | Native (`*`) | 100 | search, pagination, totals, site filter, install URLs | Installs, ratings, version, dates, license, author |
+| **Sleazy Fork** | JSON API | direct | No | Native (`*`) | 100 | search, pagination, totals, site filter, install URLs | Installs, ratings, version, dates, license, author |
+| **GitHub** | REST API v3 + Code Search | direct | Optional token | Native CORS | 30 | repository search, authenticated code search, pagination, totals | Stars, forks, language, license, dates |
+| **OpenUserJS** | HTML scraping | custom/public proxy | No | Via proxy | 25 | search, pagination, install URLs | Name, author, install URL |
+| **Userscript.Zone** | HTML scraping | custom/public proxy | No | Via proxy | 10 | search, pagination, install URLs | Name, description, install URL |
+| **ScriptCat** | JSON API v2 | direct | No | Native CORS | 30 | search, pagination, totals, install URLs | Installs, ratings, version, dates, author |
+| **GitHub Gists** | HTML scraping | custom/public proxy | No | Via proxy | 10 | search, pagination, install URLs | Name, author, install URL |
+
+Custom sources use declarative `scripthunt-source-manifest` schema v1 JSON in Diagnostics. A manifest must declare a stable `custom-*` id/label, direct HTTPS URL template, 1–15 second timeout, 1 KB–2 MB response limit, 1–100 item limit, pagination/total/install-URL capabilities, response paths, and field mappings. Paths read JSON only—custom JavaScript is never evaluated. Existing name/URL templates migrate to the bounded `$legacy` mapping.
+
+```json
+{"schema":"scripthunt-source-manifest","schemaVersion":1,"id":"custom-example","label":"Example","request":{"urlTemplate":"https://api.example/search?q={query}&page={page}","route":"direct","timeoutMs":12000,"maxBytes":1048576},"response":{"itemsPath":"items","totalPath":"total","hasMorePath":"hasMore","partialPath":"partial","partialReasonPath":"partialReason","maxItems":50},"mapping":{"id":"id","name":"name","description":"description","author":"author","url":"url","installUrl":"installUrl","version":"version"},"capabilities":{"pagination":true,"totals":true,"installUrls":true}}
+```
 
 ---
 

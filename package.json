@@ -1,6 +1,10 @@
 {
   "name": "scripthunt",
   "version": "0.5.1",
+  "description": "Static unified userscript search across seven built-in catalogs with provenance-aware trust and offline recovery.",
+  "license": "MIT",
+  "repository": "github:SysAdminDoc/UserScriptHunt",
+  "homepage": "https://sysadmindoc.github.io/UserScriptHunt/",
   "private": true,
   "scripts": {
     "qa": "npm audit && npm test",

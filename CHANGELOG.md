@@ -21,6 +21,8 @@ All notable changes to ScriptHunt will be documented in this file.
 - Replaced implied trust for unscanned/unavailable evidence with explicit Unknown, stale-evidence, and dependency-unverified labels, with inspectable scan URL, timestamp, status, hash, and cache age.
 - Added optional bounded-concurrency, non-executing HTTPS integrity checks for `@require` and `@resource` dependencies, including canonical provenance, pinning state, declared hash verification, failures, content changes, and parent-scan caching.
 - Added installed/favorite import previews with valid, invalid, duplicate, conflict, and manager-format counts; merge, replace, skip-conflict, and cancel actions; and versioned pre-import snapshots with one-click rollback.
+- Replaced unconstrained custom-source field guessing with declarative schema-v1 manifests covering stable identity, capabilities, privacy route, response/mapping paths, and strict byte/item/time limits; legacy templates migrate to a bounded compatibility mapping.
+- Made the executable source registry authoritative for README source rows and diagnostics method/route/capability claims, with local drift tests and complete package release metadata.
 
 ## [v0.5.1]
 

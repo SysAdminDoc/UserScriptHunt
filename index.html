@@ -460,7 +460,8 @@
                     <input class="proxy-settings-input" id="customSourceUrl" type="text" placeholder="https://api.example.com/search?q={query}&page={page}" style="flex:3;min-width:200px" aria-label="Custom source URL template">
                     <button class="tool-btn" id="btnAddCustomSource" type="button">Add</button>
                 </div>
-                <div class="proxy-settings-status" id="customSourceStatus" role="status">Custom sources must use HTTPS JSON APIs with {query} placeholder.</div>
+                <textarea class="diagnostics-output" id="customSourceManifest" style="min-height:90px" placeholder="Optional schema-v1 source manifest JSON" aria-label="Custom source manifest JSON"></textarea>
+                <div class="proxy-settings-status" id="customSourceStatus" role="status">Use the basic fields for a bounded legacy mapping, or paste a schema-v1 HTTPS JSON manifest. Custom source code is never executed.</div>
             </div>
             <textarea class="diagnostics-output" id="diagnosticsOutput" readonly aria-label="Diagnostics payload"></textarea>
             <div class="diagnostics-actions"><button class="tool-btn" id="btnCopyDiagnostics" type="button">Copy</button></div>
@@ -1478,11 +1479,11 @@
 
     var _savedSrc = _prefGet('sources', {});
     var SOURCES = {
-        greasyfork: { id: 'greasyfork', name: 'Greasy Fork', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true, pageSize: 100,
+        greasyfork: { id: 'greasyfork', name: 'Greasy Fork', method: 'JSON API + by-site.json', route: 'direct', auth: 'No', cors: 'Native (`*`)', metadata: 'Installs, ratings, version, dates, license, author', capabilities: 'search, pagination, totals, site filter, install URLs', color: '#c83737', dimColor: 'rgba(200,55,55,0.12)', enabled: _savedSrc.greasyfork !== undefined ? _savedSrc.greasyfork : true, pageSize: 100,
             search: function(q, p, site, locale, signal) { return sourceAdapter('greasyfork', async function() { var d = await srcGF(q, p, 'greasyfork.org', site, locale, signal); var items = sourceRows(d).map(function(i) { var item = normGF(i, 'greasyfork'); if (site) item._appliesSource = { label: 'Greasy Fork site match', domain: site }; return item; }); return { items: items, hasMore: items.length >= 100 }; }); } },
-        sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false, pageSize: 100,
+        sleazyfork: { id: 'sleazyfork', name: 'Sleazy Fork', method: 'JSON API', route: 'direct', auth: 'No', cors: 'Native (`*`)', metadata: 'Installs, ratings, version, dates, license, author', capabilities: 'search, pagination, totals, site filter, install URLs', color: '#a855f7', dimColor: 'rgba(168,85,247,0.12)', enabled: _savedSrc.sleazyfork !== undefined ? _savedSrc.sleazyfork : false, pageSize: 100,
             search: function(q, p, site, locale, signal) { return sourceAdapter('sleazyfork', async function() { var d = await srcGF(q, p, 'sleazyfork.org', site, locale, signal); var items = sourceRows(d).map(function(i) { var item = normGF(i, 'sleazyfork'); if (site) item._appliesSource = { label: 'Sleazy Fork site match', domain: site }; return item; }); return { items: items, hasMore: items.length >= 100 }; }); } },
-        github: { id: 'github', name: 'GitHub', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true, pageSize: 30,
+        github: { id: 'github', name: 'GitHub', method: 'REST API v3 + Code Search', route: 'direct', auth: 'Optional token', cors: 'Native CORS', metadata: 'Stars, forks, language, license, dates', capabilities: 'repository search, authenticated code search, pagination, totals', color: '#8b949e', dimColor: 'rgba(139,148,158,0.1)', enabled: _savedSrc.github !== undefined ? _savedSrc.github : true, pageSize: 30,
             search: function(q, p, site, locale, signal) {
                 return sourceAdapter('github', async function() {
                     var raw = await srcGH(q, p, signal);
@@ -1514,57 +1515,158 @@
                     };
                 });
             }, _getTotal: function(raw) { return raw.total_count; } },
-        openuserjs: { id: 'openuserjs', name: 'OpenUserJS', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: _savedSrc.openuserjs !== undefined ? _savedSrc.openuserjs : true, pageSize: 5,
-            search: function(q, p, site, locale, signal) { return sourceAdapter('openuserjs', async function() { var items = await srcOUJS(q, p, signal); return { items: items, hasMore: items.length >= 5 }; }); } },
-        uszone: { id: 'uszone', name: 'Userscript.Zone', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true, pageSize: 3,
-            search: function(q, p, site, locale, signal) { return sourceAdapter('uszone', async function() { var items = await srcUSZ(q, p, signal); return { items: items, hasMore: items.length >= 3 }; }); } },
-        scriptcat: { id: 'scriptcat', name: 'ScriptCat', color: '#10b981', dimColor: 'rgba(16,185,129,0.12)', enabled: _savedSrc.scriptcat !== undefined ? _savedSrc.scriptcat : true, pageSize: 30,
+        openuserjs: { id: 'openuserjs', name: 'OpenUserJS', method: 'HTML scraping', route: 'custom/public proxy', auth: 'No', cors: 'Via proxy', metadata: 'Name, author, install URL', capabilities: 'search, pagination, install URLs', color: '#06b6d4', dimColor: 'rgba(6,182,212,0.12)', enabled: _savedSrc.openuserjs !== undefined ? _savedSrc.openuserjs : true, pageSize: 25,
+            search: function(q, p, site, locale, signal) { return sourceAdapter('openuserjs', async function() { var items = await srcOUJS(q, p, signal); return { items: items, hasMore: items.length >= 25 }; }); } },
+        uszone: { id: 'uszone', name: 'Userscript.Zone', method: 'HTML scraping', route: 'custom/public proxy', auth: 'No', cors: 'Via proxy', metadata: 'Name, description, install URL', capabilities: 'search, pagination, install URLs', color: '#f97316', dimColor: 'rgba(249,115,22,0.12)', enabled: _savedSrc.uszone !== undefined ? _savedSrc.uszone : true, pageSize: 10,
+            search: function(q, p, site, locale, signal) { return sourceAdapter('uszone', async function() { var items = await srcUSZ(q, p, signal); return { items: items, hasMore: items.length >= 10 }; }); } },
+        scriptcat: { id: 'scriptcat', name: 'ScriptCat', method: 'JSON API v2', route: 'direct', auth: 'No', cors: 'Native CORS', metadata: 'Installs, ratings, version, dates, author', capabilities: 'search, pagination, totals, install URLs', color: '#10b981', dimColor: 'rgba(16,185,129,0.12)', enabled: _savedSrc.scriptcat !== undefined ? _savedSrc.scriptcat : true, pageSize: 30,
             search: function(q, p, site, locale, signal) { return sourceAdapter('scriptcat', async function() { var r = await srcSC(q, p, signal); return { items: sourceRows(r.items).map(normSC), total: r.total, hasMore: p * 30 < r.total }; }); } },
-        gists: { id: 'gists', name: 'GitHub Gists', color: '#6e7681', dimColor: 'rgba(110,118,129,0.1)', enabled: _savedSrc.gists !== undefined ? _savedSrc.gists : false, pageSize: 10,
+        gists: { id: 'gists', name: 'GitHub Gists', method: 'HTML scraping', route: 'custom/public proxy', auth: 'No', cors: 'Via proxy', metadata: 'Name, author, install URL', capabilities: 'search, pagination, install URLs', color: '#6e7681', dimColor: 'rgba(110,118,129,0.1)', enabled: _savedSrc.gists !== undefined ? _savedSrc.gists : false, pageSize: 10,
             search: function(q, p, site, locale, signal) { return sourceAdapter('gists', async function() { var items = await srcGists(q, p, signal); return { items: items, hasMore: items.length >= 10 }; }); } },
     };
 
-    /* -- Custom Sources (user-defined JSON API templates) -- */
-    var _customSources = _prefGet('customSources', []);
+    /* -- Custom Sources (versioned declarative JSON API manifests) -- */
+    function customSourceId(label) {
+        return 'custom-' + String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+    }
+
+    function defaultCustomSourceManifest(name, urlTemplate) {
+        return {
+            schema: 'scripthunt-source-manifest',
+            schemaVersion: 1,
+            id: customSourceId(name),
+            label: name,
+            request: { urlTemplate: urlTemplate, route: 'direct', timeoutMs: 12000, maxBytes: 1048576 },
+            response: { itemsPath: '$legacy', totalPath: 'total', hasMorePath: 'hasMore', partialPath: 'partial', partialReasonPath: 'partialReason', maxItems: 100 },
+            mapping: {
+                id: ['id', 'uuid'],
+                name: ['name', 'title'],
+                description: ['description', 'desc'],
+                author: ['author', 'username', 'user'],
+                url: ['url', 'homepage', 'html_url'],
+                installUrl: ['installUrl', 'install_url', 'code_url'],
+                version: ['version'],
+                dailyInstalls: ['daily_installs'],
+                totalInstalls: ['total_installs', 'installs'],
+                rating: ['rating', 'score'],
+                createdAt: ['created_at'],
+                updatedAt: ['updated_at', 'code_updated_at'],
+                license: ['license'],
+            },
+            capabilities: { pagination: urlTemplate.indexOf('{page}') >= 0, totals: true, installUrls: true },
+        };
+    }
+
+    function migrateCustomSource(src) {
+        if (src && src.schemaVersion === 1) return src;
+        if (src && src.name && src.urlTemplate) return defaultCustomSourceManifest(src.name, src.urlTemplate);
+        return src;
+    }
+
+    function validateDataPath(path) {
+        return typeof path === 'string' && (path === '$root' || path === '$legacy' || /^[A-Za-z0-9_.-]+$/.test(path)) && !/(^|\.)(__proto__|prototype|constructor)(\.|$)/.test(path);
+    }
+
     function validateCustomSource(src) {
-        if (!src || typeof src !== 'object') return 'Invalid source definition';
-        if (!src.name || typeof src.name !== 'string' || src.name.length > 50) return 'Name is required (max 50 chars)';
-        if (!src.urlTemplate || typeof src.urlTemplate !== 'string') return 'URL template is required';
-        if (!/^https:\/\//.test(src.urlTemplate)) return 'URL template must use HTTPS';
-        if (!/\{query\}/.test(src.urlTemplate)) return 'URL template must contain {query}';
-        if (/[{}]/.test(src.urlTemplate.replace(/\{query\}/g, '').replace(/\{page\}/g, ''))) return 'URL template contains unsupported placeholders';
+        if (!src || typeof src !== 'object' || Array.isArray(src)) return 'Invalid source manifest';
+        if (src.schema !== 'scripthunt-source-manifest' || src.schemaVersion !== 1) return 'Manifest must use scripthunt-source-manifest schema version 1';
+        if (!src.id || !/^custom-[a-z0-9-]{1,30}$/.test(src.id)) return 'Manifest id must be a stable custom-* slug';
+        if (!src.label || typeof src.label !== 'string' || src.label.length > 50) return 'Label is required (max 50 chars)';
+        var request = src.request || {}, response = src.response || {}, mapping = src.mapping || {};
+        if (typeof request.urlTemplate !== 'string' || !/^https:\/\//.test(request.urlTemplate)) return 'URL template must use HTTPS';
+        if (!/\{query\}/.test(request.urlTemplate)) return 'URL template must contain {query}';
+        if (/[{}]/.test(request.urlTemplate.replace(/\{query\}/g, '').replace(/\{page\}/g, ''))) return 'URL template contains unsupported placeholders';
+        if (request.route !== 'direct') return 'Custom source route must be declared as direct';
+        if (!Number.isInteger(request.timeoutMs) || request.timeoutMs < 1000 || request.timeoutMs > 15000) return 'timeoutMs must be 1000-15000';
+        if (!Number.isInteger(request.maxBytes) || request.maxBytes < 1024 || request.maxBytes > 2097152) return 'maxBytes must be 1024-2097152';
+        var paths = Array.isArray(response.itemsPath) ? response.itemsPath : [response.itemsPath];
+        if (!paths.length || paths.some(function(path) { return !validateDataPath(path); })) return 'itemsPath must contain safe declarative data paths';
+        if (!Number.isInteger(response.maxItems) || response.maxItems < 1 || response.maxItems > 100) return 'maxItems must be 1-100';
+        var optionalPaths = ['totalPath', 'hasMorePath', 'partialPath', 'partialReasonPath'];
+        if (optionalPaths.some(function(key) { return response[key] && !validateDataPath(response[key]); })) return 'Response paths must be safe declarative data paths';
+        if (!src.capabilities || typeof src.capabilities.pagination !== 'boolean' || typeof src.capabilities.totals !== 'boolean' || typeof src.capabilities.installUrls !== 'boolean') return 'Capabilities must declare pagination, totals, and installUrls';
+        if (!mapping.name || Object.keys(mapping).some(function(key) {
+            var value = mapping[key], values = Array.isArray(value) ? value : [value];
+            return values.some(function(path) { return !validateDataPath(path); });
+        })) return 'Mapping fields must use safe declarative data paths and include name';
         return '';
     }
+
+    function dataPath(value, path) {
+        if (path === '$root') return value;
+        if (path === '$legacy') return Array.isArray(value) ? value : (value && (value.items || value.list || value.results || value.data));
+        var current = value;
+        String(path || '').split('.').forEach(function(key) { current = current && typeof current === 'object' ? current[key] : undefined; });
+        return current;
+    }
+
+    function firstMapped(value, paths) {
+        var candidates = Array.isArray(paths) ? paths : [paths];
+        for (var i = 0; i < candidates.length; i++) {
+            var mapped = dataPath(value, candidates[i]);
+            if (mapped !== undefined && mapped !== null && mapped !== '') return mapped;
+        }
+        return '';
+    }
+
+    async function readBoundedJson(response, maxBytes, label) {
+        var bytes = await boundedResponseBytes(response, maxBytes, label);
+        try { return JSON.parse(new TextDecoder().decode(bytes)); }
+        catch(e) { throw new Error(label + ' invalid JSON'); }
+    }
+
+    var storedCustomSources = _prefGet('customSources', []);
+    var _customSources = storedCustomSources.map(migrateCustomSource);
+    if (JSON.stringify(storedCustomSources) !== JSON.stringify(_customSources)) _prefSet('customSources', _customSources);
+
     function registerCustomSource(src) {
-        var id = 'custom-' + src.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
+        var err = validateCustomSource(src);
+        if (err) { console.warn('[custom-source]', (src && (src.label || src.name) || 'unknown') + ': ' + err); return; }
+        var id = src.id, request = src.request, response = src.response, mapping = src.mapping;
         SOURCES[id] = {
-            id: id, name: src.name, color: '#9ca3af', dimColor: 'rgba(156,163,175,0.12)',
-            enabled: _savedSrc[id] !== undefined ? _savedSrc[id] : true, pageSize: 20, _custom: true,
+            id: id, name: src.label, color: '#9ca3af', dimColor: 'rgba(156,163,175,0.12)',
+            enabled: _savedSrc[id] !== undefined ? _savedSrc[id] : true, pageSize: response.maxItems, _custom: true,
+            method: 'HTTPS JSON manifest v1', route: request.route, capabilities: src.capabilities,
             search: function(q, p, site, locale, signal) {
-                var url = src.urlTemplate.replace(/\{query\}/g, encodeURIComponent(q)).replace(/\{page\}/g, p);
-                return sourceAdapter(id, function() { return fetch(url, { signal: requestSignal(12000, signal) })
-                    .then(function(r) { if (!r.ok) throw new Error(src.name + ' HTTP ' + r.status); return r.json(); })
-                    .then(function(data) {
-                        var items = Array.isArray(data) ? data : (data.items || data.list || data.results || data.data || []);
-                        var normalized = sourceRows(items).map(function(item, idx) {
-                            var rawUrl = item.url || item.homepage || item.html_url || '';
-                            var rawInstall = item.installUrl || item.install_url || item.code_url || '';
-                            return {
-                                id: id + '-' + (item.id || hashString(item.name || String(idx))),
-                                source: id, name: item.name || item.title || 'Untitled',
-                                description: item.description || item.desc || '',
-                                author: item.author || item.username || item.user || 'Unknown',
-                                url: safeUrl(rawUrl) || '',
-                                installUrl: safeUrl(rawInstall) || '',
-                                version: item.version || '', dailyInstalls: item.daily_installs || 0,
-                                totalInstalls: item.total_installs || item.installs || 0,
-                                rating: item.rating || item.score || 0, badRating: 0,
-                                createdAt: item.created_at || '', updatedAt: item.updated_at || item.code_updated_at || '',
-                                license: normalizeLicense(item.license), historyUrl: '',
-                            };
-                        });
-                        return { items: normalized, hasMore: normalized.length >= 20 };
+                var url = request.urlTemplate.replace(/\{query\}/g, encodeURIComponent(q)).replace(/\{page\}/g, p);
+                return sourceAdapter(id, async function() {
+                    var r = await fetch(url, { signal: requestSignal(request.timeoutMs, signal), redirect: 'error' });
+                    markSourceTrace(id, { route: request.route, httpStatus: r.status });
+                    if (!r.ok) throw new Error(src.label + ' HTTP ' + r.status);
+                    var data = await readBoundedJson(r, request.maxBytes, src.label);
+                    var rows = firstMapped(data, response.itemsPath);
+                    if (!Array.isArray(rows)) throw new Error(src.label + ' invalid response items path');
+                    if (rows.length > response.maxItems) throw new Error(src.label + ' response exceeds ' + response.maxItems + ' item limit');
+                    var normalized = sourceRows(rows).map(function(item, idx) {
+                        var rawUrl = firstMapped(item, mapping.url);
+                        var rawInstall = firstMapped(item, mapping.installUrl);
+                        var rawName = firstMapped(item, mapping.name);
+                        return {
+                            id: id + '-' + (firstMapped(item, mapping.id) || hashString(rawName || String(idx))),
+                            source: id, name: rawName || 'Untitled',
+                            description: firstMapped(item, mapping.description) || '',
+                            author: firstMapped(item, mapping.author) || 'Unknown',
+                            url: safeUrl(rawUrl) || '',
+                            installUrl: safeUrl(rawInstall) || '',
+                            version: firstMapped(item, mapping.version) || '',
+                            dailyInstalls: Number(firstMapped(item, mapping.dailyInstalls) || 0),
+                            totalInstalls: Number(firstMapped(item, mapping.totalInstalls) || 0),
+                            rating: Number(firstMapped(item, mapping.rating) || 0), badRating: 0,
+                            createdAt: firstMapped(item, mapping.createdAt) || '',
+                            updatedAt: firstMapped(item, mapping.updatedAt) || '',
+                            license: normalizeLicense(firstMapped(item, mapping.license)), historyUrl: '',
+                        };
                     });
+                    var total = Number(dataPath(data, response.totalPath));
+                    var hasMore = dataPath(data, response.hasMorePath);
+                    return {
+                        items: normalized,
+                        total: Number.isFinite(total) ? total : null,
+                        hasMore: typeof hasMore === 'boolean' ? hasMore : (src.capabilities.pagination && normalized.length === response.maxItems),
+                        partial: !!dataPath(data, response.partialPath),
+                        partialReason: String(dataPath(data, response.partialReasonPath) || ''),
+                        route: request.route,
+                    };
                 });
             },
         };
@@ -1720,12 +1822,14 @@
         return btoa(binary);
     }
 
-    async function boundedResponseBytes(response, limit) {
+    async function boundedResponseBytes(response, limit, label) {
+        label = label || 'dependency';
+        var limitLabel = limit === 1048576 ? '1 MB' : fmtBytes(limit);
         var declared = parseInt(response.headers.get('content-length') || '0', 10);
-        if (declared > limit) throw new Error('dependency exceeds 1 MB limit');
+        if (declared > limit) throw new Error(label + ' exceeds ' + limitLabel + ' limit');
         if (!response.body || !response.body.getReader) {
             var fallback = new Uint8Array(await response.arrayBuffer());
-            if (fallback.byteLength > limit) throw new Error('dependency exceeds 1 MB limit');
+            if (fallback.byteLength > limit) throw new Error(label + ' exceeds ' + limitLabel + ' limit');
             return fallback;
         }
         var reader = response.body.getReader(), chunks = [], size = 0;
@@ -1733,7 +1837,7 @@
             var part = await reader.read();
             if (part.done) break;
             size += part.value.byteLength;
-            if (size > limit) { await reader.cancel(); throw new Error('dependency exceeds 1 MB limit'); }
+            if (size > limit) { await reader.cancel(); throw new Error(label + ' exceeds ' + limitLabel + ' limit'); }
             chunks.push(part.value);
         }
         var out = new Uint8Array(size), offset = 0;
@@ -1749,7 +1853,7 @@
             var response = await fetch(spec.url, { signal: AbortSignal.timeout(7000), redirect: 'manual' });
             if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) throw new Error('redirect rejected');
             if (!response.ok) throw new Error('HTTP ' + response.status);
-            var bytes = await boundedResponseBytes(response, 1024 * 1024);
+            var bytes = await boundedResponseBytes(response, 1024 * 1024, 'dependency');
             var digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
             result.contentHash = 'sha256-' + bytesToBase64(digest);
             result.httpStatus = response.status;
@@ -4042,20 +4146,23 @@
     function renderCustomSourceList() {
         var el = document.getElementById('customSourceList');
         if (!el) return;
-        var sources = _prefGet('customSources', []);
+        var sources = _prefGet('customSources', []).map(migrateCustomSource);
         if (!sources.length) { el.textContent = 'No custom sources configured.'; return; }
-        el.innerHTML = sources.map(function(src) {
-            return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0"><span>' + esc(src.name) + '</span><button class="tool-btn" data-remove-source="' + attr(src.name) + '" type="button" style="font-size:10px;padding:2px 6px">Remove</button></div>';
+        el.innerHTML = sources.map(function(src, index) {
+            var error = validateCustomSource(src);
+            var label = error ? 'Invalid custom source: ' + error : src.label + ' · manifest v' + src.schemaVersion + ' · ' + src.request.route;
+            return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0"><span>' + esc(label) + '</span><button class="tool-btn" data-remove-source-index="' + index + '" type="button" style="font-size:10px;padding:2px 6px">Remove</button></div>';
         }).join('');
-        el.querySelectorAll('[data-remove-source]').forEach(function(btn) {
+        el.querySelectorAll('[data-remove-source-index]').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                var name = btn.getAttribute('data-remove-source');
-                var updated = _prefGet('customSources', []).filter(function(s) { return s.name !== name; });
+                var current = _prefGet('customSources', []).map(migrateCustomSource);
+                var index = parseInt(btn.getAttribute('data-remove-source-index'), 10);
+                var removed = current[index];
+                var updated = current.filter(function(s, i) { return i !== index; });
                 _prefSet('customSources', updated);
-                var id = 'custom-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
-                delete SOURCES[id];
+                if (removed && removed.id) delete SOURCES[removed.id];
                 renderCustomSourceList(); renderSourceToggles(); renderDiagnostics();
-                document.getElementById('customSourceStatus').textContent = 'Removed "' + name + '". Reload to fully clear.';
+                document.getElementById('customSourceStatus').textContent = 'Removed "' + (removed && (removed.label || removed.name) || 'invalid entry') + '".';
             });
         });
     }
@@ -4063,20 +4170,27 @@
     document.getElementById('btnAddCustomSource').addEventListener('click', function() {
         var nameInput = document.getElementById('customSourceName');
         var urlInput = document.getElementById('customSourceUrl');
+        var manifestInput = document.getElementById('customSourceManifest');
         var status = document.getElementById('customSourceStatus');
-        var src = { name: nameInput.value.trim(), urlTemplate: urlInput.value.trim() };
+        var src;
+        try {
+            src = manifestInput.value.trim() ? JSON.parse(manifestInput.value) : defaultCustomSourceManifest(nameInput.value.trim(), urlInput.value.trim());
+        } catch(e) {
+            status.textContent = 'Manifest JSON is invalid.';
+            return;
+        }
         var err = validateCustomSource(src);
         if (err) { status.textContent = err; return; }
-        var existing = _prefGet('customSources', []);
-        if (existing.some(function(s) { return s.name.toLowerCase() === src.name.toLowerCase(); })) {
-            status.textContent = 'A custom source with that name already exists.'; return;
+        var existing = _prefGet('customSources', []).map(migrateCustomSource);
+        if (existing.some(function(s) { return s.id === src.id || s.label.toLowerCase() === src.label.toLowerCase(); })) {
+            status.textContent = 'A custom source with that id or label already exists.'; return;
         }
         existing.push(src);
         _prefSet('customSources', existing);
         registerCustomSource(src);
-        nameInput.value = ''; urlInput.value = '';
+        nameInput.value = ''; urlInput.value = ''; manifestInput.value = '';
         renderCustomSourceList(); renderSourceToggles(); renderDiagnostics();
-        status.textContent = 'Added "' + src.name + '". Toggle it in the source bar to use it.';
+        status.textContent = 'Added "' + src.label + '" from manifest v' + src.schemaVersion + '. Toggle it in the source bar to use it.';
     });
     document.getElementById('btnCopyDiagnostics').addEventListener('click', function() {
         renderDiagnostics();
@@ -4261,6 +4375,9 @@
                 return {
                     id: id,
                     name: SOURCES[id].name,
+                    declaredMethod: SOURCES[id].method || '',
+                    declaredRoute: SOURCES[id].route || '',
+                    capabilities: SOURCES[id].capabilities || '',
                     enabled: SOURCES[id].enabled,
                     status: state.sourceStatus[id] || 'idle',
                     count: state.sourceCounts[id] || 0,
