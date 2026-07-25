@@ -1,5 +1,14 @@
 var CACHE_NAME = 'scripthunt-v0.5.1';
-var SHELL_ASSETS = ['./', './index.html', './icon.png', './manifest.json'];
+var SHELL_ASSETS = [
+  './',
+  './index.html',
+  './icon.png',
+  './manifest.json',
+  './fonts/jetbrains-mono-latin.woff2',
+  './fonts/jetbrains-mono-latin-ext.woff2',
+  './fonts/outfit-latin.woff2',
+  './fonts/outfit-latin-ext.woff2',
+];
 
 self.addEventListener('install', function(e) {
   e.waitUntil(

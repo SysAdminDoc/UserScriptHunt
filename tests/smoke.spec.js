@@ -222,6 +222,29 @@ test('CSP is static and does not block parser startup', async ({ page }) => {
   await expect(page.locator('#searchInput')).toBeEditable();
 });
 
+test('fonts load from the local offline shell without Google requests', async ({ page }) => {
+  const googleFontRequests = [];
+  page.on('request', (request) => {
+    if (/fonts\.(googleapis|gstatic)\.com/.test(request.url())) googleFontRequests.push(request.url());
+  });
+  await page.goto('/');
+  const loaded = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return {
+      outfit: document.fonts.check('16px Outfit'),
+      mono: document.fonts.check('16px "JetBrains Mono"'),
+      resources: performance.getEntriesByType('resource')
+        .map((entry) => entry.name)
+        .filter((url) => url.includes('/fonts/')),
+    };
+  });
+  expect(loaded.outfit).toBe(true);
+  expect(loaded.mono).toBe(true);
+  expect(loaded.resources.some((url) => url.endsWith('/fonts/outfit-latin.woff2'))).toBe(true);
+  expect(loaded.resources.some((url) => url.endsWith('/fonts/jetbrains-mono-latin.woff2'))).toBe(true);
+  expect(googleFontRequests).toEqual([]);
+});
+
 test('search returns results from at least one source', async ({ page }) => {
   await page.goto('/');
   await runSearch(page);

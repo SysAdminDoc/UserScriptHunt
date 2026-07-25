@@ -230,7 +230,7 @@ Yes. Deploy the included Cloudflare Worker template (free tier: 100K requests/da
 - **Vanilla JavaScript (ES2022)** — async/await, Promise.allSettled, AbortController, DOMParser, Popover API
 - **CSS Custom Properties** — full theming via variables with 4 theme modes
 - **Source Adapter Registry** — built-in searches return a schema-v1 envelope with items, totals/pagination, partiality, latency, cache, route, HTTP status, and normalized failure evidence
-- **Google Fonts** — JetBrains Mono (logo/monospace) + Outfit (UI)
+- **Vendored Fonts** — OFL-licensed JetBrains Mono (logo/monospace) and Outfit (UI) WOFF2 subsets are served and cached locally
 - **CORS Proxy** — optional custom route followed by an opt-out public allorigins.win → codetabs → everyorigin fallback chain with explicit target-URL disclosure
 - **PWA** — manifest.json + service worker for installability, explicit update prompts, offline shell fallback notices, and local recent-search recovery
 - **localStorage + IndexedDB** - preferences, favorites, source toggles, theme, recent search results, and scan cache persist locally; diagnostics can clear recoverable caches without deleting user records; no tracking, no cookies, no server-side state

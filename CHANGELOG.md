@@ -11,6 +11,7 @@ All notable changes to ScriptHunt will be documented in this file.
 
 ### Fixed
 - Propagated each search AbortSignal through direct, proxy, GitHub code, and custom-source requests so replacement searches cancel network work instead of only ignoring late results.
+- Removed Google Fonts runtime requests by vendoring OFL-licensed Outfit and JetBrains Mono WOFF2 assets and adding them to the offline shell cache.
 
 ### Added
 - Added versioned source result envelopes and visible per-source provenance for partiality, pagination, latency, cache use, privacy route, HTTP status, and normalized failures.
