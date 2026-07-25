@@ -66,7 +66,7 @@ npm run qa
 | **Source Health** | Persists failing source cooldowns with retry controls and versioned per-source provenance for partiality, route, latency, HTTP status, and cache use |
 | **Offline Recent Searches** | Versioned records preserve source route, status, partiality, errors, and scan age/hash evidence; legacy IndexedDB/localStorage records reconcile by newest valid copy |
 | **Cache Diagnostics** | Shows offline/scan cache counts, schema and eviction state, browser quota estimates, and independent cache-clear recovery controls |
-| **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
+| **Source Toggles** | Enable/disable sources with preferences persisted across sessions; rapid changes coalesce into one replacement search |
 | **Live Status Chips** | Real-time per-source indicators with partial-result reasons, search mode, privacy route, latency, cache use, and suspension status |
 | **Sort Controls** | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |
 | **Infinite Scroll** | Automatic pagination fetches next page from all active sources |

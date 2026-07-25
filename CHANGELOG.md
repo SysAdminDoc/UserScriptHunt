@@ -14,6 +14,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Propagated each search AbortSignal through direct, proxy, GitHub code, and custom-source requests so replacement searches cancel network work instead of only ignoring late results.
 - Removed Google Fonts runtime requests by vendoring OFL-licensed Outfit and JetBrains Mono WOFF2 assets and adding them to the offline shell cache.
 - Stale-while-revalidate assets now compare ETags, modification metadata, or SHA-256 body fingerprints and show one actionable reload notice when cached content changes.
+- Rapid source-toggle changes now coalesce into one replacement search while checkbox state and preferences update immediately.
 
 ### Added
 - Added versioned source result envelopes and visible per-source provenance for partiality, pagination, latency, cache use, privacy route, HTTP status, and normalized failures.

@@ -277,6 +277,28 @@ test('source toggles are keyboard accessible', async ({ page }) => {
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
 });
 
+test('rapid source toggles coalesce into one replacement search', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+  await page.evaluate(() => {
+    window.__sourceToggleSearches = 0;
+    const original = executeSearch;
+    executeSearch = function(...args) {
+      window.__sourceToggleSearches += 1;
+      return original.apply(this, args);
+    };
+  });
+
+  const toggle = page.getByLabel('Greasy Fork source');
+  await toggle.click();
+  await toggle.click();
+  await toggle.click();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  expect(await page.evaluate(() => window.__sourceToggleSearches)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__sourceToggleSearches)).toBe(1);
+});
+
 test('theme toggle cycles through modes', async ({ page }) => {
   await page.goto('/');
   const btn = page.locator('#themeToggle');
