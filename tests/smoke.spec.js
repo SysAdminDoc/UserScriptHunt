@@ -64,7 +64,10 @@ const GREASY_FORK_RESULTS = [
 
 const MATCHING_USER_SCRIPT = `// ==UserScript==
 // @name YouTube Enhancer
+// @name:es Mejorador de YouTube
 // @name:fr Ameliorateur YouTube
+// @description Adds advanced video options.
+// @description:es Añade opciones avanzadas de vídeo.
 // @description:fr Options video avancees.
 // @match *://*/*
 // @match https://*.youtube.com/*
@@ -868,6 +871,38 @@ test('catalog language filter changes Greasy Fork locale without changing GitHub
 
   await page.selectOption('#languageFilter', 'all');
   await expect.poll(() => greasyUrls.some((url) => url.includes('https://api.greasyfork.org/en/scripts.json') && url.includes('filter_locale=0'))).toBe(true);
+});
+
+test('interface locale persists independently and selects localized userscript metadata', async ({ page, browser }) => {
+  await page.addInitScript(() => localStorage.setItem('sh_pref_uiLocale', JSON.stringify('es')));
+  await page.goto('/');
+
+  await expect(page.locator('html')).toHaveAttribute('lang', 'es');
+  await expect(page.locator('#searchInput')).toHaveAttribute('placeholder', 'Buscar userscripts...');
+  await expect(page.locator('#btnFavorites')).toHaveText('Favoritos');
+  await expect(page.locator('#languageFilter')).toHaveValue('en');
+  expect(await page.evaluate(() => uiText('fallbackProbe'))).toBe('English fallback');
+
+  await runSearch(page, 'youtube');
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await card.locator('[data-action="scan"]').click();
+  await expect(card.locator('.scan-results')).toContainText('Security:');
+  await page.selectOption('#uiLocale', 'en');
+  await page.selectOption('#uiLocale', 'es');
+  await expect(page.locator('.card-title').first()).toHaveText('Mejorador de YouTube');
+  await expect(page.locator('.card-desc').first()).toContainText('Añade opciones avanzadas de vídeo');
+
+  await page.selectOption('#languageFilter', 'fr');
+  await page.selectOption('#uiLocale', 'en');
+  await expect(page.locator('#languageFilter')).toHaveValue('fr');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('sh_pref_uiLocale')))).toBe('en');
+
+  const browserLocaleContext = await browser.newContext({ locale: 'es-ES' });
+  const browserLocalePage = await browserLocaleContext.newPage();
+  await browserLocalePage.goto('http://localhost:3217/');
+  await expect(browserLocalePage.locator('html')).toHaveAttribute('lang', 'es');
+  await expect(browserLocalePage.locator('#searchInput')).toHaveAttribute('placeholder', 'Buscar userscripts...');
+  await browserLocaleContext.close();
 });
 
 test('saved searches refresh and badge new or updated results', async ({ page }) => {

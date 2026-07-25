@@ -30,6 +30,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Versioned offline search records now preserve source route, status, partiality, failures, and scan evidence; legacy IndexedDB/localStorage copies migrate and deduplicate by newest valid record, with visible schema and eviction diagnostics.
 - Added a local accessibility matrix across four themes and 320/375/768/1280px viewports, including text contrast, focus visibility, reduced motion, native/fallback popovers, keyboard result actions, comparison focus, and overflow checks.
 - Added verified 192×192 and 512×512 PWA icons to the manifest and offline shell.
+- Added a dependency-free English/Spanish interface locale selected by preference or browser language, deterministic English string fallback, and locale-aware `@name`/`@description` metadata independent of catalog language.
 
 ## [v0.5.1]
 

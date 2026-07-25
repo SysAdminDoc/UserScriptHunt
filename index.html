@@ -374,16 +374,20 @@
                 <div class="logo-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
                 <span class="logo-text">ScriptHunt</span>
             </div>
-            <p class="tagline">Unified search across every userscript source</p>
+            <p class="tagline" data-i18n="tagline">Unified search across every userscript source</p>
             <div class="header-meta">
                 <span class="version">v0.5.1</span>
+                <select class="theme-toggle" id="uiLocale" aria-label="Interface language">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                </select>
                 <button class="theme-toggle" id="themeToggle" title="Switch theme" aria-label="Switch color theme">Auto</button>
             </div>
         </header>
 
         <div class="search-wrap">
             <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" class="search-input" id="searchInput" placeholder="Search userscripts..." autocomplete="off" spellcheck="false" role="searchbox" aria-label="Search userscripts">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search userscripts..." data-i18n-placeholder="searchPlaceholder" autocomplete="off" spellcheck="false" role="searchbox" aria-label="Search userscripts">
             <button class="search-clear" id="clearBtn" title="Clear" aria-label="Clear search">&times;</button>
             <div class="search-history" id="searchHistory"></div>
         </div>
@@ -391,14 +395,14 @@
         <div class="filter-row">
             <div class="site-filter-wrap">
                 <svg class="site-filter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <input type="text" class="site-filter" id="siteFilter" placeholder="Domain or exact URL" autocomplete="off" spellcheck="false" aria-label="Filter by website domain or exact URL">
+                <input type="text" class="site-filter" id="siteFilter" placeholder="Domain or exact URL" data-i18n-placeholder="sitePlaceholder" autocomplete="off" spellcheck="false" aria-label="Filter by website domain or exact URL">
             </div>
-            <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection">Bookmarklet</button>
-            <button class="tool-btn" id="btnSavedSearches" title="Saved searches" popovertarget="savedSearchSection">Saved</button>
-            <button class="tool-btn" id="btnFavorites" title="View favorites">Favorites</button>
-            <button class="tool-btn" id="btnImportInstalled" title="Import installed scripts">Installed</button>
-            <button class="tool-btn" id="btnExportInstalled" title="Export installed scripts">Export Installed</button>
-            <button class="tool-btn" id="btnDiagnostics" title="Source diagnostics" popovertarget="diagnosticsSection">Diagnostics</button>
+            <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection" data-i18n="bookmarklet">Bookmarklet</button>
+            <button class="tool-btn" id="btnSavedSearches" title="Saved searches" popovertarget="savedSearchSection" data-i18n="saved">Saved</button>
+            <button class="tool-btn" id="btnFavorites" title="View favorites" data-i18n="favorites">Favorites</button>
+            <button class="tool-btn" id="btnImportInstalled" title="Import installed scripts" data-i18n="installed">Installed</button>
+            <button class="tool-btn" id="btnExportInstalled" title="Export installed scripts" data-i18n="exportInstalled">Export Installed</button>
+            <button class="tool-btn" id="btnDiagnostics" title="Source diagnostics" popovertarget="diagnosticsSection" data-i18n="diagnostics">Diagnostics</button>
             <button class="tool-btn" id="btnExportFavs" title="Export favorites" style="display:none">Export</button>
             <button class="tool-btn" id="btnImportFavs" title="Import favorites" style="display:none">Import</button>
             <input type="file" id="importFavsFile" accept=".json" style="display:none">
@@ -469,12 +473,12 @@
         </div>
 
         <div class="advanced-filters" aria-label="Advanced filters">
-            <label class="filter-field"><span class="filter-label">License</span><input class="filter-control" id="licenseFilter" type="text" placeholder="MIT" autocomplete="off" aria-label="License filter"></label>
-            <label class="filter-field"><span class="filter-label">Installs</span><input class="filter-control" id="minInstallsFilter" type="number" min="0" step="1" placeholder="0" aria-label="Minimum installs filter"></label>
-            <label class="filter-field"><span class="filter-label">Updated</span><select class="filter-control" id="updatedFilter" aria-label="Updated date filter"><option value="0">Any time</option><option value="30">30 days</option><option value="90">90 days</option><option value="365">1 year</option></select></label>
-            <label class="filter-field"><span class="filter-label">Language</span><select class="filter-control" id="languageFilter" aria-label="Catalog language filter"><option value="en">English</option><option value="all">All languages</option><option value="zh-CN">Chinese (Simplified)</option><option value="zh-TW">Chinese (Traditional)</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ru">Russian</option><option value="pt-BR">Portuguese (Brazil)</option><option value="vi">Vietnamese</option><option value="tr">Turkish</option></select></label>
+            <label class="filter-field"><span class="filter-label" data-i18n="license">License</span><input class="filter-control" id="licenseFilter" type="text" placeholder="MIT" autocomplete="off" aria-label="License filter"></label>
+            <label class="filter-field"><span class="filter-label" data-i18n="installs">Installs</span><input class="filter-control" id="minInstallsFilter" type="number" min="0" step="1" placeholder="0" aria-label="Minimum installs filter"></label>
+            <label class="filter-field"><span class="filter-label" data-i18n="updated">Updated</span><select class="filter-control" id="updatedFilter" aria-label="Updated date filter"><option value="0">Any time</option><option value="30">30 days</option><option value="90">90 days</option><option value="365">1 year</option></select></label>
+            <label class="filter-field"><span class="filter-label" data-i18n="catalogLanguage">Catalog language</span><select class="filter-control" id="languageFilter" aria-label="Catalog language filter"><option value="en">English</option><option value="all">All languages</option><option value="zh-CN">Chinese (Simplified)</option><option value="zh-TW">Chinese (Traditional)</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ru">Russian</option><option value="pt-BR">Portuguese (Brazil)</option><option value="vi">Vietnamese</option><option value="tr">Turkish</option></select></label>
             <label class="filter-field"><span class="filter-label">@grant</span><input class="filter-control" id="grantFilterInput" type="text" placeholder="GM_*" autocomplete="off" aria-label="Grant filter"></label>
-            <label class="filter-field"><span class="filter-label">Risk</span><select class="filter-control" id="riskFilter" aria-label="Risk filter"><option value="">Any risk</option><option value="safe">Safe</option><option value="warn">Warn+</option><option value="danger">Danger</option></select></label>
+            <label class="filter-field"><span class="filter-label" data-i18n="risk">Risk</span><select class="filter-control" id="riskFilter" aria-label="Risk filter"><option value="">Any risk</option><option value="safe">Safe</option><option value="warn">Warn+</option><option value="danger">Danger</option></select></label>
         </div>
 
         <div class="sources-bar" id="sourcesBar" role="group" aria-label="Source toggles"></div>
@@ -484,7 +488,7 @@
         <div class="stats-bar" id="statsBar" style="display:none">
             <div class="stats-left" id="statsText" aria-live="polite"></div>
             <div class="stats-right">
-                <input type="text" class="site-filter" id="filterResults" placeholder="Filter results..." style="width:140px;padding:5px 10px;font-size:11px" aria-label="Filter loaded results" autocomplete="off">
+                <input type="text" class="site-filter" id="filterResults" placeholder="Filter results..." data-i18n-placeholder="filterResults" style="width:140px;padding:5px 10px;font-size:11px" aria-label="Filter loaded results" autocomplete="off">
                 <select class="sort-select" id="sortSelect" aria-label="Sort results by">
                     <option value="relevance">Sort: Relevance</option>
                     <option value="trust">Sort: Trust Score</option>
@@ -571,6 +575,82 @@
     function clearGitHubToken() {
         _prefRemove('ghtoken');
         try { sessionStorage.removeItem(GH_TOKEN_SESSION_KEY); } catch(e) {}
+    }
+    var UI_STRINGS = {
+        en: {
+            tagline: 'Unified search across every userscript source',
+            searchPlaceholder: 'Search userscripts...',
+            sitePlaceholder: 'Domain or exact URL',
+            bookmarklet: 'Bookmarklet',
+            saved: 'Saved',
+            favorites: 'Favorites',
+            installed: 'Installed',
+            exportInstalled: 'Export Installed',
+            diagnostics: 'Diagnostics',
+            license: 'License',
+            installs: 'Installs',
+            updated: 'Updated',
+            catalogLanguage: 'Catalog language',
+            risk: 'Risk',
+            filterResults: 'Filter results...',
+            emptyTitle: 'Search userscripts everywhere',
+            emptySources: 'Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, GitHub Gists',
+            emptyTry: 'Try:',
+            noResults: 'No results found',
+            noResultsHelp: 'Try different terms or enable more sources',
+            fallbackProbe: 'English fallback',
+        },
+        es: {
+            tagline: 'Búsqueda unificada en todas las fuentes de userscripts',
+            searchPlaceholder: 'Buscar userscripts...',
+            sitePlaceholder: 'Dominio o URL exacta',
+            bookmarklet: 'Marcador',
+            saved: 'Guardadas',
+            favorites: 'Favoritos',
+            installed: 'Instalados',
+            exportInstalled: 'Exportar instalados',
+            diagnostics: 'Diagnóstico',
+            license: 'Licencia',
+            installs: 'Instalaciones',
+            updated: 'Actualizado',
+            catalogLanguage: 'Idioma del catálogo',
+            risk: 'Riesgo',
+            filterResults: 'Filtrar resultados...',
+            emptyTitle: 'Busca userscripts en todas partes',
+            emptySources: 'Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat y GitHub Gists',
+            emptyTry: 'Prueba:',
+            noResults: 'No se encontraron resultados',
+            noResultsHelp: 'Prueba otros términos o activa más fuentes',
+        },
+    };
+    function normalizeUiLocale(locale) {
+        var lang = String(locale || '').toLowerCase().split('-')[0];
+        return UI_STRINGS[lang] ? lang : 'en';
+    }
+    var _uiLocale = normalizeUiLocale(_prefGet('uiLocale', navigator.language || 'en'));
+    function uiText(key) {
+        return (UI_STRINGS[_uiLocale] && UI_STRINGS[_uiLocale][key]) || UI_STRINGS.en[key] || key;
+    }
+    function applyUiLocale(locale, persist) {
+        _uiLocale = normalizeUiLocale(locale);
+        if (persist !== false) _prefSet('uiLocale', _uiLocale);
+        document.documentElement.lang = _uiLocale;
+        document.querySelectorAll('[data-i18n]').forEach(function(element) {
+            element.textContent = uiText(element.getAttribute('data-i18n'));
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(function(element) {
+            element.placeholder = uiText(element.getAttribute('data-i18n-placeholder'));
+        });
+        var select = document.getElementById('uiLocale');
+        if (select) select.value = _uiLocale;
+    }
+    function localizedMetaValue(meta, key, locale) {
+        if (!meta) return '';
+        var exact = meta[key + ':' + locale];
+        if (Array.isArray(exact)) exact = exact[0];
+        var base = meta[key];
+        if (Array.isArray(base)) base = base[0];
+        return exact || base || '';
     }
     function migratePreferences() {
         var currentVersion = _prefGet('schema', 0);
@@ -870,6 +950,7 @@
             stars: item.stars || 0, createdAt: item.createdAt || '', updatedAt: item.updatedAt || '', license: item.license || '',
             _sourceCount: item._sourceCount || 1, _trust: item._trust, _spam: item._spam,
             _grantFilter: item._grantFilter || null, _riskFilter: item._riskFilter || null,
+            _catalogName: item._catalogName, _catalogDescription: item._catalogDescription,
             _scan: compactOfflineScan(item._scan),
         };
     }
@@ -1209,6 +1290,10 @@
 
     function applyMetaUrls(item, meta) {
         if (!meta) return normalizeScriptUrls(item);
+        if (item._catalogName === undefined) item._catalogName = item.name || '';
+        if (item._catalogDescription === undefined) item._catalogDescription = item.description || '';
+        item.name = localizedMetaValue(meta, 'name', _uiLocale) || item._catalogName;
+        item.description = localizedMetaValue(meta, 'description', _uiLocale) || item._catalogDescription;
         item.namespace = item.namespace || meta.namespace || '';
         item.version = item.version || meta.version || '';
         if (meta.downloadURL) item.downloadUrl = meta.downloadURL;
@@ -3884,6 +3969,7 @@
                 copy._scan.cacheAgeMs = Math.max(0, Date.now() - (copy._scan.fetchedAt || entry.savedAt || Date.now()));
                 copy._scan.cached = true;
                 copy._meta = copy._scan.meta || null;
+                if (copy._meta) applyMetaUrls(copy, copy._meta);
             } else {
                 copy._offlineScanState = 'unknown';
             }
@@ -4077,8 +4163,14 @@
     }
 
     /* -- Shared empty state -- */
-    var EMPTY_HOME = '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><h3>Search userscripts everywhere</h3><p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, GitHub Gists</p><p style="margin-top:10px">Try: <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p></div>';
-    var EMPTY_NORESULT = '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/></svg><h3>No results found</h3><p>Try different terms or enable more sources</p></div>';
+    function emptyHomeHtml() {
+        return '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><h3>' + esc(uiText('emptyTitle')) + '</h3><p>' + esc(uiText('emptySources')) + '</p><p style="margin-top:10px">' + esc(uiText('emptyTry')) + ' <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p></div>';
+    }
+    function emptyNoResultHtml() {
+        return '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/></svg><h3>' + esc(uiText('noResults')) + '</h3><p>' + esc(uiText('noResultsHelp')) + '</p></div>';
+    }
+    var EMPTY_HOME = emptyHomeHtml();
+    var EMPTY_NORESULT = emptyNoResultHtml();
 
     /* -- Utilities -- */
     function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -4116,9 +4208,20 @@
     var minInstallsFilter = document.getElementById('minInstallsFilter');
     var updatedFilter = document.getElementById('updatedFilter');
     var languageFilter = document.getElementById('languageFilter');
+    var uiLocaleSelect = document.getElementById('uiLocale');
     var grantFilterInput = document.getElementById('grantFilterInput');
     var riskFilter = document.getElementById('riskFilter');
     var historyEl = document.getElementById('searchHistory');
+
+    uiLocaleSelect.addEventListener('change', function() {
+        applyUiLocale(uiLocaleSelect.value, true);
+        EMPTY_HOME = emptyHomeHtml();
+        EMPTY_NORESULT = emptyNoResultHtml();
+        state.results.forEach(function(item) { if (item._meta) applyMetaUrls(item, item._meta); });
+        if (state.results.length) sortAndRender();
+        else grid.innerHTML = state.rawQuery ? EMPTY_NORESULT : EMPTY_HOME;
+        renderDiagnostics();
+    });
 
     var debounceTimer = null;
     searchInput.addEventListener('input', function() {
@@ -4633,6 +4736,7 @@
             },
             cacheDiagnostics: _cacheDiagnostics || { status: 'checking' },
             preferences: prefDiagnostics(),
+            interfaceLocale: _uiLocale,
             filters: {
                 q: searchInput.value.trim(),
                 site: siteFilter.value.trim(),
@@ -4696,11 +4800,15 @@
     /* ===== Init ===== */
     var savedSort = _prefGet('sort', 'relevance');
     if (savedSort) { sortSelect.value = savedSort; state.sortBy = savedSort; }
+    applyUiLocale(_uiLocale, false);
+    EMPTY_HOME = emptyHomeHtml();
+    EMPTY_NORESULT = emptyNoResultHtml();
     var urlParams = new URLSearchParams(window.location.search);
     var initQ = restoreUrlState(urlParams);
     window.addEventListener('online', function() { renderOfflineCachePanel(); if (state.offlineCache) showToast('Back online - refresh cached results when ready', 'info', 2500); });
     window.addEventListener('offline', renderOfflineCachePanel);
     renderSourceToggles(); renderOfflineCachePanel(); searchInput.focus();
+    if (!initQ) grid.innerHTML = EMPTY_HOME;
     if (initQ) { searchInput.value = initQ; clearBtn.classList.add('visible'); executeSearch(initQ); }
     try {
         if (sessionStorage.getItem('sh_reopen_diagnostics') === 'proxy-saved') {

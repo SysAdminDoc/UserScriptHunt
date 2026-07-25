@@ -82,6 +82,7 @@ npm run qa
 | **Content Security Policy** | Static parser-safe CSP limits network requests to HTTPS while URL validation and source/proxy contracts constrain destinations |
 | **View Transitions** | GPU-accelerated smooth transitions between search states |
 | **Themes** | Dark, Light, OLED black, and Auto (follows OS preference) |
+| **Interface Locale** | Built-in English and Spanish UI copy selected by preference or browser locale, with deterministic English fallback and independent catalog language |
 | **PWA** | Installable Progressive Web App with 192px/512px icons, update prompts, offline shell fallback notices, and recent-search cache |
 | **Responsive Design** | Full mobile/tablet/desktop support with CSS container queries |
 | **Runtime Zero Dependencies** | Single HTML file, no app runtime dependencies; npm is used only for local tests via `npm run qa` |
@@ -160,6 +161,8 @@ Default state:
 - GitHub Gists: **Disabled** (opt-in, uses CORS proxy)
 
 ### GitHub Authenticated Search
+
+The interface-language selector is independent of the catalog-language filter. English and Spanish UI copy are bundled locally; localized userscript `@name:<locale>` and `@description:<locale>` metadata is preferred when available, then falls back to base metadata and catalog text.
 
 For higher rate limits and `.user.js` file-level code search, open **Diagnostics -> GitHub token**, save a token for the current browser tab, then use **Check** to view the current GitHub search rate limit. The token survives reloads in that tab but is not written to persistent localStorage; closing the tab removes it. Legacy localStorage tokens migrate once into tab-scoped session storage. Diagnostics exports include only whether a token is configured and the rate-limit numbers; the token value is never exported.
 
