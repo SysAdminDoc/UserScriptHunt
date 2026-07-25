@@ -1732,3 +1732,113 @@ test('mobile viewport does not clip primary search controls', async ({ page }) =
   await expect(page.locator('#btnFavorites')).toBeVisible();
   await expect(page.locator('#btnDiagnostics')).toBeVisible();
 });
+
+test('theme, viewport, motion, popover, focus, and keyboard accessibility matrix', async ({ page }) => {
+  await page.goto('/');
+  await runSearch(page, 'youtube');
+
+  const matrix = [];
+  for (const width of [320, 375, 768, 1280]) {
+    await page.setViewportSize({ width, height: width < 700 ? 812 : 900 });
+    for (const theme of ['dark', 'light', 'oled', 'auto']) {
+      await page.evaluate((value) => applyTheme(value), theme);
+      matrix.push(await page.evaluate(({ width, theme }) => {
+        const parse = (value) => {
+          if (/^#[\da-f]{3,8}$/i.test(value)) {
+            let hex = value.slice(1);
+            if (hex.length === 3 || hex.length === 4) hex = hex.split('').map((part) => part + part).join('');
+            return [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+          }
+          const parts = value.match(/[\d.]+/g).map(Number);
+          return parts.slice(0, 3).map((part) => part / 255);
+        };
+        const luminance = (value) => {
+          const rgb = parse(value).map((part) => part <= 0.04045 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4);
+          return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+        };
+        const contrast = (foreground, background) => {
+          const a = luminance(foreground);
+          const b = luminance(background);
+          return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        };
+        const rootStyle = getComputedStyle(document.documentElement);
+        const token = (name) => rootStyle.getPropertyValue(name).trim();
+        const visible = Array.from(document.querySelectorAll('.search-wrap,.filter-row,.advanced-filters,.sources-bar,.stats-bar,.result-card,.card-actions'))
+          .filter((element) => {
+            const style = getComputedStyle(element);
+            return style.display !== 'none' && style.visibility !== 'hidden';
+          });
+        const clipped = visible.map((element) => {
+          const box = element.getBoundingClientRect();
+          return { className: element.className, left: box.left, right: box.right, width: box.width };
+        }).filter((box) => box.left < -1 || box.right > innerWidth + 1 || box.width > innerWidth + 1);
+        return {
+          width,
+          theme,
+          scrollWidth: document.documentElement.scrollWidth,
+          viewportWidth: innerWidth,
+          clipped,
+          contrast: {
+            primary: contrast(token('--text-primary'), token('--bg-primary')),
+            secondary: contrast(token('--text-secondary'), token('--bg-secondary')),
+            muted: contrast(token('--text-muted'), token('--bg-secondary')),
+          },
+        };
+      }, { width, theme }));
+    }
+  }
+
+  for (const sample of matrix) {
+    expect(sample.scrollWidth, `${sample.theme} at ${sample.width}px overflowed`).toBeLessThanOrEqual(sample.viewportWidth);
+    expect(sample.clipped, `${sample.theme} at ${sample.width}px clipped ${JSON.stringify(sample.clipped)}`).toEqual([]);
+    expect(sample.contrast.primary, `${sample.theme} primary contrast`).toBeGreaterThanOrEqual(4.5);
+    expect(sample.contrast.secondary, `${sample.theme} secondary contrast`).toBeGreaterThanOrEqual(4.5);
+    expect(sample.contrast.muted, `${sample.theme} muted contrast`).toBeGreaterThanOrEqual(4.5);
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const motion = await page.locator('.result-card').first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { animation: parseFloat(style.animationDuration), transition: parseFloat(style.transitionDuration) };
+  });
+  expect(motion.animation).toBeLessThanOrEqual(0.001);
+  expect(motion.transition).toBeLessThanOrEqual(0.001);
+
+  await page.keyboard.press('Tab');
+  await page.locator('#searchInput').focus();
+  const focusStyle = await page.locator('#searchInput').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { outline: style.outlineStyle, outlineWidth: style.outlineWidth, shadow: style.boxShadow };
+  });
+  expect(focusStyle.outline !== 'none' || focusStyle.shadow !== 'none').toBe(true);
+
+  expect(await page.evaluate(() => typeof HTMLElement.prototype.showPopover === 'function')).toBe(true);
+  await page.locator('#btnSavedSearches').click();
+  await expect(page.locator('#savedSearchSection')).toBeVisible();
+  expect(await page.locator('#savedSearchSection').evaluate((element) => element.matches(':popover-open'))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#savedSearchSection')).toBeHidden();
+
+  const cards = page.locator('.result-card');
+  await cards.nth(0).focus();
+  await page.keyboard.press('ArrowDown');
+  expect(await cards.nth(1).evaluate((element) => document.activeElement === element)).toBe(true);
+  await page.evaluate(() => {
+    window.__keyboardOpened = '';
+    window.open = (url) => { window.__keyboardOpened = url; return null; };
+  });
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => window.__keyboardOpened)).toMatch(/^https:\/\//);
+
+  await cards.nth(0).locator('[data-action="compare"]').click();
+  await cards.nth(1).locator('[data-action="compare"]').click();
+  await page.locator('#compareGo').click();
+  await expect(page.locator('#modalCloseBtn')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('#modalCloseBtn')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#modalOverlay')).not.toHaveClass(/visible/);
+  await expect(page.locator('#compareGo')).toBeFocused();
+});

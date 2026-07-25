@@ -19,7 +19,7 @@
             --bg-void: #060810; --bg-primary: #0b0e16; --bg-secondary: #11151f;
             --bg-card: #141924; --bg-card-hover: #191f2d; --bg-input: #0d1018;
             --border: #1f2738; --border-focus: #3b82f6;
-            --text-primary: #e8ecf4; --text-secondary: #7b8ba2; --text-muted: #455064;
+            --text-primary: #e8ecf4; --text-secondary: #7b8ba2; --text-muted: #718096;
             --accent: #3b82f6; --accent-glow: rgba(59,130,246,0.12); --accent-dim: #2563eb;
             --green: #22c55e; --green-dim: rgba(34,197,94,0.1);
             --amber: #f59e0b; --amber-dim: rgba(245,158,11,0.1);
@@ -35,7 +35,7 @@
             --bg-void: #f4f5f7; --bg-primary: #ffffff; --bg-secondary: #f0f1f4;
             --bg-card: #ffffff; --bg-card-hover: #f8f9fb; --bg-input: #ffffff;
             --border: #dce0e8; --border-focus: #3b82f6;
-            --text-primary: #1a1d24; --text-secondary: #5a6478; --text-muted: #8d96a8;
+            --text-primary: #1a1d24; --text-secondary: #5a6478; --text-muted: #626c7e;
             --accent: #2563eb; --accent-glow: rgba(37,99,235,0.08); --accent-dim: #1d4ed8;
             --green: #16a34a; --green-dim: rgba(22,163,74,0.07);
             --amber: #d97706; --amber-dim: rgba(217,119,6,0.07);
@@ -336,6 +336,7 @@
         }
 
         /* Focus indicators */
+        a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         .result-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--radius)}
         .source-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         .card-btn:focus-visible,.card-btn-icon:focus-visible,.tool-btn:focus-visible,.compare-go:focus-visible,.compare-clear:focus-visible,.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:1px}

@@ -25,6 +25,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Made the executable source registry authoritative for README source rows and diagnostics method/route/capability claims, with local drift tests and complete package release metadata.
 - Added exact-URL applicability simulation for userscript scheme, host, port, path, include globs, and exclusion rules while retaining domain-only host hints.
 - Versioned offline search records now preserve source route, status, partiality, failures, and scan evidence; legacy IndexedDB/localStorage copies migrate and deduplicate by newest valid record, with visible schema and eviction diagnostics.
+- Added a local accessibility matrix across four themes and 320/375/768/1280px viewports, including text contrast, focus visibility, reduced motion, native/fallback popovers, keyboard result actions, comparison focus, and overflow checks.
 
 ## [v0.5.1]
 

@@ -77,7 +77,7 @@ npm run qa
 | **Bookmarklet** | One-click "find scripts for this page" from any website (works on file:// too) |
 | **URL Parameters** | Shareable search links for query, sources, site/domain, sort order, and visible filters |
 | **Keyboard Navigation** | Tab/arrow key navigation, Enter to open, Escape to close modals |
-| **Accessibility** | Labeled controls, tested source-toggle keyboard semantics, live regions, and trapped/restored modal focus |
+| **Accessibility** | Labeled controls, WCAG-AA text tokens, visible keyboard focus, live regions, trapped/restored modal focus, reduced motion, and tested 320–1280px theme/popover coverage |
 | **Web Share API** | Native mobile sharing via share button on result cards |
 | **Content Security Policy** | Static parser-safe CSP limits network requests to HTTPS while URL validation and source/proxy contracts constrain destinations |
 | **View Transitions** | GPU-accelerated smooth transitions between search states |
