@@ -168,7 +168,7 @@ async function waitForOfflineCache(page, query = 'youtube') {
     }
     try {
       const db = await new Promise((resolve, reject) => {
-        const open = indexedDB.open('scripthunt-offline-v1', 1);
+        const open = indexedDB.open('scripthunt-offline-v1');
         open.onsuccess = () => resolve(open.result);
         open.onerror = () => reject(open.error);
       });
@@ -193,6 +193,19 @@ async function idbStoreCount(page, storeName) {
     };
     open.onerror = () => reject(open.error);
   }), storeName);
+}
+
+async function offlineEntry(page, query) {
+  return page.evaluate((rawQuery) => new Promise((resolve, reject) => {
+    const open = indexedDB.open('scripthunt-offline-v1');
+    open.onsuccess = () => {
+      const db = open.result;
+      const req = db.transaction('searches', 'readonly').objectStore('searches').getAll();
+      req.onsuccess = () => resolve(req.result.find((entry) => entry.rawQuery === rawQuery) || null);
+      req.onerror = () => reject(req.error);
+    };
+    open.onerror = () => reject(open.error);
+  }), query);
 }
 
 async function localStorageArrayCount(page, key) {
@@ -1474,6 +1487,32 @@ test('offline cache restores recent successful search', async ({ page, context }
   await runSearch(page, 'youtube');
   await waitForOfflineCache(page, 'youtube');
 
+  const scannedCard = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await scannedCard.locator('[data-action="scan"]').click();
+  await expect(scannedCard.locator('.scan-results')).toContainText('Security:');
+  await expect.poll(async () => (await offlineEntry(page, 'youtube'))?.results?.find((item) => item.id === 'greasyfork-101')?._scan?.codeHash || '').not.toBe('');
+
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const open = indexedDB.open('scripthunt-offline-v1');
+    open.onsuccess = () => {
+      const db = open.result;
+      const store = db.transaction('searches', 'readwrite').objectStore('searches');
+      const get = store.getAll();
+      get.onsuccess = () => {
+        const entry = get.result.find((row) => row.rawQuery === 'youtube');
+        entry.sourceMeta.greasyfork.partial = true;
+        entry.sourceMeta.greasyfork.partialReason = 'fixture cached truncation';
+        const scanned = entry.results.find((item) => item.id === 'greasyfork-101');
+        scanned._scan.fetchedAt = Date.now() - (2 * 864e5);
+        const put = store.put(entry);
+        put.onsuccess = () => resolve();
+        put.onerror = () => reject(put.error);
+      };
+      get.onerror = () => reject(get.error);
+    };
+    open.onerror = () => reject(open.error);
+  }));
+
   await context.setOffline(true);
   await page.click('#clearBtn');
   await expect(page.locator('#offlineCachePanel')).toContainText('Offline recent searches');
@@ -1481,8 +1520,16 @@ test('offline cache restores recent successful search', async ({ page, context }
   await page.press('#searchInput', 'Enter');
 
   await expect(page.locator('#offlineCachePanel')).toContainText('Offline cached results');
+  await expect(page.locator('#offlineCachePanel')).toContainText('Schema v2');
   await expect(page.locator('#statsText')).toContainText('offline cache');
-  await expect(page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' })).toBeVisible();
+  const restored = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  await expect(restored).toBeVisible();
+  await expect(restored.locator('.trust-toggle')).toContainText('stale evidence');
+  await expect(page.locator('.result-card').filter({ hasText: 'Dark Mode Helper' }).locator('.trust-toggle')).toContainText('Unknown');
+  await expect(page.locator('.source-chip')).toContainText('partial');
+  await expect(page.locator('.source-chip')).toContainText('fixture cached truncation');
+  await expect(page.locator('.source-chip')).toContainText('route direct');
+  await expect(page.locator('.source-chip')).toContainText('offline record');
   await expect(page.getByRole('button', { name: 'Waiting for connection' })).toBeDisabled();
 
   await context.setOffline(false);

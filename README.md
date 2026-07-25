@@ -64,8 +64,8 @@ npm run qa
 | **Applies-To Evidence** | Domain hints show host-level evidence, while exact URL filters simulate scheme, host, port, path, `@match`, `@include`, `@exclude`, and `@exclude-match` behavior |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
 | **Source Health** | Persists failing source cooldowns with retry controls and versioned per-source provenance for partiality, route, latency, HTTP status, and cache use |
-| **Offline Recent Searches** | Stores recent successful searches locally, labels stale cached results, and exposes revalidation when online |
-| **Cache Diagnostics** | Shows offline/scan cache counts, browser quota estimates, and independent cache-clear recovery controls |
+| **Offline Recent Searches** | Versioned records preserve source route, status, partiality, errors, and scan age/hash evidence; legacy IndexedDB/localStorage records reconcile by newest valid copy |
+| **Cache Diagnostics** | Shows offline/scan cache counts, schema and eviction state, browser quota estimates, and independent cache-clear recovery controls |
 | **Source Toggles** | Enable/disable sources with preferences persisted across sessions |
 | **Live Status Chips** | Real-time per-source indicators with partial-result reasons, search mode, privacy route, latency, cache use, and suspension status |
 | **Sort Controls** | Sort by relevance, trust score, total/daily installs, rating, last updated, or name |

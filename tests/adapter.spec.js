@@ -719,3 +719,95 @@ test('exact URL applicability evaluates scheme, host, port, path, globs, and exc
   expect(evidence.host.matchedPatterns).toContain('@match https://*.example.com:8443/app/*');
   expect(evidence.file.matchedPatterns).toEqual(['@match file:///*', '@match <all_urls>']);
 });
+
+test('offline schema migration deduplicates stores and preserves source and scan provenance', async ({ page }) => {
+  await page.goto('/');
+
+  const outcome = await page.evaluate(async () => {
+    await idbStoreClear('searches');
+    localStorage.removeItem('sh_offline_searches');
+    const key = offlineKey('fixture', '', { language: 'en' });
+    await idbPut({
+      key,
+      rawQuery: 'fixture',
+      savedAt: 100,
+      results: [{ id: 'old', source: 'greasyfork', name: 'Old copy' }],
+      sourceCounts: { greasyfork: 1 },
+    });
+    localStorage.setItem('sh_offline_searches', JSON.stringify([
+      {
+        key,
+        rawQuery: 'fixture',
+        savedAt: 200,
+        results: [{
+          id: 'new',
+          source: 'greasyfork',
+          name: 'New copy',
+          _scan: {
+            status: 'verified',
+            score: 92,
+            codeHash: 'abc123',
+            fetchedAt: 150,
+            sourceUrl: 'https://example.com/test.user.js',
+          },
+        }],
+        sourceCounts: { greasyfork: 1 },
+        sourceStatus: { greasyfork: 'done' },
+        sourceMeta: {
+          greasyfork: {
+            source: 'greasyfork',
+            partial: true,
+            partialReason: 'fixture truncation',
+            route: 'direct',
+            httpStatus: 200,
+          },
+        },
+      },
+      { key: '', savedAt: 300, results: [] },
+    ]));
+    const entries = await offlineEntries();
+    return {
+      entries,
+      compact: compactOfflineEntry({
+        key: 'compact',
+        savedAt: 400,
+        results: [{
+          id: 'compact',
+          source: 'github',
+          name: 'Compact',
+          _scan: { unavailable: true, reason: 'network unavailable', fetchedAt: 350 },
+        }],
+        sourceMeta: { github: { source: 'github', route: 'direct', errorClass: 'timeout' } },
+        sourceStatus: { github: 'error' },
+      }, 10),
+    };
+  });
+
+  expect(outcome.entries).toHaveLength(1);
+  expect(outcome.entries[0]).toMatchObject({
+    schema: 'scripthunt-offline-search',
+    schemaVersion: 2,
+    savedAt: 200,
+    resultCount: 1,
+    sourceStatus: { greasyfork: 'done' },
+  });
+  expect(outcome.entries[0].results[0]).toMatchObject({
+    id: 'new',
+    _scan: { status: 'verified', codeHash: 'abc123', fetchedAt: 150 },
+  });
+  expect(outcome.entries[0].sourceMeta.greasyfork).toMatchObject({
+    partial: true,
+    partialReason: 'fixture truncation',
+    route: 'direct',
+  });
+  expect(outcome.compact).toMatchObject({
+    schemaVersion: 2,
+    sourceStatus: { github: 'error' },
+    sourceMeta: { github: { route: 'direct', errorClass: 'timeout' } },
+  });
+  expect(outcome.compact.results[0]._scan).toMatchObject({
+    unavailable: true,
+    status: 'unknown',
+    reason: 'network unavailable',
+  });
+});

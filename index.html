@@ -712,6 +712,7 @@
     /* -- Offline recent-search cache (IndexedDB with localStorage fallback) -- */
     var OFFLINE_DB = 'scripthunt-offline-v1';
     var OFFLINE_DB_VERSION = 2;
+    var OFFLINE_SCHEMA_VERSION = 2;
     var OFFLINE_STORE = 'searches';
     var SCAN_STORE = 'scans';
     var OFFLINE_LIMIT = 12;
@@ -724,6 +725,7 @@
     var META_DISPLAY_CHAR_LIMIT = 500;
     var _offlineDbPromise = null;
     var _cacheDiagnostics = null;
+    var _offlineCacheEvent = { type: 'none', at: 0, detail: '' };
     var _supportsNativePopover = typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
     if (!_supportsNativePopover) document.documentElement.classList.add('no-popover');
 
@@ -779,11 +781,62 @@
     }
 
     function lsOfflineEntries() {
-        try { return JSON.parse(localStorage.getItem('sh_offline_searches') || '[]'); } catch(e) { return []; }
+        try {
+            var value = JSON.parse(localStorage.getItem('sh_offline_searches') || '[]');
+            return Array.isArray(value) ? value : [];
+        } catch(e) { return []; }
     }
 
     function lsWriteOfflineEntries(entries) {
-        try { localStorage.setItem('sh_offline_searches', JSON.stringify(entries)); } catch(e) {}
+        try {
+            localStorage.setItem('sh_offline_searches', JSON.stringify(entries));
+            return true;
+        } catch(e) {
+            _offlineCacheEvent = { type: 'quota-error', at: Date.now(), detail: (e && e.message) || 'localStorage write failed' };
+            return false;
+        }
+    }
+
+    function compactOfflineScan(scan) {
+        if (!scan) return null;
+        return {
+            unavailable: !!scan.unavailable,
+            status: scan.status || (scan.unavailable ? 'unknown' : 'verified'),
+            reason: scan.reason || '',
+            score: Number(scan.score || 0),
+            findings: Array.isArray(scan.findings) ? scan.findings.slice(0, 80) : [],
+            permLevel: scan.permLevel || 'unknown',
+            meta: scan.meta || null,
+            codeSize: Number(scan.codeSize || 0),
+            codeHash: scan.codeHash || '',
+            sourceUrl: scan.sourceUrl || '',
+            fetchedAt: Number(scan.fetchedAt || 0),
+            httpStatus: Number(scan.httpStatus || 0),
+            contentType: scan.contentType || '',
+            dependencies: Array.isArray(scan.dependencies) ? scan.dependencies.slice(0, 12) : [],
+            dependenciesCheckedAt: Number(scan.dependenciesCheckedAt || 0),
+        };
+    }
+
+    function compactOfflineSourceMeta(meta) {
+        meta = meta || {};
+        return {
+            schema: meta.schema || 'scripthunt-source-results',
+            schemaVersion: Number(meta.schemaVersion || SOURCE_ENVELOPE_VERSION),
+            source: meta.source || '',
+            total: Number.isFinite(meta.total) ? meta.total : null,
+            hasMore: typeof meta.hasMore === 'boolean' ? meta.hasMore : null,
+            partial: !!meta.partial,
+            partialReason: meta.partialReason || '',
+            latencyMs: Number(meta.latencyMs || 0),
+            cacheHit: !!meta.cacheHit,
+            route: meta.route || '',
+            httpStatus: Number(meta.httpStatus || 0),
+            errorClass: meta.errorClass || '',
+            mode: meta.mode || '',
+            query: meta.query || '',
+            completenessUnknown: !!meta.completenessUnknown,
+        };
     }
 
     function compactOfflineItem(item) {
@@ -795,11 +848,51 @@
             stars: item.stars || 0, createdAt: item.createdAt || '', updatedAt: item.updatedAt || '', license: item.license || '',
             _sourceCount: item._sourceCount || 1, _trust: item._trust, _spam: item._spam,
             _grantFilter: item._grantFilter || null, _riskFilter: item._riskFilter || null,
+            _scan: compactOfflineScan(item._scan),
         };
     }
 
     function compactOfflineEntry(entry, limit) {
+        entry.schema = 'scripthunt-offline-search';
+        entry.schemaVersion = OFFLINE_SCHEMA_VERSION;
         entry.results = (entry.results || []).slice(0, limit || OFFLINE_RESULT_LIMIT).map(compactOfflineItem);
+        entry.resultCount = entry.results.length;
+        var sourceMeta = {};
+        Object.keys(entry.sourceMeta || {}).forEach(function(id) { sourceMeta[id] = compactOfflineSourceMeta(entry.sourceMeta[id]); });
+        entry.sourceMeta = sourceMeta;
+        entry.sourceStatus = Object.assign({}, entry.sourceStatus || {});
+        entry.sourceErrors = Object.assign({}, entry.sourceErrors || {});
+        return entry;
+    }
+
+    function migrateOfflineEntry(raw) {
+        if (!raw || typeof raw !== 'object' || !raw.key || !Array.isArray(raw.results) || !Number.isFinite(Number(raw.savedAt))) return null;
+        var entry = Object.assign({}, raw);
+        entry.results = raw.results.slice(0, OFFLINE_RESULT_LIMIT).map(function(item) {
+            var copy = Object.assign({}, item);
+            if (copy._scan) copy._scan = compactOfflineScan(copy._scan);
+            return copy;
+        });
+        entry.sourceCounts = Object.assign({}, raw.sourceCounts || countSources(entry.results));
+        entry.sourceStatus = Object.assign({}, raw.sourceStatus || {});
+        entry.sourceMeta = Object.assign({}, raw.sourceMeta || {});
+        entry.sourceErrors = Object.assign({}, raw.sourceErrors || {});
+        Object.keys(entry.sourceCounts).forEach(function(id) {
+            if (!entry.sourceStatus[id]) entry.sourceStatus[id] = entry.sourceCounts[id] > 0 ? 'done' : 'idle';
+            if (!entry.sourceMeta[id]) {
+                entry.sourceMeta[id] = compactOfflineSourceMeta({
+                    source: id,
+                    route: 'offline-cache',
+                    cacheHit: true,
+                    completenessUnknown: true,
+                    partialReason: 'Legacy cache record did not preserve source completeness',
+                });
+            } else {
+                entry.sourceMeta[id] = compactOfflineSourceMeta(entry.sourceMeta[id]);
+            }
+        });
+        entry.schema = 'scripthunt-offline-search';
+        entry.schemaVersion = OFFLINE_SCHEMA_VERSION;
         entry.resultCount = entry.results.length;
         return entry;
     }
@@ -807,9 +900,15 @@
     async function offlineEntries() {
         var merged = {};
         try {
-            (await idbEntries()).forEach(function(e) { merged[e.key] = e; });
+            (await idbEntries()).forEach(function(raw) {
+                var entry = migrateOfflineEntry(raw);
+                if (entry && (!merged[entry.key] || entry.savedAt > merged[entry.key].savedAt)) merged[entry.key] = entry;
+            });
         } catch(e) {}
-        lsOfflineEntries().forEach(function(e) { if (!merged[e.key] || e.savedAt > merged[e.key].savedAt) merged[e.key] = e; });
+        lsOfflineEntries().forEach(function(raw) {
+            var entry = migrateOfflineEntry(raw);
+            if (entry && (!merged[entry.key] || entry.savedAt > merged[entry.key].savedAt)) merged[entry.key] = entry;
+        });
         return Object.keys(merged).map(function(k) { return merged[k]; }).sort(function(a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
     }
 
@@ -820,13 +919,17 @@
         try {
             await idbPut(entry);
             for (var i = OFFLINE_LIMIT; i < all.length; i++) await idbDelete(all[i].key);
+            _offlineCacheEvent = { type: all.length > OFFLINE_LIMIT ? 'evicted' : 'saved', at: Date.now(), detail: all.length > OFFLINE_LIMIT ? ((all.length - OFFLINE_LIMIT) + ' oldest search record(s) evicted') : 'Saved to IndexedDB' };
         } catch(e) {
-            try {
-                lsWriteOfflineEntries(keep);
-            } catch(qe) {
+            if (!lsWriteOfflineEntries(keep)) {
                 var tiny = keep.slice(0, 4).map(function(en) { return compactOfflineEntry(en, 25); });
-                try { lsWriteOfflineEntries(tiny); }
-                catch(finalErr) { console.warn('[offline-cache]', finalErr.message || finalErr); }
+                if (lsWriteOfflineEntries(tiny)) {
+                    _offlineCacheEvent = { type: 'quota-eviction', at: Date.now(), detail: 'Reduced fallback cache to 4 searches with 25 results each' };
+                } else {
+                    console.warn('[offline-cache] localStorage quota prevented cache recovery');
+                }
+            } else {
+                _offlineCacheEvent = { type: all.length > OFFLINE_LIMIT ? 'evicted' : 'fallback', at: Date.now(), detail: all.length > OFFLINE_LIMIT ? ((all.length - OFFLINE_LIMIT) + ' oldest fallback record(s) evicted') : 'Saved to localStorage fallback' };
             }
         }
     }
@@ -1025,6 +1128,7 @@
         return {
             generatedAt: new Date().toISOString(),
             limits: {
+                offlineSchemaVersion: OFFLINE_SCHEMA_VERSION,
                 offlineSearches: OFFLINE_LIMIT,
                 offlineResultsPerSearch: OFFLINE_RESULT_LIMIT,
                 scanCache: SCAN_CACHE_LIMIT,
@@ -1038,6 +1142,7 @@
                 scanBytes: byteSizeFromJson(scanLs),
             },
             storage: estimate,
+            lastOfflineEvent: Object.assign({}, _offlineCacheEvent),
         };
     }
 
@@ -1045,6 +1150,7 @@
         try { await idbStoreClear(OFFLINE_STORE); } catch(e) {}
         try { localStorage.removeItem('sh_offline_searches'); } catch(e) {}
         state.offlineCache = null;
+        _offlineCacheEvent = { type: 'cleared', at: Date.now(), detail: 'Offline search cache cleared' };
         renderOfflineCachePanel();
     }
 
@@ -2130,7 +2236,7 @@
 
     function trustBadgeText(item, score) {
         var scan = item._scan;
-        if (!scan) return 'Trust: Unscanned';
+        if (!scan) return item._offlineScanState === 'unknown' ? 'Trust: Unknown · no cached scan' : 'Trust: Unscanned';
         if (scan.unavailable) return 'Trust: Unknown';
         if (Date.now() - (scan.fetchedAt || 0) > 864e5 || (scan.dependenciesCheckedAt && Date.now() - scan.dependenciesCheckedAt > 864e5)) return 'Trust ' + score + ' · stale evidence';
         var specs = metadataDependencies(scan.meta);
@@ -3255,6 +3361,7 @@
             btn.classList.add('active'); panel.classList.add('visible');
             panel.innerHTML = '<span class="meta-loading">Running security scan...</span>';
             var scan = await fetchAndScan(item);
+            saveCurrentOfflineSearch(getVisibleFilters(parseQuery(state.rawQuery || '')));
             if (!scan) { panel.innerHTML = '<span class="meta-loading">Scan unavailable: script fetch failed</span>'; return; }
             if (scan.unavailable) { panel.innerHTML = '<span class="meta-loading"><strong>Security: Unknown</strong><br>' + esc(scan.reason) + '</span>'; return; }
             var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="trust-badge ' + trustClass(scan.score) + '">Security: ' + scan.score + '/100</span>';
@@ -3298,6 +3405,7 @@
                 scan.dependencies = await verifyDependencies(scan.meta, scan.dependencies);
                 scan.dependenciesCheckedAt = Date.now();
                 await saveCachedScan(item, scan);
+                saveCurrentOfflineSearch(getVisibleFilters(parseQuery(state.rawQuery || '')));
                 var dependencyResults = panel.querySelector('.dependency-results');
                 if (dependencyResults) dependencyResults.innerHTML = renderDependencyEvidence(scan);
                 dependencyButton.disabled = false;
@@ -3325,6 +3433,7 @@
             btn.classList.add('active'); mp.classList.add('visible');
             mp.innerHTML = '<span class="meta-loading">Loading metadata...</span>';
             var sc = await fetchAndScan(item);
+            saveCurrentOfflineSearch(getVisibleFilters(parseQuery(state.rawQuery || '')));
             if (!sc || sc.unavailable) { mp.innerHTML = '<span class="meta-loading">' + esc((sc && sc.reason) || 'Metadata unavailable: script fetch failed') + '</span>'; return; }
             if (!sc.meta) { mp.innerHTML = '<span class="meta-loading">Metadata unavailable: no userscript metadata block found</span>'; return; }
             mp.innerHTML = renderMetadataPanel(sc.meta);
@@ -3511,6 +3620,7 @@
             if (sourceMeta.route) details.push('route ' + sourceMeta.route);
             if (sourceMeta.cacheHit) details.push('memory cache');
             if (sourceMeta.latencyMs > 0) details.push(sourceMeta.latencyMs + ' ms');
+            if (state.offlineCache) details.push(sourceMeta.completenessUnknown ? 'offline record; completeness unknown' : 'offline record');
             if ((s === 'openuserjs' || s === 'uszone' || s === 'gists') && status === 'done' && usedProxy && !sourceMeta.route) details.push('via ' + usedProxy);
             if (status === 'error') details = (_proxyHealth.errorsBySource[s] || (state.sourceErrors[s] ? [state.sourceErrors[s]] : []));
             var detailText = details.length ? ' - ' + details.join('; ') : '';
@@ -3737,19 +3847,35 @@
         state.searching = false;
         state.loadingMore = false;
         state.compareIds = [];
-        state.sourceErrors = {};
+        state.sourceErrors = Object.assign({}, entry.sourceErrors || {});
         state.sourceHasMore = {};
         Object.keys(SOURCES).forEach(function(s) { state.sourceHasMore[s] = false; });
+        state.sourceCounts = Object.assign({}, entry.sourceCounts || countSources(entry.results || []));
+        state.sourceStatus = Object.assign({}, entry.sourceStatus || {});
+        state.sourceMeta = Object.assign({}, entry.sourceMeta || {});
+        Object.keys(state.sourceCounts).forEach(function(s) {
+            if (!state.sourceStatus[s] && state.sourceCounts[s] > 0) state.sourceStatus[s] = 'done';
+        });
         state.results = (entry.results || []).map(function(item) {
             var copy = Object.assign({}, item);
-            if (typeof copy._trust === 'undefined') copy._trust = computeTrust(copy, null);
+            if (copy._scan) {
+                copy._scan.cacheAgeMs = Math.max(0, Date.now() - (copy._scan.fetchedAt || entry.savedAt || Date.now()));
+                copy._scan.cached = true;
+                copy._meta = copy._scan.meta || null;
+            } else {
+                copy._offlineScanState = 'unknown';
+            }
+            copy._trust = computeTrust(copy, copy._scan || null);
             if (typeof copy._spam === 'undefined') copy._spam = isSpam(copy);
             return copy;
         });
-        state.sourceCounts = entry.sourceCounts || countSources(state.results);
-        state.sourceStatus = {};
-        Object.keys(state.sourceCounts).forEach(function(s) { if (state.sourceCounts[s] > 0) state.sourceStatus[s] = 'done'; });
-        state.offlineCache = { key: entry.key, savedAt: entry.savedAt, resultCount: entry.resultCount || state.results.length };
+        state.offlineCache = {
+            key: entry.key,
+            savedAt: entry.savedAt,
+            resultCount: entry.resultCount || state.results.length,
+            schemaVersion: entry.schemaVersion || 1,
+            completenessUnknown: Object.keys(state.sourceMeta).some(function(id) { return state.sourceMeta[id] && state.sourceMeta[id].completenessUnknown; }),
+        };
         syncUrlState();
         sortAndRender();
         renderStatusChips();
@@ -3797,12 +3923,16 @@
                 license: filters.license || '',
                 minInstalls: filters.minInstalls || 0,
                 updatedDays: filters.updatedDays || 0,
+                language: filters.language || 'en',
                 grant: filters.grant || '',
                 risk: filters.risk || '',
             },
             sort: state.sortBy,
             sources: sourceSnapshot(),
             sourceCounts: Object.assign({}, state.sourceCounts),
+            sourceStatus: Object.assign({}, state.sourceStatus),
+            sourceMeta: Object.assign({}, state.sourceMeta),
+            sourceErrors: Object.assign({}, state.sourceErrors),
             savedAt: Date.now(),
             results: state.results,
         };
@@ -3816,7 +3946,7 @@
             var online = navigator.onLine;
             panel.classList.add('visible');
             panel.innerHTML = '<div class="offline-cache-title">Offline cached results</div>' +
-                '<div class="offline-cache-copy">Saved ' + esc(timeAgo(state.offlineCache.savedAt)) + '. Results may be stale; refresh from live sources when the connection is available.</div>' +
+                '<div class="offline-cache-copy">Schema v' + esc(String(state.offlineCache.schemaVersion || 1)) + '; saved ' + esc(timeAgo(state.offlineCache.savedAt)) + '. Results and scan evidence may be stale' + (state.offlineCache.completenessUnknown ? '; source completeness is unknown for this migrated record' : '') + '. Refresh from live sources when the connection is available.</div>' +
                 '<div class="offline-cache-actions"><button class="offline-cache-btn" id="btnRevalidateCache" type="button"' + (online ? '' : ' disabled') + '>' + (online ? 'Revalidate now' : 'Waiting for connection') + '</button>' +
                 '<span class="offline-cache-note">' + esc(String(state.offlineCache.resultCount || state.results.length)) + ' cached results</span></div>';
             var btn = document.getElementById('btnRevalidateCache');
@@ -4392,12 +4522,14 @@
         var ls = summary.localStorage || {};
         var storage = summary.storage || {};
         var limits = summary.limits || { offlineSearches: OFFLINE_LIMIT, scanCache: SCAN_CACHE_LIMIT };
+        var cacheEvent = summary.lastOfflineEvent || {};
         var storageValue = storage.supported && storage.quota ? fmtBytes(storage.usage) + ' / ' + fmtBytes(storage.quota) : 'Unavailable';
         var storageNote = storage.supported && storage.quota ? storage.percent + '% used by this origin' : 'StorageManager estimate not available';
         el.innerHTML =
             '<div class="cache-stat"><span class="cache-stat-label">Offline searches</span><div class="cache-stat-value">' + esc(String((idb.offlineSearches || 0) + (ls.offlineSearches || 0))) + '</div><div class="cache-stat-note">IndexedDB ' + esc(String(idb.offlineSearches || 0)) + ' / localStorage ' + esc(String(ls.offlineSearches || 0)) + '; limit ' + esc(String(limits.offlineSearches)) + '</div></div>' +
             '<div class="cache-stat"><span class="cache-stat-label">Scan cache</span><div class="cache-stat-value">' + esc(String((idb.scanCache || 0) + (ls.scanCache || 0))) + '</div><div class="cache-stat-note">IndexedDB ' + esc(String(idb.scanCache || 0)) + ' / localStorage ' + esc(String(ls.scanCache || 0)) + '; limit ' + esc(String(limits.scanCache)) + '</div></div>' +
             '<div class="cache-stat"><span class="cache-stat-label">Quota</span><div class="cache-stat-value">' + esc(storageValue) + '</div><div class="cache-stat-note">' + esc(storageNote) + '</div></div>' +
+            '<div class="cache-stat"><span class="cache-stat-label">Offline schema</span><div class="cache-stat-value">v' + esc(String(limits.offlineSchemaVersion || OFFLINE_SCHEMA_VERSION)) + '</div><div class="cache-stat-note">' + esc(cacheEvent.detail || 'No cache write in this session') + '</div></div>' +
             '<div class="cache-stat"><span class="cache-stat-label">Fallback bytes</span><div class="cache-stat-value">' + esc(fmtBytes((ls.offlineBytes || 0) + (ls.scanBytes || 0))) + '</div><div class="cache-stat-note">Recoverable localStorage cache payload only</div></div>';
     }
 

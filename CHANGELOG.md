@@ -24,6 +24,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Replaced unconstrained custom-source field guessing with declarative schema-v1 manifests covering stable identity, capabilities, privacy route, response/mapping paths, and strict byte/item/time limits; legacy templates migrate to a bounded compatibility mapping.
 - Made the executable source registry authoritative for README source rows and diagnostics method/route/capability claims, with local drift tests and complete package release metadata.
 - Added exact-URL applicability simulation for userscript scheme, host, port, path, include globs, and exclusion rules while retaining domain-only host hints.
+- Versioned offline search records now preserve source route, status, partiality, failures, and scan evidence; legacy IndexedDB/localStorage copies migrate and deduplicate by newest valid record, with visible schema and eviction diagnostics.
 
 ## [v0.5.1]
 
