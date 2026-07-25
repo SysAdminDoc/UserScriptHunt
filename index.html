@@ -897,6 +897,8 @@
                 fetchedAt: scan.fetchedAt || Date.now(),
                 httpStatus: scan.httpStatus || 200,
                 contentType: scan.contentType || '',
+                dependencies: scan.dependencies || [],
+                dependenciesCheckedAt: scan.dependenciesCheckedAt || 0,
             },
         };
     }
@@ -915,6 +917,8 @@
             fetchedAt: entry.scan.fetchedAt || entry.savedAt || 0,
             httpStatus: entry.scan.httpStatus || 200,
             contentType: entry.scan.contentType || '',
+            dependencies: entry.scan.dependencies || [],
+            dependenciesCheckedAt: entry.scan.dependenciesCheckedAt || 0,
             cacheAgeMs: Math.max(0, Date.now() - (entry.savedAt || entry.scan.fetchedAt || Date.now())),
             cached: true,
         };
@@ -969,6 +973,14 @@
         if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
         if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
         return n + ' B';
+    }
+
+    function fmtAgeMs(ms) {
+        var seconds = Math.max(0, Math.round(Number(ms || 0) / 1000));
+        if (seconds < 60) return seconds + 's';
+        if (seconds < 3600) return Math.round(seconds / 60) + 'm';
+        if (seconds < 86400) return Math.round(seconds / 3600) + 'h';
+        return Math.round(seconds / 86400) + 'd';
     }
 
     async function storageEstimate() {
@@ -1539,6 +1551,122 @@
         return parts.length >= 2 ? parts[parts.length - 1] : parts[0];
     }
 
+    function dependencySpec(raw, type) {
+        var depUrl = type === 'resource' ? resourceDepUrl(raw) : String(raw || '').trim();
+        var req = requireStatus(depUrl);
+        try {
+            var parsed = new URL(depUrl);
+            var integrityMatch = (parsed.hash + '&' + parsed.search).match(/(?:^|[#?&])(sha256|sha384|sha512|md5|integrity)=([^&#]+)/i);
+            var algorithm = '', expected = '';
+            if (integrityMatch) {
+                var declared = decodeURIComponent(integrityMatch[2]);
+                var sri = declared.match(/^(sha256|sha384|sha512)-(.+)$/i);
+                algorithm = (sri ? sri[1] : integrityMatch[1]).toUpperCase().replace('SHA', 'SHA-');
+                expected = sri ? sri[2] : declared;
+            }
+            parsed.hash = '';
+            ['sha256', 'sha384', 'sha512', 'md5', 'integrity'].forEach(function(key) { parsed.searchParams.delete(key); });
+            return {
+                type: type,
+                raw: String(raw || ''),
+                url: parsed.toString(),
+                host: req.host,
+                pinned: req.pinned,
+                floating: req.floating,
+                declaredIntegrity: !!integrityMatch,
+                algorithm: algorithm,
+                expectedHash: expected,
+            };
+        } catch(e) {
+            return { type: type, raw: String(raw || ''), url: '', host: '', pinned: false, floating: false, declaredIntegrity: false, algorithm: '', expectedHash: '' };
+        }
+    }
+
+    function metadataDependencies(meta) {
+        var deps = [];
+        listMeta(meta, 'require').forEach(function(raw) { deps.push(dependencySpec(raw, 'require')); });
+        listMeta(meta, 'resource').forEach(function(raw) { deps.push(dependencySpec(raw, 'resource')); });
+        return deps.slice(0, 12);
+    }
+
+    function bytesToBase64(bytes) {
+        var binary = '';
+        for (var i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(bytes.length, i + 0x8000)));
+        return btoa(binary);
+    }
+
+    async function boundedResponseBytes(response, limit) {
+        var declared = parseInt(response.headers.get('content-length') || '0', 10);
+        if (declared > limit) throw new Error('dependency exceeds 1 MB limit');
+        if (!response.body || !response.body.getReader) {
+            var fallback = new Uint8Array(await response.arrayBuffer());
+            if (fallback.byteLength > limit) throw new Error('dependency exceeds 1 MB limit');
+            return fallback;
+        }
+        var reader = response.body.getReader(), chunks = [], size = 0;
+        while (true) {
+            var part = await reader.read();
+            if (part.done) break;
+            size += part.value.byteLength;
+            if (size > limit) { await reader.cancel(); throw new Error('dependency exceeds 1 MB limit'); }
+            chunks.push(part.value);
+        }
+        var out = new Uint8Array(size), offset = 0;
+        chunks.forEach(function(chunk) { out.set(chunk, offset); offset += chunk.byteLength; });
+        return out;
+    }
+
+    async function verifyDependency(spec, previous) {
+        var checkedAt = Date.now();
+        var result = Object.assign({}, spec, { status: 'failed', checkedAt: checkedAt, contentHash: '', failureReason: '', changed: false });
+        try {
+            if (!spec.url || !/^https:\/\//i.test(spec.url)) throw new Error('HTTPS URL required');
+            var response = await fetch(spec.url, { signal: AbortSignal.timeout(7000), redirect: 'manual' });
+            if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) throw new Error('redirect rejected');
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            var bytes = await boundedResponseBytes(response, 1024 * 1024);
+            var digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+            result.contentHash = 'sha256-' + bytesToBase64(digest);
+            result.httpStatus = response.status;
+            result.status = 'fetched';
+            if (spec.declaredIntegrity) {
+                if (!/^(SHA-256|SHA-384|SHA-512)$/.test(spec.algorithm)) throw new Error('unsupported integrity algorithm');
+                var declaredDigest = new Uint8Array(await crypto.subtle.digest(spec.algorithm, bytes));
+                var actual = bytesToBase64(declaredDigest).replace(/=+$/, '');
+                var expected = String(spec.expectedHash || '').replace(/=+$/, '');
+                result.status = actual === expected ? 'verified' : 'mismatch';
+                if (result.status === 'mismatch') result.failureReason = 'declared integrity does not match fetched content';
+            }
+            result.changed = !!(previous && previous.contentHash && previous.contentHash !== result.contentHash);
+        } catch(e) {
+            result.failureReason = (e && e.message) || 'dependency check failed';
+        }
+        return result;
+    }
+
+    async function verifyDependencies(meta, previous) {
+        var specs = metadataDependencies(meta);
+        var oldByUrl = {};
+        (previous || []).forEach(function(dep) { oldByUrl[dep.url] = dep; });
+        return mapWithConcurrency(specs, 3, function(spec) { return verifyDependency(spec, oldByUrl[spec.url]); });
+    }
+
+    function renderDependencyEvidence(scan) {
+        var specs = metadataDependencies(scan.meta);
+        if (!specs.length) return '';
+        var checked = {};
+        (scan.dependencies || []).forEach(function(dep) { checked[dep.url] = dep; });
+        return '<div class="dependency-evidence">' + specs.map(function(spec) {
+            var dep = checked[spec.url];
+            var stateLabel = dep ? dep.status : 'not checked';
+            var detail = dep && dep.failureReason ? ' — ' + dep.failureReason : dep && dep.changed ? ' — content changed since previous check' : '';
+            if (dep && dep.checkedAt) detail += ' — checked ' + fmtAgeMs(Date.now() - dep.checkedAt) + ' ago';
+            if (dep && dep.contentHash) detail += ' — ' + dep.contentHash.slice(0, 26) + '…';
+            return '<div class="scan-item"><span class="scan-dot ' + (dep && dep.status === 'verified' ? 's-ok' : dep && (dep.status === 'mismatch' || dep.status === 'failed') ? 's-danger' : 's-warn') + '"></span>' +
+                esc('@' + spec.type + ' ' + spec.url + ' (' + spec.host + '): ' + (spec.pinned ? 'pinned' : spec.floating ? 'floating' : 'version unknown') + '; integrity ' + (spec.declaredIntegrity ? stateLabel : (dep ? 'not declared; fetched' : 'not declared')) + detail) + '</div>';
+        }).join('') + '</div>';
+    }
+
     function addManagerMetadataFindings(meta, item, findings) {
         listMeta(meta, 'match').forEach(function(p) {
             if (broadUserscriptPattern(p)) findings.push({ label: 'Broad @match scope: ' + p, level: 'danger' });
@@ -1652,8 +1780,8 @@
         return Math.max(0, Math.min(100, Math.round(score)));
     }
 
-    function trustDim(label, score, weight, reason) {
-        return { label: label, score: clampScore(score), weight: weight, reason: reason };
+    function trustDim(label, score, weight, reason, available) {
+        return { label: label, score: clampScore(score), weight: weight, reason: reason, available: available !== false };
     }
 
     function metadataCompleteness(item) {
@@ -1704,10 +1832,18 @@
         if (item.description && item.description.length < 10 && item.totalInstalls < 100) { pop -= 15; popReasons.push('thin description with low installs'); }
         pop = clampScore(pop);
 
-        var sec = 50, secReason = 'Security scan not run yet';
-        if (scanResult) {
+        var sec = 50, secReason = 'Unknown: security scan not run', secAvailable = false;
+        if (scanResult && !scanResult.unavailable) {
             sec = scanResult.score;
-            secReason = scanResult.unavailable ? scanResult.reason : ((scanResult.findings || []).length ? (scanResult.findings.length + ' scan finding' + (scanResult.findings.length === 1 ? '' : 's')) : 'No dangerous patterns detected');
+            secAvailable = true;
+            secReason = (scanResult.findings || []).length ? (scanResult.findings.length + ' scan finding' + (scanResult.findings.length === 1 ? '' : 's')) : 'No dangerous patterns detected in verified userscript response';
+            if (Date.now() - (scanResult.fetchedAt || 0) > 864e5) secReason += '; evidence older than 24 hours';
+            var depSpecs = metadataDependencies(scanResult.meta);
+            if (depSpecs.length && !scanResult.dependenciesCheckedAt) secReason += '; dependencies not verified';
+            else if (depSpecs.length && (scanResult.dependencies || []).some(function(dep) { return dep.status !== 'verified'; })) secReason += '; dependency evidence incomplete or mismatched';
+            else if (depSpecs.length) secReason += '; ' + depSpecs.length + ' dependencies integrity-verified';
+        } else if (scanResult && scanResult.unavailable) {
+            secReason = 'Unknown: ' + scanResult.reason;
         }
         if (item._meta && item._meta.antifeature) {
             var af = Array.isArray(item._meta.antifeature) ? item._meta.antifeature : [item._meta.antifeature];
@@ -1729,7 +1865,7 @@
 
         var dims = {
             popularity: trustDim('Popularity', pop, 35, popReasons.length ? popReasons.join('; ') : 'Limited public adoption signals'),
-            security: trustDim('Security', sec, 30, secReason),
+            security: trustDim('Security', sec, 30, secReason, secAvailable),
             freshness: trustDim('Freshness', fresh, 20, freshReason),
             metadata: metadataCompleteness(item),
             sourceHealth: sourceHealthDimension(item),
@@ -1757,10 +1893,20 @@
             return '<div class="trust-dim">' +
                 '<span class="trust-dim-label">' + esc(dim.label) + '</span>' +
                 '<span class="trust-dim-meter" aria-hidden="true"><span class="trust-dim-fill ' + trustClass(score) + '" style="width:' + score + '%"></span></span>' +
-                '<span class="trust-dim-score">' + score + '/100</span>' +
+                '<span class="trust-dim-score">' + (dim.available === false ? 'Unknown' : score + '/100') + '</span>' +
                 '<span class="trust-dim-reason">' + esc(dim.reason) + '</span>' +
             '</div>';
         }).join('');
+    }
+
+    function trustBadgeText(item, score) {
+        var scan = item._scan;
+        if (!scan) return 'Trust: Unscanned';
+        if (scan.unavailable) return 'Trust: Unknown';
+        if (Date.now() - (scan.fetchedAt || 0) > 864e5 || (scan.dependenciesCheckedAt && Date.now() - scan.dependenciesCheckedAt > 864e5)) return 'Trust ' + score + ' · stale evidence';
+        var specs = metadataDependencies(scan.meta);
+        if (specs.length && (!scan.dependenciesCheckedAt || (scan.dependencies || []).some(function(dep) { return dep.status !== 'verified'; }))) return 'Trust ' + score + ' · deps unverified';
+        return 'Trust ' + score;
     }
 
     /* ===== PERMISSION RISK DISPLAY ===== */
@@ -2730,7 +2876,7 @@
             h += '<div class="card-top-row">';
             h += '<div class="card-title" data-url="' + safeHref(item.url) + '">' + esc(item.name) + '</div>';
             h += '<div class="card-badges">';
-            h += '<button class="trust-badge trust-toggle ' + tCls + '" data-action="trust" data-idx="' + i + '" aria-expanded="false" aria-controls="' + trustId + '" title="Trust breakdown">Trust ' + trustScore + '</button>';
+            h += '<button class="trust-badge trust-toggle ' + (item._scan ? tCls : 'trust-unknown') + '" data-action="trust" data-idx="' + i + '" aria-expanded="false" aria-controls="' + trustId + '" title="Trust breakdown">' + esc(trustBadgeText(item, trustScore)) + '</button>';
             if (item._sourceCount > 1) h += '<span class="card-source-badge" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Multi-source</span>';
             if (item._grantFilter && item._grantFilter.status === 'matched') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--green-dim);--badge-color:var(--green)">Grant match</span>';
             if (item._grantFilter && item._grantFilter.status === 'unknown') h += '<span class="card-source-badge" title="' + attr(item._grantFilter.reason) + '" style="--badge-bg:var(--amber-dim);--badge-color:var(--amber)">Grant unverified</span>';
@@ -2821,6 +2967,7 @@
             var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="trust-badge ' + trustClass(scan.score) + '">Security: ' + scan.score + '/100</span>';
             if (scan.codeSize) html += '<span style="font-size:10px;color:var(--text-muted)">' + fmtNum(scan.codeSize) + ' bytes</span>';
             html += '</div>';
+            html += '<div class="scan-item"><span class="scan-dot s-ok"></span> Evidence: HTTP ' + esc(String(scan.httpStatus || 200)) + ' from ' + esc(scan.sourceUrl || item.installUrl) + '; fetched ' + esc(new Date(scan.fetchedAt).toISOString()) + '; hash ' + esc(scan.codeHash || 'unavailable') + (scan.cached ? '; cache age ' + esc(fmtAgeMs(scan.cacheAgeMs || 0)) : '; live response') + '</div>';
             html += '<div class="trust-details visible">' + renderTrustDetails(item) + '</div>';
             // Permission pills
             if (scan.meta && scan.meta.grant) {
@@ -2846,7 +2993,26 @@
                     html += '<div class="scan-item"><span class="scan-dot ' + dot + '"></span> ' + esc(f.label) + '</div>';
                 });
             }
+            if (metadataDependencies(scan.meta).length) {
+                html += '<div style="height:6px"></div><button class="tool-btn verify-dependencies" type="button">Verify dependencies</button>';
+                html += '<div class="dependency-results">' + renderDependencyEvidence(scan) + '</div>';
+            }
             panel.innerHTML = html;
+            var dependencyButton = panel.querySelector('.verify-dependencies');
+            if (dependencyButton) dependencyButton.addEventListener('click', async function() {
+                dependencyButton.disabled = true;
+                dependencyButton.textContent = 'Checking dependencies...';
+                scan.dependencies = await verifyDependencies(scan.meta, scan.dependencies);
+                scan.dependenciesCheckedAt = Date.now();
+                await saveCachedScan(item, scan);
+                var dependencyResults = panel.querySelector('.dependency-results');
+                if (dependencyResults) dependencyResults.innerHTML = renderDependencyEvidence(scan);
+                dependencyButton.disabled = false;
+                dependencyButton.textContent = 'Recheck dependencies';
+                item._trust = computeTrust(item, scan);
+                var refreshedBadge = btn.closest('.result-card').querySelector('.trust-toggle');
+                if (refreshedBadge) refreshedBadge.textContent = trustBadgeText(item, item._trust);
+            });
             // Update trust badge on card
             item._trust = computeTrust(item, scan);
             var card = btn.closest('.result-card');
@@ -2854,7 +3020,7 @@
             if (badge) {
                 var active = badge.classList.contains('active');
                 badge.className = 'trust-badge trust-toggle ' + trustClass(item._trust) + (active ? ' active' : '');
-                badge.textContent = 'Trust ' + item._trust;
+                badge.textContent = trustBadgeText(item, item._trust);
             }
             var trustPanel = card.querySelector('.trust-details');
             if (trustPanel) trustPanel.innerHTML = renderTrustDetails(item);

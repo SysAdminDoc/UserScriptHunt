@@ -51,8 +51,9 @@ npm run qa
 | **7-Source Search** | Queries Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and GitHub Gists simultaneously |
 | **Parallel Fetching** | All sources searched concurrently via `Promise.allSettled()` — results stream in progressively |
 | **Cross-Source Dedup** | Eliminates duplicate scripts with trust boost for scripts found on 2+ platforms |
-| **Trust Scoring** | Weighted popularity, security, freshness, metadata, and source-health dimensions with expandable evidence on each result |
-| **Security Scanner** | Pattern and metadata analysis for validated raw `.user.js` responses, including manager-aware scope, `@connect`, `@require`, and update/download URL risk reasons; failed or non-userscript responses remain Unknown |
+| **Trust Scoring** | Weighted popularity, security, freshness, metadata, and source-health dimensions; unscanned, unavailable, stale, and dependency-unverified evidence is labeled instead of implied safe |
+| **Security Scanner** | Pattern and metadata analysis for validated raw `.user.js` responses with source URL, fetch time, status, hash, and cache age; failed or non-userscript responses remain Unknown |
+| **Dependency Integrity** | Optional, non-executing HTTPS checks for up to 12 `@require`/`@resource` URLs with 1 MB/7 second limits, pinned/floating provenance, declared hash verification, change detection, and cached evidence |
 | **Permission Risk Pills** | Color-coded pills showing @grant danger levels (safe/warn/danger) per script |
 | **Script Comparison** | Select up to 3 scripts for side-by-side comparison with best-value highlighting |
 | **Favorites** | Save scripts to localStorage with versioned JSON export/import and undo on removal |

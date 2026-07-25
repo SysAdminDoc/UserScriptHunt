@@ -421,7 +421,7 @@ test('trust score expands into evidence dimensions', async ({ page }) => {
 
   const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
   const toggle = card.locator('.trust-toggle');
-  await expect(toggle).toContainText(/Trust \d+/);
+  await expect(toggle).toHaveText('Trust: Unscanned');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
   await toggle.click();
@@ -429,9 +429,16 @@ test('trust score expands into evidence dimensions', async ({ page }) => {
   await expect(card.locator('.trust-details')).toHaveClass(/visible/);
   await expect(card.locator('.trust-details')).toContainText('Popularity');
   await expect(card.locator('.trust-details')).toContainText('Security');
+  await expect(card.locator('.trust-details')).toContainText('Unknown: security scan not run');
   await expect(card.locator('.trust-details')).toContainText('Freshness');
   await expect(card.locator('.trust-details')).toContainText('Metadata');
   await expect(card.locator('.trust-details')).toContainText('Source health');
+
+  await card.getByRole('button', { name: /Security scan for YouTube Enhancer/ }).click();
+  await expect(toggle).toContainText(/Trust \d+ · deps unverified/);
+  await expect(card.locator('.scan-results')).toContainText('Evidence: HTTP 200');
+  await expect(card.locator('.scan-results')).toContainText('hash');
+  await expect(card.getByRole('button', { name: 'Verify dependencies' })).toBeVisible();
 });
 
 test('comparison modal opens with 2+ selected scripts', async ({ page }) => {

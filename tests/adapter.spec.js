@@ -284,6 +284,106 @@ console.log('verified');
   expect(outcomes.cached.cacheAgeMs).toBeGreaterThanOrEqual(0);
 });
 
+test('dependency checks are bounded and distinguish provenance and integrity states', async ({ page }) => {
+  await page.goto('/');
+
+  const outcomes = await page.evaluate(async () => {
+    const originalFetch = window.fetch;
+    const content = new TextEncoder().encode('verified dependency');
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', content));
+    const expected = bytesToBase64(digest);
+    let active = 0;
+    let maxActive = 0;
+    window.fetch = async (url) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      const target = String(url);
+      if (target.includes('/redirect')) return new Response(null, { status: 302, headers: { location: 'https://elsewhere.invalid/file.js' } });
+      if (target.includes('/missing')) return new Response('missing', { status: 404 });
+      if (target.includes('/large')) return new Response('small', { status: 200, headers: { 'content-length': String(1024 * 1024 + 1) } });
+      return new Response(content, { status: 200, headers: { 'content-type': 'application/javascript' } });
+    };
+    try {
+      const commit = '0123456789abcdef0123456789abcdef01234567';
+      const meta = {
+        require: [
+          'https://deps.invalid/pkg@1.2.3/index.js',
+          `https://deps.invalid/${commit}/verified.js#sha256=${expected}`,
+          'https://deps.invalid/mismatch.js#sha256=not-the-hash',
+          'https://deps.invalid/redirect.js',
+          'https://deps.invalid/missing.js',
+          'https://deps.invalid/large.js',
+        ],
+        resource: 'styles https://deps.invalid/resource.css',
+      };
+      const results = await verifyDependencies(meta, []);
+      const changed = await verifyDependency(dependencySpec('https://deps.invalid/pkg@1.2.3/index.js', 'require'), { contentHash: 'sha256-old' });
+      try { await idbStoreClear('scans'); } catch (err) {}
+      localStorage.removeItem('sh_scan_cache');
+      const parentItem = {
+        id: 'dependency-parent',
+        source: 'greasyfork',
+        name: 'Dependency parent',
+        version: '1.0.0',
+        installUrl: 'https://deps.invalid/parent.user.js',
+      };
+      await saveCachedScan(parentItem, {
+        status: 'verified',
+        score: 100,
+        findings: [],
+        meta,
+        codeSize: 100,
+        codeHash: '12345678',
+        sourceUrl: parentItem.installUrl,
+        fetchedAt: Date.now(),
+        httpStatus: 200,
+        contentType: 'application/javascript',
+        dependencies: results,
+        dependenciesCheckedAt: Date.now(),
+      });
+      const cached = await getCachedScan({ ...parentItem });
+      return {
+        results,
+        maxActive,
+        cachedDependencyCount: cached.dependencies.length,
+        cachedCheckedAt: cached.dependenciesCheckedAt,
+        changed,
+      };
+    } finally {
+      window.fetch = originalFetch;
+    }
+  });
+
+  expect(outcomes.maxActive).toBeLessThanOrEqual(3);
+  expect(outcomes.results).toHaveLength(7);
+  expect(outcomes.results.find((dep) => dep.url.includes('pkg@1.2.3'))).toMatchObject({
+    pinned: true,
+    declaredIntegrity: false,
+    status: 'fetched',
+  });
+  expect(outcomes.results.find((dep) => dep.url.includes('/0123456789abcdef'))).toMatchObject({
+    pinned: true,
+    declaredIntegrity: true,
+    status: 'verified',
+  });
+  expect(outcomes.results.find((dep) => dep.url.includes('/mismatch'))).toMatchObject({
+    status: 'mismatch',
+    failureReason: 'declared integrity does not match fetched content',
+  });
+  expect(outcomes.results.find((dep) => dep.url.includes('/redirect'))?.failureReason).toContain('redirect rejected');
+  expect(outcomes.results.find((dep) => dep.url.includes('/missing'))?.failureReason).toContain('HTTP 404');
+  expect(outcomes.results.find((dep) => dep.url.includes('/large'))?.failureReason).toContain('1 MB limit');
+  expect(outcomes.results.find((dep) => dep.type === 'resource')).toMatchObject({
+    host: 'deps.invalid',
+    status: 'fetched',
+  });
+  expect(outcomes.cachedDependencyCount).toBe(7);
+  expect(outcomes.cachedCheckedAt).toBeGreaterThan(0);
+  expect(outcomes.changed.changed).toBe(true);
+});
+
 test('source fetchers surface invalid JSON, rate limits, and proxy wrapper failures', async ({ page }) => {
   await page.goto('/');
 

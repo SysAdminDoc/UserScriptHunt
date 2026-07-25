@@ -13,6 +13,8 @@ All notable changes to ScriptHunt will be documented in this file.
 - Added a public-proxy fallback preference with target-URL disclosure and an explicit failure state when no allowed proxy route remains.
 - Added visible GitHub repository/authenticated-code modes, effective query qualifiers, incomplete-result warnings, and 1,000-result ceiling evidence while preserving repository results when code search fails.
 - Reconciled package and lockfile version metadata, pinned the verified Playwright release, and expanded version drift tests to cover both lockfile version fields and the dependency pin.
+- Replaced implied trust for unscanned/unavailable evidence with explicit Unknown, stale-evidence, and dependency-unverified labels, with inspectable scan URL, timestamp, status, hash, and cache age.
+- Added optional bounded-concurrency, non-executing HTTPS integrity checks for `@require` and `@resource` dependencies, including canonical provenance, pinning state, declared hash verification, failures, content changes, and parent-scan caching.
 
 ## [v0.5.1]
 
