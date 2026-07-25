@@ -59,9 +59,9 @@ npm run qa
 | **Favorites** | Save scripts locally with versioned JSON export/import, conflict preview, recovery snapshots, and undo |
 | **Saved Searches** | Save query/filter/source combinations locally and manually refresh them to badge new or updated results |
 | **Installed Import/Export** | Preview manager/app backups before merge, replace, or conflict-skip; every write creates a versioned local snapshot with one-click rollback |
-| **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search and metadata-backed grant filtering |
+| **Advanced Query Syntax** | `site:`, `author:`, `updated:`, `grant:` operators with domain-aware by-site.json search, exact-URL applicability simulation, and metadata-backed grant filtering |
 | **Advanced Filters** | Visible controls for source, license, installs, updated date, catalog language, @grant, risk, and applies-to domain |
-| **Applies-To Evidence** | Site-filtered results show source site matches alongside parsed `@match`, `@include`, and `@exclude` metadata evidence |
+| **Applies-To Evidence** | Domain hints show host-level evidence, while exact URL filters simulate scheme, host, port, path, `@match`, `@include`, `@exclude`, and `@exclude-match` behavior |
 | **Filter Results** | Instantly narrow loaded results by name/description/author without re-querying sources |
 | **Source Health** | Persists failing source cooldowns with retry controls and versioned per-source provenance for partiality, route, latency, HTTP status, and cache use |
 | **Offline Recent Searches** | Stores recent successful searches locally, labels stale cached results, and exposes revalidation when online |

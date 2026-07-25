@@ -746,7 +746,7 @@ test('metadata viewer caps oversized repeated directives without losing parsed f
   await runSearch(page, 'oversized');
 
   const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
-  await expect(card.locator('.applies-matrix')).toContainText('Metadata match');
+  await expect(card.locator('.applies-matrix')).toContainText('Host hint match');
   const metadataButton = card.locator('[data-action="meta"]');
   await expect(metadataButton).toBeVisible();
   await metadataButton.click();
@@ -884,13 +884,26 @@ test('site filter shows source and metadata applies-to evidence', async ({ page 
   await runSearch(page, 'youtube');
 
   const youtube = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
-  await expect(youtube.locator('.applies-matrix')).toContainText('Metadata match');
+  await expect(youtube.locator('.applies-matrix')).toContainText('Host hint match');
   await expect(youtube.locator('.applies-matrix')).toContainText('Greasy Fork site match');
   await expect(youtube.locator('.applies-matrix')).toContainText('@match https://*.youtube.com/*');
 
   const darkMode = page.locator('.result-card').filter({ hasText: 'Dark Mode Helper' });
   await expect(darkMode.locator('.applies-matrix')).toContainText('Source match; metadata not matched');
   await expect(darkMode.locator('.applies-matrix')).toContainText('No @match/@include hit');
+});
+
+test('exact URL filter renders exclusion simulation and rule failures', async ({ page }) => {
+  await page.goto('/');
+  await page.fill('#siteFilter', 'https://ads.youtube.com/watch?v=1');
+  await runSearch(page, 'youtube');
+
+  const card = page.locator('.result-card').filter({ hasText: 'YouTube Enhancer' });
+  const evidence = card.locator('.applies-matrix');
+  await expect(evidence).toContainText('Exact URL simulation');
+  await expect(evidence).toContainText('Excluded by metadata');
+  await expect(evidence).toContainText('@exclude-match https://ads.youtube.com/*');
+  await expect(evidence).toContainText('URL glob mismatch');
 });
 
 test('comparison modal includes applies-to summary for site-filtered results', async ({ page }) => {
@@ -905,7 +918,7 @@ test('comparison modal includes applies-to summary for site-filtered results', a
 
   await expect(page.locator('.modal-overlay')).toHaveClass(/visible/);
   await expect(page.locator('.compare-label', { hasText: 'Applies to youtube.com' })).toHaveCount(2);
-  await expect(page.locator('.compare-value', { hasText: 'Metadata match' })).toBeVisible();
+  await expect(page.locator('.compare-value', { hasText: 'Host hint match' })).toBeVisible();
 });
 
 test('grant query filters by metadata and labels unknown metadata', async ({ page }) => {

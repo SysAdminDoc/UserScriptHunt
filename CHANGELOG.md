@@ -23,6 +23,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Added installed/favorite import previews with valid, invalid, duplicate, conflict, and manager-format counts; merge, replace, skip-conflict, and cancel actions; and versioned pre-import snapshots with one-click rollback.
 - Replaced unconstrained custom-source field guessing with declarative schema-v1 manifests covering stable identity, capabilities, privacy route, response/mapping paths, and strict byte/item/time limits; legacy templates migrate to a bounded compatibility mapping.
 - Made the executable source registry authoritative for README source rows and diagnostics method/route/capability claims, with local drift tests and complete package release metadata.
+- Added exact-URL applicability simulation for userscript scheme, host, port, path, include globs, and exclusion rules while retaining domain-only host hints.
 
 ## [v0.5.1]
 

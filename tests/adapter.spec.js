@@ -672,3 +672,50 @@ test('custom source manifests constrain mapping, limits, and legacy migration', 
   expect(outcome.legacy.response.itemsPath).toBe('$legacy');
   expect(outcome.unsafeError).toContain('safe declarative data paths');
 });
+
+test('exact URL applicability evaluates scheme, host, port, path, globs, and exclusions', async ({ page }) => {
+  await page.goto('/');
+
+  const evidence = await page.evaluate(() => {
+    const item = { _appliesSource: { label: 'Fixture source match', domain: 'example.com' } };
+    const meta = {
+      match: [
+        'https://*.example.com:8443/app/*',
+        'http://*.example.com:8443/app/*',
+        'https://*.example.com:9443/app/*',
+        'https://*.example.com:8443/admin/*',
+      ],
+      include: ['https://sub.example.com:8443/app/*'],
+      'exclude-match': ['https://*.example.com:8443/app/private*'],
+      exclude: ['*logout*'],
+    };
+    return {
+      exact: buildAppliesToEvidence(item, 'https://sub.example.com:8443/app/page?x=1', meta),
+      excluded: buildAppliesToEvidence(item, 'https://sub.example.com:8443/app/private/settings', meta),
+      host: buildAppliesToEvidence(item, 'sub.example.com', meta),
+      file: buildAppliesToEvidence({}, 'file:///C:/scripts/test.user.js', {
+        match: ['file:///*', '<all_urls>'],
+      }),
+    };
+  });
+
+  expect(evidence.exact).toMatchObject({
+    mode: 'exact-url',
+    host: 'sub.example.com',
+    target: 'https://sub.example.com:8443/app/page?x=1',
+  });
+  expect(evidence.exact.matchedPatterns).toEqual([
+    '@match https://*.example.com:8443/app/*',
+    '@include https://sub.example.com:8443/app/*',
+  ]);
+  expect(evidence.exact.failedPatterns).toEqual(expect.arrayContaining([
+    expect.stringContaining('scheme mismatch'),
+    expect.stringContaining('port mismatch'),
+    expect.stringContaining('path mismatch'),
+  ]));
+  expect(evidence.exact.excludedPatterns).toEqual([]);
+  expect(evidence.excluded.excludedPatterns).toContain('@exclude-match https://*.example.com:8443/app/private*');
+  expect(evidence.host.mode).toBe('host-hint');
+  expect(evidence.host.matchedPatterns).toContain('@match https://*.example.com:8443/app/*');
+  expect(evidence.file.matchedPatterns).toEqual(['@match file:///*', '@match <all_urls>']);
+});

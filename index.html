@@ -390,7 +390,7 @@
         <div class="filter-row">
             <div class="site-filter-wrap">
                 <svg class="site-filter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <input type="text" class="site-filter" id="siteFilter" placeholder="Filter by site (youtube.com)" autocomplete="off" spellcheck="false" aria-label="Filter by website domain">
+                <input type="text" class="site-filter" id="siteFilter" placeholder="Domain or exact URL" autocomplete="off" spellcheck="false" aria-label="Filter by website domain or exact URL">
             </div>
             <button class="tool-btn" id="btnBookmarklet" title="Bookmarklet tool" popovertarget="bookmarkletSection">Bookmarklet</button>
             <button class="tool-btn" id="btnSavedSearches" title="Saved searches" popovertarget="savedSearchSection">Saved</button>
@@ -2682,7 +2682,7 @@
         var q = raw.trim(), site = '', author = '', updatedDays = 0, grantFilter = '';
         var m;
         m = q.match(/\bsite:(\S+)/i);
-        if (m) { site = m[1].replace(/^https?:\/\//, '').replace(/\/.*/, ''); q = q.replace(m[0], '').trim(); }
+        if (m) { site = m[1]; q = q.replace(m[0], '').trim(); }
         m = q.match(/\bauthor:(\S+)/i);
         if (m) { author = m[1]; q = q.replace(m[0], '').trim(); }
         m = q.match(/\bupdated:(\d+)d?\b/i);
@@ -2701,6 +2701,19 @@
         } catch(e) {
             return raw.replace(/^www\./, '').replace(/\/.*/, '');
         }
+    }
+
+    function normalizeSiteTarget(site) {
+        var raw = String(site || '').trim();
+        if (!raw) return null;
+        if (/^(https?|file|ftp):\/\//i.test(raw)) {
+            try {
+                var url = new URL(raw);
+                return { mode: 'exact-url', raw: raw, url: url, host: url.hostname.replace(/^www\./, '').toLowerCase(), label: url.toString() };
+            } catch(e) {}
+        }
+        var host = normalizeSiteHost(raw);
+        return host ? { mode: 'host-hint', raw: raw, url: null, host: host, label: host } : null;
     }
 
     function hostMatchesPattern(host, patternHost) {
@@ -2723,7 +2736,7 @@
         if (!pattern) return false;
         if (pattern === '<all_urls>') return true;
         var m = String(pattern).match(/^(?:\*|https?|file):\/\/([^/]+)\//i);
-        if (m) return hostMatchesPattern(host, m[1]);
+        if (m) return hostMatchesPattern(host, m[1].replace(/:\d+$/, ''));
         return false;
     }
 
@@ -2734,6 +2747,39 @@
         return candidates.some(function(c) { return rx.test(c); });
     }
 
+    function matchDirectiveAgainstUrl(pattern, url) {
+        if (pattern === '<all_urls>') {
+            return /^(https?|file|ftp):$/.test(url.protocol) ? { matched: true, reason: '' } : { matched: false, reason: 'scheme is outside <all_urls>' };
+        }
+        var parsed = String(pattern || '').match(/^(\*|https?|file|ftp):\/\/([^/]*)(\/.*)$/i);
+        if (!parsed) return { matched: false, reason: 'invalid @match pattern' };
+        var scheme = parsed[1].toLowerCase();
+        if (scheme === '*') {
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') return { matched: false, reason: 'scheme mismatch' };
+        } else if (url.protocol !== scheme + ':') return { matched: false, reason: 'scheme mismatch' };
+        var hostPattern = parsed[2];
+        if (scheme === 'file') {
+            if (hostPattern && hostPattern !== '*' && hostPattern !== url.host) return { matched: false, reason: 'file host mismatch' };
+        } else {
+            var patternPort = '';
+            var hostOnly = hostPattern;
+            var portMatch = hostPattern.match(/^(.*):(\d+)$/);
+            if (portMatch) { hostOnly = portMatch[1]; patternPort = portMatch[2]; }
+            if (!hostMatchesPattern(url.hostname, hostOnly)) return { matched: false, reason: 'host mismatch' };
+            if (patternPort && url.port !== patternPort) return { matched: false, reason: 'port mismatch' };
+        }
+        if (!globToRegex(parsed[3]).test(url.pathname + url.search)) return { matched: false, reason: 'path mismatch' };
+        return { matched: true, reason: '' };
+    }
+
+    function includeDirectiveAgainstUrl(pattern, url) {
+        try {
+            return globToRegex(pattern).test(url.toString()) ? { matched: true, reason: '' } : { matched: false, reason: 'URL glob mismatch' };
+        } catch(e) {
+            return { matched: false, reason: 'invalid URL glob' };
+        }
+    }
+
     function metaArray(meta, key) {
         var val = meta && meta[key];
         if (!val) return [];
@@ -2741,20 +2787,37 @@
     }
 
     function buildAppliesToEvidence(item, site, meta) {
-        var host = normalizeSiteHost(site);
-        if (!host) return null;
+        var target = normalizeSiteTarget(site);
+        if (!target) return null;
+        var host = target.host;
         var matches = [];
         var excludes = [];
-        metaArray(meta, 'match').forEach(function(p) { if (matchDirectiveTargetsHost(p, host)) matches.push('@match ' + p); });
-        metaArray(meta, 'include').forEach(function(p) { if (includeDirectiveTargetsHost(p, host)) matches.push('@include ' + p); });
-        metaArray(meta, 'exclude').forEach(function(p) { if (includeDirectiveTargetsHost(p, host) || matchDirectiveTargetsHost(p, host)) excludes.push('@exclude ' + p); });
-        metaArray(meta, 'exclude-match').forEach(function(p) { if (matchDirectiveTargetsHost(p, host)) excludes.push('@exclude-match ' + p); });
+        var failed = [];
+        metaArray(meta, 'match').forEach(function(p) {
+            var result = target.url ? matchDirectiveAgainstUrl(p, target.url) : { matched: matchDirectiveTargetsHost(p, host), reason: 'host hint mismatch' };
+            if (result.matched) matches.push('@match ' + p); else if (target.url) failed.push('@match ' + p + ' — ' + result.reason);
+        });
+        metaArray(meta, 'include').forEach(function(p) {
+            var result = target.url ? includeDirectiveAgainstUrl(p, target.url) : { matched: includeDirectiveTargetsHost(p, host), reason: 'host hint mismatch' };
+            if (result.matched) matches.push('@include ' + p); else if (target.url) failed.push('@include ' + p + ' — ' + result.reason);
+        });
+        metaArray(meta, 'exclude').forEach(function(p) {
+            var result = target.url ? includeDirectiveAgainstUrl(p, target.url) : { matched: includeDirectiveTargetsHost(p, host) || matchDirectiveTargetsHost(p, host) };
+            if (result.matched) excludes.push('@exclude ' + p);
+        });
+        metaArray(meta, 'exclude-match').forEach(function(p) {
+            var result = target.url ? matchDirectiveAgainstUrl(p, target.url) : { matched: matchDirectiveTargetsHost(p, host) };
+            if (result.matched) excludes.push('@exclude-match ' + p);
+        });
         return {
             host: host,
+            target: target.label,
+            mode: target.mode,
             source: item._appliesSource || null,
             checkedMeta: !!meta,
             matchedPatterns: matches,
             excludedPatterns: excludes,
+            failedPatterns: failed.slice(0, 8),
         };
     }
 
@@ -2774,7 +2837,7 @@
     function appliesSummary(applies) {
         if (!applies) return 'Not checked';
         if (applies.excludedPatterns && applies.excludedPatterns.length) return 'Excluded by metadata';
-        if (applies.matchedPatterns && applies.matchedPatterns.length) return 'Metadata match';
+        if (applies.matchedPatterns && applies.matchedPatterns.length) return applies.mode === 'exact-url' ? 'Exact URL match' : 'Host hint match';
         if (applies.source && applies.checkedMeta) return 'Source match; metadata not matched';
         if (applies.source) return 'Source site match';
         if (applies.checkedMeta) return 'No metadata match';
@@ -2783,10 +2846,11 @@
 
     function renderAppliesToEvidence(applies) {
         if (!applies) return '';
-        var html = '<div class="applies-matrix"><strong>Applies to ' + esc(applies.host) + ':</strong> ' + esc(appliesSummary(applies));
+        var html = '<div class="applies-matrix"><strong>' + (applies.mode === 'exact-url' ? 'Exact URL simulation' : 'Host hint') + ' — ' + esc(applies.target || applies.host) + ':</strong> ' + esc(appliesSummary(applies));
         if (applies.source) html += '<div><span class="applies-pill source">' + esc(applies.source.label) + '</span></div>';
         if (applies.matchedPatterns && applies.matchedPatterns.length) html += '<div>' + applies.matchedPatterns.map(function(p) { return '<span class="applies-pill">' + esc(p) + '</span>'; }).join('') + '</div>';
         if (applies.excludedPatterns && applies.excludedPatterns.length) html += '<div>' + applies.excludedPatterns.map(function(p) { return '<span class="applies-pill exclude">' + esc(p) + '</span>'; }).join('') + '</div>';
+        if (applies.failedPatterns && applies.failedPatterns.length) html += '<div>' + applies.failedPatterns.map(function(p) { return '<span class="applies-pill miss">' + esc(p) + '</span>'; }).join('') + '</div>';
         if (applies.checkedMeta && !applies.matchedPatterns.length && !applies.excludedPatterns.length) html += '<div><span class="applies-pill miss">No @match/@include hit</span></div>';
         if (!applies.source && !applies.checkedMeta) html += '<div><span class="applies-pill miss">Metadata unavailable</span></div>';
         return html + '</div>';
@@ -2917,7 +2981,7 @@
             var srcDef = SOURCES[srcId];
             var page = state.sourcePages[srcId] || 1;
             try {
-                var result = await srcDef.search(parsed.query, page, siteVal, filters.language, searchController.signal);
+                var result = await srcDef.search(parsed.query, page, normalizeSiteHost(siteVal), filters.language, searchController.signal);
                 if (!result || result.schemaVersion !== SOURCE_ENVELOPE_VERSION || !Array.isArray(result.items)) throw new Error('invalid source result envelope');
                 var items = result.items;
                 var total = result.total;
@@ -3369,7 +3433,7 @@
             h += '<div class="compare-row"><span class="compare-label">License</span><span class="compare-value">' + esc(item.license || 'N/A') + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Staleness</span><span class="compare-value">' + (stale ? stale.label : 'N/A') + '</span></div>';
             h += '<div class="compare-row"><span class="compare-label">Updated</span><span class="compare-value">' + (item.updatedAt ? timeAgo(item.updatedAt) : 'N/A') + '</span></div>';
-            if (state.siteFilter) h += '<div class="compare-row"><span class="compare-label">Applies to ' + esc(normalizeSiteHost(state.siteFilter)) + '</span><span class="compare-value">' + esc(appliesSummary(item._appliesTo)) + '</span></div>';
+            if (state.siteFilter) h += '<div class="compare-row"><span class="compare-label">Applies to ' + esc((item._appliesTo && item._appliesTo.target) || normalizeSiteHost(state.siteFilter)) + '</span><span class="compare-value">' + esc(appliesSummary(item._appliesTo)) + '</span></div>';
             if (item._scan) {
                 h += '<div class="compare-row"><span class="compare-label">Scan score</span><span class="compare-value">' + (item._scan.unavailable ? 'Unknown' : item._scan.score + '/100') + '</span></div>';
                 h += '<div class="compare-row"><span class="compare-label">Code Size</span><span class="compare-value">' + fmtNum(item._scan.codeSize || 0) + 'B</span></div>';
