@@ -1,95 +1,139 @@
-# Research - ScriptHunt
+# Research — ScriptHunt
+Date: 2026-07-25 — replaces all prior research.
 
 ## Executive Summary
-[Verified] ScriptHunt is a zero-backend, single-file static/PWA userscript discovery and vetting tool for Greasy Fork, Sleazy Fork, GitHub repositories/code, OpenUserJS, Userscript.Zone, ScriptCat, and opt-in GitHub Gists. Its strongest current shape is privacy-preserving cross-catalog search with local trust, metadata, installed-state, saved-search, offline, cache-diagnostics, and source-health workflows. The highest-value direction is trust correctness rather than manager replacement: harden untrusted rendering and URL sinks, expose installed update/download/dependency provenance, add `@require`/`@resource` integrity evidence, preview real manager backups before import, distinguish browser site-access failures from `@connect`, lint manager compatibility pitfalls, make source/version truth executable, improve GitHub discovery controls, version local storage migrations, and add accessibility regressions for dense popover/mobile states.
+
+[Verified] ScriptHunt v0.5.1 is a static, single-file/PWA userscript discovery and vetting tool. It searches seven catalogs, normalizes and deduplicates results, exposes metadata, permissions, trust and scan evidence, tracks favorites/installed state, supports saved searches and comparison, and keeps recent search/scan caches locally (`README.md`, `index.html:1147-1345`, `index.html:683-900`). Local QA on 2026-07-25 passed 7 Node tests and 57 Playwright tests; `npm audit --json` reported zero advisories for the installed dependency tree. Its strongest shape is the evidence-first, local-only catalog workflow. The highest-value direction is to make every trust boundary explicit and reliable before adding more catalogs: secure the optional proxy, prevent failed downloads from looking clean, formalize source completeness and provenance, make imports recoverable, and reconcile release truth.
+
+- P0 — Secure the optional CORS Worker against redirect allowlist bypass, oversized upstream bodies, and misleading success statuses (impact 5, M, leapfrog trust).
+- P0 — Make failed, empty, non-userscript, and stale scan results explicitly unknown instead of allowing a failed response to earn a clean score (impact 5, M, root-cause security).
+- P1 — Introduce a source result envelope with partial-result, latency, route, cache, and error provenance; the current registry and adapter fixtures are the right seam (impact 5, L, parity plus reliability).
+- P1 — Separate trust score from scan state and expose code hash, fetch time, dependency status, and source evidence so “no pattern found” is not read as “safe” (impact 5, M, leapfrog trust).
+- P1 — Add safe dependency-chain and integrity evidence for `@require`/`@resource`, using bounded HTTPS fetches and no execution (impact 5, L, leapfrog security).
+- P1 — Make public-proxy data exposure and per-source routing visible and user-controllable (impact 4, M, privacy/reliability).
+- P1 — Preview, merge, snapshot, and roll back installed/favorite imports instead of replacing local state after normalization (impact 4, M, data safety).
+- P1 — Make GitHub repository/code modes and `incomplete_results`/1,000-result limits visible (impact 4, M, search correctness).
+- P1 — Reconcile `package.json` 0.5.1 with `package-lock.json` root metadata 0.4.1 and make the existing version test cover the release contract (impact 3, S, reproducibility).
+- P2/P3 — Add exact URL matching evidence, bounded custom-source manifests, offline cache schema/provenance, full responsive accessibility coverage, and a lightweight locale layer after the boundaries above are stable.
 
 ## Product Map
-- Core workflows: search userscript catalogs; filter by site, language, license, installs, freshness, grant, and risk; inspect metadata/security/trust evidence; compare scripts; save favorites/searches; mark installed and updated scripts.
-- User personas: cautious installers validating risk; power users comparing competing scripts; script authors checking catalog reach and metadata quality; mobile/Safari users collecting candidates; maintainers debugging proxy/source failures.
-- Platforms and distribution: static GitHub Pages/PWA app, optional Cloudflare Worker CORS proxy, local-only browser storage, MIT license, no runtime dependencies, Playwright/Node local QA.
-- Key integrations and data flows: JSON APIs for Greasy Fork/Sleazy Fork/GitHub/ScriptCat; proxied scrape paths for OpenUserJS, Userscript.Zone, and Gists; `localStorage` preferences/tokens/source health; IndexedDB search and scan caches; versioned JSON favorites/installed exports.
+
+- Core workflows: query all or selected catalogs; filter by site, language, license, installs, update age, `@grant`, and risk; sort and progressively load results; inspect install/view/update URLs, metadata, applies-to evidence, trust dimensions, scans, and version history; compare up to three scripts; save searches/favorites and import/export installed state.
+- User personas: cautious installers comparing permissions and provenance; power users looking across several catalogs; authors checking reach, metadata, and source health; mobile/PWA users collecting candidates; maintainers debugging proxy, cache, rate-limit, and source-drift failures.
+- Platforms and distribution: static GitHub Pages-style hosting and self-hosted HTTPS; browser PWA/service worker with responsive desktop/mobile UI; optional self-hosted Cloudflare Worker for HTML sources; MIT license; no production runtime dependency; Node/Playwright local QA (`README.md`, `package.json`, `cors-proxy/wrangler.toml`).
+- Key integrations and data flows: direct JSON APIs for Greasy Fork, Sleazy Fork, GitHub, and ScriptCat; proxied HTML for OpenUserJS, Userscript.Zone, and GitHub Gists; public proxy fallback or a local custom proxy; `localStorage` for preferences, token, favorites, installed state, saved searches, and source health; IndexedDB with localStorage fallback for recent searches and scan results; service-worker shell cache.
+- Product boundary: ScriptHunt finds and evaluates candidates; it deliberately does not execute scripts, manage browser permissions, host source history, or provide accounts/server-side user state.
 
 ## Competitive Landscape
-- Greasy Fork/Sleazy Fork: strong API, by-site discovery, and external-script policy. Learn: source-provided applies-to, license, and external dependency data should feed trust directly. Avoid: rebuilding catalog comments, moderation, or hosting.
-- Tampermonkey: proprietary current manager with mature expectations around update/download URL semantics, sync, backup, and broad manager metadata support. Learn: users need exact provenance and fix guidance. Avoid: sync/editor/automation ownership.
-- Violentmonkey: active WebExtensions manager with requests for custom search sources, permission troubleshooting, integrity checks, `@require` cache behavior, local require ideas, and selective import. Learn: discovery-source configuration and permission diagnostics are real user needs. Avoid: extension-only policy deployment and manager UI replication.
-- ScriptCat: active manager/catalog with recent issues on malformed metadata warnings, backup/migration, browser permission layers, user preference preservation, and localized script names. Learn: compatibility lint and local state migration are trust features. Avoid: background-script execution and cloud backup scope.
-- Greasemonkey: Firefox manager backlog includes `@require`/`@resource` hash-checking, antifeature display, Android backup, and linting. Learn: dependency integrity should be visible even if managers do not enforce it uniformly. Avoid: adopting manager-only runtime behavior.
-- quoid/userscripts and Stay: Safari/iOS managers surface mobile install limits, large metadata, update URL, `@require` deprecation, and open-source mobile constraints. Learn: render limits and dependency risk matter on constrained devices. Avoid: App Store packaging as the primary distribution path.
-- Shieldmonkey and ScriptFlow: newer managers emphasize security/auditability or developer-suite workflows. Learn: ScriptHunt can borrow evidence-first security and import/editor handoff ideas. Avoid: becoming an IDE or script executor.
-- SearXNG/OpenSSF Scorecard-style adjacent systems: metasearch and trust scores work best when source health, ranking inputs, and evidence are auditable. Learn: keep ranking deterministic and explainable. Avoid: opaque ML ranking before metadata quality is exhausted.
+
+- [Tampermonkey](https://www.tampermonkey.net/): mature update/download URL handling, import/export, sync, permissions, editor, syntax checks, and debugging. Learn: provenance, backup, compatibility help, and exact update semantics are expected. Avoid: becoming an executor, editor, or cloud-sync manager.
+- [Violentmonkey](https://github.com/violentmonkey/violentmonkey): active open-source manager with cloud sync and a live request for configurable discovery sources ([#2540](https://github.com/violentmonkey/violentmonkey/issues/2540)); its integrity-check request ([#1558](https://github.com/violentmonkey/violentmonkey/issues/1558)) reinforces the supply-chain gap. Learn: source configuration and dependency evidence are real user needs. Avoid: extension-only runtime and permission complexity.
+- [ScriptCat](https://github.com/scriptscat/scriptcat): combines a catalog/manager with sync, subscriptions, collaboration, editor/debugging, and localized documentation; its import/export discussion shows backup interoperability pressure ([#1525](https://github.com/scriptscat/scriptcat/issues/1525)). Learn: migration and localization affordances. Avoid: team/cloud/background execution scope.
+- [Greasemonkey](https://github.com/greasemonkey/greasemonkey): Firefox-focused manager whose backlog includes antifeature display ([#3095](https://github.com/greasemonkey/greasemonkey/issues/3095)) and backup/device concerns. Learn: negative metadata and recovery deserve first-class treatment. Avoid: manager-specific runtime behavior.
+- [Userscripts](https://github.com/quoid/userscripts) and [Stay](https://github.com/shenruisi/Stay): Safari/iOS/macOS managers expose local-file workflows, mobile constraints, update URL/provenance issues, and dependency lifecycle questions ([Userscripts #836](https://github.com/quoid/userscripts/issues/836), [Stay #77](https://github.com/shenruisi/Stay/issues/77)). Learn: constrained-device rendering and recoverable local data. Avoid: native/App Store packaging as the primary product direction.
+- [Shieldmonkey](https://github.com/Shieldmonkey/Shieldmonkey) and [ScriptFlow](https://github.com/kusoidev/ScriptFlow): security-first and developer-workspace approaches. Learn: make evidence auditable and offer handoff links. Avoid: IDE, Git workspace, or execution features that dilute catalog focus.
+- [Greasy Fork](https://greasyfork.org/en/help/api), [Userscript.Zone](https://www.userscript.zone/), and [ScriptCat search](https://scriptcat.org/en/search): direct catalog APIs/HTML catalogs supply the strongest discovery value, but source markup/API behavior is outside ScriptHunt’s control. Learn: preserve source attribution, locale, site scope, and catalog-specific evidence. Avoid: assuming one schema or adding fragile catalogs before adapter contracts are stronger.
+- [Sourcegraph code search](https://sourcegraph.com/docs/code-search/features) and [SearXNG’s search API](https://docs.searxng.org/dev/search_api.html): adjacent systems make query context, source boundaries, and monitoring explicit. Learn: represent partiality and query scope rather than silently merging incomparable results. Avoid: server-scale indexing and opaque ranking.
 
 ## Security, Privacy, and Reliability
-- [Verified] `index.html` renders many dynamic HTML strings fed by catalog, metadata, saved-search, diagnostics, and imported data (`index.html:2287`, `index.html:2364`, `index.html:2470`, `index.html:2639`, `index.html:2773`, `index.html:3038`). `esc`/`attr` helpers exist (`index.html:3055`) but there is no sink-level regression test for malicious source names, descriptions, URLs, metadata keys, or saved-search labels; MDN Trusted Types documents this class of DOM sink hardening.
-- [Verified] Dynamic `href` sinks use escaped strings but do not have a central URL policy or tests that reject `javascript:`, credentialed, fragment-only, or malformed catalog URLs across cards, metadata links, favorites, and imports (`index.html:1113`, `index.html:2332`, `index.html:2353`, `index.html:3035`).
-- [Verified] `index.html:1254` and `index.html:1269` classify pinned/floating `@require` URLs but do not recognize integrity fragments, hash conventions, or positive `@resource` integrity evidence; Greasemonkey#2349 and Violentmonkey#1558 show this is a recurring manager trust issue.
-- [Verified] `index.html:1269` detects broad metadata risks but does not lint manager-specific compatibility pitfalls such as `@connect *.domain`, `@match *://example.*/*`, missing/unknown license guidance, and antifeature labels; ScriptCat#1451, Tampermonkey#1593, Greasemonkey#3095, and OpenUserJS#1971 document the same patterns.
-- [Verified] Local preferences are independent `sh_pref_*` keys (`index.html:523`) and user data spans separate favorites, installed, saved-search, source-health, IndexedDB, and fallback storage families; ScriptCat#1517 shows preference evolution needs explicit versioning and migration to preserve user overrides.
-- [Verified] Source truth can drift across code, README, repository metadata, and service-worker/version strings: `SOURCES` supports seven sources (`index.html:1147`), README lists seven (`README.md:93`), while GitHub repository metadata still advertises four; app/package/cache versions are hand-synced across `index.html:377`, `package.json:3`, `sw.js:1`, `README.md:3`, and `CHANGELOG.md:5`.
-- [Verified] Source adapter drift coverage improved in `tests/adapter.spec.js`, but live OpenUserJS, Userscript.Zone, and Gist scrape paths still depend on third-party markup and proxy wrappers; optional live canaries remain useful without making deterministic QA network-dependent.
-- [Verified] Dependency posture is clean: `npm audit --json` reports zero vulnerabilities, and `@playwright/test` resolves to 1.61.1.
+
+- [Verified, high risk] `cors-proxy/worker.js:31-47` validates only the initial hostname, then uses `redirect: 'follow'`, buffers the entire upstream response with `resp.text()`, converts every upstream outcome to HTTP 200, and has no upstream failure/size guard. OWASP recommends positive allowlists plus disabling or revalidating redirects for SSRF defenses; Cloudflare documents redirect/subrequest and memory limits and warns against unbounded `response.text()` buffering ([OWASP SSRF](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_ForgERY_Prevention_Cheat_Sheet.html), [Cloudflare limits](https://developers.cloudflare.com/workers/platform/limits/), [Cloudflare best practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/)).
+- [Verified, high risk] `index.html:2115-2146` checks size but not `Response.ok` or content type before scanning a direct install URL. A non-2xx HTML error page can therefore be parsed as code and receive a scan result; `scanCode` and `computeTrust` also have numeric defaults for unscanned data (`index.html:1517-1653`). This is a trust-calibration defect, not evidence that the script is safe. The userscript security study from KU Leuven found malicious and vulnerable scripts at meaningful scale, supporting conservative unknown states rather than binary automated verdicts ([study PDF](https://www.cs.kuleuven.be/publicaties/rapporten/cw/CW657.pdf)).
+- [Likely privacy exposure] `index.html:636-646` falls back through public third-party proxies for OpenUserJS, Userscript.Zone, and Gists. The project does not claim server-side persistence, but proxy operators necessarily receive the target URL and request timing; the current UI only shows the selected proxy after a successful source response. Route disclosure, opt-out, and custom-proxy preference need to be explicit (`README.md`, `index.html:420-430`).
+- [Verified] The scanner identifies broad `@match`/`@include`, `@connect`, antifeatures, floating/pinned dependencies, and some integrity markers, but it does not fetch or verify dependency contents (`index.html:1380-1515`). [Subresource Integrity](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity) and open manager requests for cryptographic checks make dependency provenance a concrete gap. Never turn a heuristic finding count into a safety guarantee.
+- [Verified] Applies-to evidence is host-level: `buildAppliesToEvidence` extracts the host and tests `@match`/`@include` patterns without simulating URL scheme, port, or path (`index.html:2200-2280`). That is useful as a site hint but can overstate exact coverage; `@match` is intentionally stricter than broad `@include` patterns in manager documentation and community guidance ([Violentmonkey metadata](https://violentmonkey.github.io/api/metadata-block/), [Stack Overflow](https://stackoverflow.com/questions/31817758/what-is-the-difference-between-include-and-match-in-userscripts)).
+- [Verified] Custom source templates require HTTPS and `{query}` but infer arbitrary response fields and do not declare response limits, pagination, partiality, or route privacy (`index.html:1306-1345`). They are a useful constrained extension seam; arbitrary JavaScript plugins would expand the attack surface unnecessarily.
+- [Verified] Imports validate URL protocols and skip invalid rows, but `setInstalledScripts` replaces the installed list after parsing and there is no pre-import snapshot, conflict preview, or selective rollback (`index.html:1043-1101`, `index.html:1177-1225`). Existing manager/community signals treat backup and restore as a user-safety requirement, not a cosmetic convenience ([ScriptCat #1525](https://github.com/scriptscat/scriptcat/issues/1525), [backup discussion](https://www.reddit.com/r/userscripts/comments/14dhx9i/looking_for_very_simple_userscript_manager/)).
+- [Verified] Release metadata is inconsistent: `package.json:3` is 0.5.1 while `package-lock.json:3` and its root package entry are 0.4.1; the current `tests/version-drift.test.js` does not inspect the lockfile. NPM documents that `npm ci` requires package and lock dependencies to be synchronized and that the lockfile is the reproducibility contract ([npm ci](https://docs.npmjs.com/cli/v8/commands/npm-ci/)). This mismatch was not shown to break the current local test run, but it is a release-integrity defect.
+- [Verified baseline] Existing protection is substantial: escaped text/attribute helpers, URL filtering, hostile fixtures, CSP, source suspension, cache diagnostics, service-worker update UX, preference migration, and focus/keyboard tests are present. Existing `ROADMAP.md` already owns Google Fonts, per-fetch abort propagation, CSP `document.write`, PWA icon sizes, GitHub token storage, service-worker stale-update messaging, and source-toggle debounce; none are duplicated below.
+- [Verified dependency check] On 2026-07-25, `npm audit --json` reported zero advisories and the installed Playwright test package was 1.61.1. NVD lists Playwright versions below 1.55.1 as affected by CVE-2025-59288, so the current resolved version is above that fixed floor; dependency drift still needs an intentional maintenance contract ([NVD CVE-2025-59288](https://nvd.nist.gov/vuln/detail/CVE-2025-59288), [Playwright release notes](https://playwright.dev/docs/release-notes)).
 
 ## Architecture Assessment
-- Add a small render/URL safety boundary around existing HTML-building code: central helpers for trusted static icons/templates, escaped text, allowed URL protocols/hosts, and Trusted Types-compatible policies when available.
-- Keep the static single-file app, but formalize internal seams: source capability registry, metadata parser/linter, dependency integrity analyzer, storage migration service, adapter fixtures, diagnostics payload schema, and release/version checks.
-- `index.html:1147` source definitions should become the executable source of truth for README source docs, diagnostics, repository metadata update commands, and adapter expectations.
-- `parseMetaBlock` should remain permissive but pair parsed metadata with warnings: malformed directives, unsupported manager syntax, missing license guidance, antifeature labels, and dependency integrity status.
-- Storage should gain a small versioned schema layer over `_prefGet/_prefSet`, favorites, installed scripts, saved searches, source health, and cache fallbacks so upgrades can migrate or reset selectively.
-- Existing Worker allowlists in `cors-proxy/worker.js:5` and method checks in `cors-proxy/worker.js:12` are appropriate; custom templates and new source tooling should not bypass them.
-- Test gaps: malicious untrusted-render fixtures, URL-sink fixtures, SRI/hash dependency fixtures, metadata lint fixtures, storage migration/reset tests, mobile/popover accessibility regressions, source-doc drift checks, version/cache drift checks, and optional live canaries.
-- Category coverage: security, accessibility, i18n/l10n metadata fallback, observability/diagnostics, testing, docs, distribution metadata, plugin/source extensibility, mobile, offline/resilience, migration, and upgrade strategy are covered by current or new roadmap items; full multi-user/cloud sync remains rejected.
+
+- Preserve the static single-file/PWA architecture, but make the existing seams executable: a source capability/response envelope around `SOURCES` and `executeSearch`; a bounded proxy client; a render/URL policy around `esc`, `attr`, `safeUrl`, and `safeHref`; a scan/dependency evidence service around `fetchAndScan`, `parseMetaBlock`, and `computeTrust`; and a versioned storage/restore service around preferences, imports, IndexedDB, and localStorage fallbacks.
+- `index.html:1147-1345` should be the source registry for source ID, label, direct/proxy route, page size, locale capability, response mapping, pagination, partiality, and diagnostics. `tests/source-docs.test.js` currently checks names/counts and page sizes but not the full contract; generated or contract-tested documentation will prevent another code/README/repository-metadata drift cycle.
+- `fetchViaProxy` and `cors-proxy/worker.js` need distinct boundaries: the browser should know whether a response is direct, public-proxy, or custom-proxy; the Worker should enforce target/redirect/body/status policy; diagnostics should record route, timing, cache hit, and failure class without recording tokens or raw script bodies.
+- `parseMetaBlock` should remain permissive for discovery, but its result should carry warnings and evidence state: malformed/unsupported directives, exact applies-to simulation status, `@grant`/`@connect`, antifeatures, dependency pin/integrity, scan timestamp, source URL, and content hash.
+- Storage migration already exists for preferences (`PREF_SCHEMA_VERSION`), but installed/favorite import schemas and offline/scan cache records need the same versioned, recoverable treatment. An import should create a local snapshot before mutation; cache migrations should preserve the newest valid IndexedDB/localStorage entry and explain stale or partial data.
+- Test seams are already usable: `tests/worker.test.js` for proxy policy, `tests/adapter.spec.js` for normalized fixtures and drift shapes, `tests/smoke.spec.js` for user-visible flows, `tests/version-drift.test.js` for release truth, and `tests/canary.test.js` for opt-in live source checks. Add targeted cases instead of adding a runtime dependency or remote CI; `Roadmap_Blocked.md` explicitly rules out GitHub Actions.
+- Category audit: security and privacy are P0/P1; accessibility and mobile are covered by the P2 viewport/theme/popover matrix; i18n/l10n is a lightweight P3 UI-string layer plus existing localized catalog metadata; observability is the source envelope/diagnostics work; testing/docs/distribution are embedded in the contract and release items; constrained custom-source manifests cover the plugin ecosystem without executable plugins; offline/resilience and migration are separate P2/P1 items; upgrade strategy remains the existing service-worker update row plus release/version reconciliation; multi-user/cloud sync is intentionally rejected.
 
 ## Rejected Ideas
-- Re-add metadata display caps as a new item - already implemented with `META_DISPLAY_VALUE_LIMIT`, `META_DISPLAY_CHAR_LIMIT`, and overflow copy at `index.html:645` and `index.html:2478`.
-- Re-add cache diagnostics/recovery as a new item - already implemented with StorageManager estimates, cache counts, and separate clear controls at `index.html:896`, `index.html:907`, and `index.html:3291`.
-- Full userscript manager replacement - manager issues provide signals, but executing scripts, browser permissions, and sync belong to Tampermonkey, Violentmonkey, ScriptCat, Greasemonkey, quoid/userscripts, or Stay.
-- User accounts, reviews, comments, and cloud sync - catalog and manager products own identity; ScriptHunt's differentiator is local-only privacy.
-- Extension-first distribution - Chrome `userScripts` and WebExtensions APIs add runtime/review complexity; PWA plus bookmarklet/companion userscript fits better.
-- Arbitrary JavaScript adapter plugins - untrusted adapter execution is too risky; constrained URL/API templates are safer.
-- OpenUserJS JSON API dependency - OpenUserJS#77 is long-standing and unresolved; harden scrape/proxy paths instead of waiting for it.
-- Full source version-control hosting - OpenUserJS#1023 frames this as becoming specialized GitHub; ScriptHunt should link to source history/diffs rather than host versions.
-- Remote CI workflows - repo rules and `Roadmap_Blocked.md` prohibit GitHub Actions; keep verification local.
-- Full UI localization framework - localized script metadata handling and source locale filters are useful; translating the whole app adds weight without verified demand.
-- ML/vector ranking - deterministic trust dimensions remain more auditable at current scale.
+
+- Full userscript-manager replacement, script execution, browser permission management, or native mobile packaging — the product boundary and the mature manager products already cover those jobs ([Tampermonkey](https://www.tampermonkey.net/), [Violentmonkey](https://violentmonkey.github.io/), [ScriptCat](https://docs.scriptcat.org/en/), [Userscripts](https://github.com/quoid/userscripts)).
+- Accounts, reviews, comments, reputation, team collaboration, or cloud sync — they contradict the local-only/no-server-state posture and belong to catalog/manager products; ScriptCat demonstrates the scope expansion that would result ([ScriptCat sync](https://docs.scriptcat.org/docs/use/sync/)).
+- Arbitrary JavaScript adapter plugins — the current HTTPS JSON template seam is sufficient for extensibility; executable adapters would run untrusted code inside the discovery surface (`index.html:1306-1345`).
+- A new wave of fragile HTML catalogs before existing source contracts are hardened — OpenUserJS’s unresolved API/cache issues show why stronger adapters and proxy observability have higher leverage ([OpenUserJS #77](https://github.com/OpenUserJs/OpenUserJS.org/issues/77)).
+- Server-side scheduled monitors or push notifications — saved-search refresh and delta badges already exist (`index.html:2920-3070`), while reliable background execution would require a service and account/privacy model; keep this under consideration rather than promising browser-background behavior.
+- Opaque ML/vector ranking — current scale supports deterministic, explainable popularity/freshness/metadata/security dimensions; adding a model would increase maintenance and privacy cost without evidence that ranking, rather than provenance, is the binding problem ([OpenSSF Scorecard](https://openssf.org/scorecard/), [code-search survey](https://arxiv.org/abs/2204.02765)).
+- Full UI localization framework — a small locale layer is retained as P3, but a large translation/runtime framework is not justified while the UI is a single-file zero-runtime-dependency app and the only current language control is catalog/metadata selection (`index.html:466-472`, `index.html:2151-2160`).
+- Remote CI workflows — explicitly excluded by `Roadmap_Blocked.md`; keep the local `npm run qa` contract.
 
 ## Sources
+
 ### Project
+
 - https://github.com/SysAdminDoc/UserScriptHunt
 
-### Catalogs, Managers, And Issues
+### Catalogs, Managers, Issues, and Community
+
 - https://greasyfork.org/en/help/api
-- https://greasyfork.org/en/help/external-scripts
+- https://www.userscript.zone/
+- https://scriptcat.org/en/search
+- https://docs.scriptcat.org/en/
+- https://docs.scriptcat.org/docs/use/sync/
+- https://www.tampermonkey.net/
+- https://www.tampermonkey.net/changelog.php
 - https://www.tampermonkey.net/documentation.php
-- https://violentmonkey.github.io/api/metadata-block/
-- https://github.com/Tampermonkey/tampermonkey/issues/2015
-- https://github.com/Tampermonkey/tampermonkey/issues/1593
+- https://github.com/violentmonkey/violentmonkey
 - https://github.com/violentmonkey/violentmonkey/issues/2540
-- https://github.com/violentmonkey/violentmonkey/issues/2263
-- https://github.com/violentmonkey/violentmonkey/issues/2453
 - https://github.com/violentmonkey/violentmonkey/issues/1558
-- https://github.com/scriptscat/scriptcat/issues/1451
-- https://github.com/scriptscat/scriptcat/issues/1476
-- https://github.com/scriptscat/scriptcat/issues/1483
-- https://github.com/scriptscat/scriptcat/issues/1484
-- https://github.com/scriptscat/scriptcat/issues/1517
-- https://github.com/greasemonkey/greasemonkey/issues/2349
+- https://github.com/greasemonkey/greasemonkey
 - https://github.com/greasemonkey/greasemonkey/issues/3095
-- https://github.com/quoid/userscripts/issues/871
-- https://github.com/quoid/userscripts/issues/899
-- https://github.com/OpenUserJs/OpenUserJS.org/issues/77
-- https://github.com/OpenUserJs/OpenUserJS.org/issues/1023
-- https://github.com/OpenUserJs/OpenUserJS.org/issues/1971
-
-### Competitors, Adjacent Projects, And Awesome Lists
+- https://github.com/scriptscat/scriptcat
+- https://github.com/scriptscat/scriptcat/issues/1525
+- https://github.com/quoid/userscripts
+- https://github.com/quoid/userscripts/issues/836
+- https://github.com/shenruisi/Stay
 - https://github.com/Shieldmonkey/Shieldmonkey
+- https://github.com/kusoidev/ScriptFlow
+- https://github.com/OpenUserJs/OpenUserJS.org/issues/77
 - https://github.com/awesome-scripts/awesome-userscripts
+- https://www.reddit.com/r/userscripts/comments/14dhx9i/looking_for_very_simple_userscript_manager
+- https://stackoverflow.com/questions/31817758/what-is-the-difference-between-include-and-match-in-userscripts
 
-### Standards, Research, And APIs
-- https://docs.github.com/en/rest/search/search
-- https://docs.github.com/en/rest/rate-limit/rate-limit
+### Standards, Platform APIs, and Security Guidance
+
+- https://violentmonkey.github.io/api/metadata-block/
+- https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+- https://developer.mozilla.org/en-US/docs/Web/API/Popover_API
+- https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable
 - https://developer.chrome.com/docs/extensions/reference/api/userScripts
-- https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
-- https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API
+- https://docs.github.com/en/rest/search/search
+- https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+- https://developers.cloudflare.com/workers/examples/cors-header-proxy/
+- https://developers.cloudflare.com/workers/platform/limits/
+- https://developers.cloudflare.com/workers/best-practices/workers-best-practices/
+- https://developer.mozilla.org/en-US/docs/Web/API/Request/redirect
+- https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+- https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/estimate
+- https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_ForgERY_Prevention_Cheat_Sheet.html
+- https://openssf.org/scorecard/
+
+### Adjacent Systems and Research
+
+- https://sourcegraph.com/docs/code-search/features
+- https://docs.searxng.org/dev/search_api.html
+- https://www.cs.kuleuven.be/publicaties/rapporten/cw/CW657.pdf
+- https://arxiv.org/abs/2204.02765
+
+### Dependency and Advisory References
+
+- https://playwright.dev/docs/release-notes
+- https://docs.npmjs.com/cli/v8/commands/npm-ci/
+- https://docs.npmjs.com/cli/v6/configuring-npm/package-locks/
+- https://nvd.nist.gov/vuln/detail/CVE-2025-59288
 
 ## Open Questions
-- None block prioritization. Exact manager backup fixtures should be captured during implementation from exported Tampermonkey, Violentmonkey, and ScriptCat payloads.
+
+- None.

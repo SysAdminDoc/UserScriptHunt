@@ -1,3 +1,5 @@
 # Roadmap
 
-No outstanding items. See CHANGELOG.md for delivered work and git history for details.
+Actionable work only. Historical and completed roadmap material is archived in CHANGELOG.md; blocked work is kept in Roadmap_Blocked.md.
+
+No actionable roadmap items remain.

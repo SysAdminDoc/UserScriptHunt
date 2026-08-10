@@ -227,3 +227,14 @@ All notable changes to ScriptHunt will be documented in this file.
 - Skeleton loading states
 - Responsive dark theme
 - Zero dependencies, single-file HTML
+
+## Roadmap archive — 2026-08-10 — ROADMAP.md
+
+<details>
+<summary>Original roadmap snapshot</summary>
+
+```markdown
+# Roadmap
+```
+
+</details>
