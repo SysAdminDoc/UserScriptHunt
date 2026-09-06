@@ -1,0 +1,37 @@
+{
+  "appVersion": "0.6.1",
+  "capturedAt": "2026-09-06T14:00:00.000Z",
+  "fixtureQuery": "youtube",
+  "screenshots": [
+    {
+      "file": "01-search.png",
+      "viewport": "1440x1000",
+      "theme": "dark",
+      "state": "search"
+    },
+    {
+      "file": "02-results.png",
+      "viewport": "1440x1000",
+      "theme": "dark",
+      "state": "results"
+    },
+    {
+      "file": "03-compare.png",
+      "viewport": "1440x1000",
+      "theme": "dark",
+      "state": "comparison"
+    },
+    {
+      "file": "04-light-results.png",
+      "viewport": "1440x1000",
+      "theme": "light",
+      "state": "results"
+    },
+    {
+      "file": "05-mobile-results.png",
+      "viewport": "390x844",
+      "theme": "dark",
+      "state": "results"
+    }
+  ]
+}

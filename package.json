@@ -1,7 +1,7 @@
 {
   "name": "scripthunt",
-  "version": "0.6.0",
-  "description": "Static unified userscript search across seven built-in catalogs with provenance-aware trust and offline recovery.",
+  "version": "0.6.1",
+  "description": "Private in-browser userscript search across seven built-in catalogs with source provenance, trust evidence, and offline recovery.",
   "license": "MIT",
   "repository": "github:SysAdminDoc/UserScriptHunt",
   "homepage": "https://sysadmindoc.github.io/UserScriptHunt/",
@@ -11,7 +11,9 @@
     "test": "node --test tests/worker.test.js tests/version-drift.test.js tests/source-docs.test.js && playwright test",
     "test:install": "playwright install chromium",
     "serve:test": "node tests/static-server.js 3217 .",
-    "test:canary": "node --test tests/canary.test.js"
+    "test:canary": "node --test tests/canary.test.js",
+    "capture:marketing": "node scripts/capture-marketing.cjs",
+    "release:package": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1"

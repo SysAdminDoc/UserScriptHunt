@@ -4,6 +4,19 @@ All notable changes to ScriptHunt will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.6.1]
+
+### Changed
+- Replaced the old poster-style icon with a compact magnifying-glass and code-brace mark that remains readable at favicon size.
+- Refined the header, search controls, result cards, empty state, desktop density, and mobile presentation without changing the search workflow.
+- Rewrote the README around the product decision path, current trust limits, local data behavior, and direct ways to try or install the app.
+- Updated the PWA manifest with a dedicated maskable icon, an Apple touch icon, clear app categories, and more useful install copy.
+
+### Added
+- Added five deterministic product screenshots covering search, results, comparison, light theme, and mobile use.
+- Added a 1280 by 640 social preview built from the real product interface and approved brand mark.
+- Added repeatable local screenshot generation plus a release packaging script that verifies the ZIP contents and writes a SHA-256 checksum.
+
 ## [v0.6.0]
 
 ### Security
@@ -37,8 +50,8 @@ All notable changes to ScriptHunt will be documented in this file.
 ## [v0.5.1]
 
 ### Security
-- Fixed CORS proxy origin confusion — `startsWith('http://localhost')` now requires exact origin match, preventing subdomain impersonation (e.g. `http://localhost.evil.com`). Regression test added.
-- Hardened CSP meta tag construction — proxy URLs with semicolons, single-quotes, or commas in the pathname are now rejected before CSP injection.
+- Fixed CORS proxy origin confusion. `startsWith('http://localhost')` now requires exact origin match, preventing subdomain impersonation (e.g. `http://localhost.evil.com`). Regression test added.
+- Hardened CSP meta tag construction. Proxy URLs with semicolons, single-quotes, or commas in the pathname are now rejected before CSP injection.
 - Custom source URLs from untrusted API responses are now sanitized through `safeUrl()` before rendering.
 - Script scan fetch now rejects responses larger than 5 MB to prevent memory exhaustion from malicious install URLs.
 
@@ -46,12 +59,12 @@ All notable changes to ScriptHunt will be documented in this file.
 - Search race condition: overlapping searches from rapid typing now abort stale in-flight requests instead of concatenating results from different queries.
 - Spam detection no longer false-positives high-install scripts from sources that don't report ratings (GitHub, OpenUserJS, ScriptCat, Gists).
 - `hashString` FNV-1a implementation now uses `Math.imul` for correct 32-bit arithmetic, preventing cross-engine hash inconsistencies.
-- `installedState()` per-card localStorage parse replaced with cached reads — ~100x fewer JSON.parse calls during result rendering.
+- `installedState()` per-card localStorage parse replaced with cached reads. ~100x fewer JSON.parse calls during result rendering.
 - `setFavs`, `setInstalledScripts`, `setSavedSearches`, and `lsWriteOfflineEntries` now wrapped in try/catch with user-facing toast for localStorage quota errors.
-- Broken `og:image` meta tag pointed to nonexistent `banner.png` — now points to `icon.png`.
+- Broken `og:image` meta tag pointed to nonexistent `banner.png`. Now points to `icon.png`.
 - OLED theme result card border now uses `var(--border)` instead of hardcoded `#222`.
 - Removed dead CSS media query `@media (prefers-color-scheme: light) { html.theme-auto { } }`.
-- Removed dead `canScan` variable — always `true`, all conditional branches were unreachable.
+- Removed dead `canScan` variable. Always `true`, all conditional branches were unreachable.
 - Custom source IDs now use deterministic hashes instead of `Math.random()`, fixing cross-session deduplication.
 - Added `.trust-dim-score` CSS styling (monospace, proper color).
 - Modal title uses `<h2>` instead of `<div>` for proper heading hierarchy.
@@ -60,17 +73,17 @@ All notable changes to ScriptHunt will be documented in this file.
 ## [v0.5.0]
 
 ### Security
-- Added `safeUrl`/`safeHref`/`safeOpen` URL protocol allowlist — only `http:` and `https:` URLs are allowed in `href` attributes and `window.open()` calls; `javascript:`, `data:`, and `vbscript:` URLs from malicious source data are rejected.
-- Fixed `esc()` misuse in attribute contexts (favorites view) — now uses proper `attr()` escaping via `safeHref`.
+- Added `safeUrl`/`safeHref`/`safeOpen` URL protocol allowlist. Only `http:` and `https:` URLs are allowed in `href` attributes and `window.open()` calls; `javascript:`, `data:`, and `vbscript:` URLs from malicious source data are rejected.
+- Fixed `esc()` misuse in attribute contexts (favorites view). Now uses proper `attr()` escaping via `safeHref`.
 - Added 3 hostile fixture Playwright tests verifying XSS payloads in source names/descriptions/authors render as inert text, dangerous URL protocols are stripped from all link and data-url sinks, and import validation rejects favorites with unsafe URLs.
 
 ### Added
 - Security scanner detects integrity hash evidence (`#sha256=`, `#sha384=`, `#sha512=`, `#md5=`) on `@require` and `@resource` URLs. Hashed dependencies get an info-level finding; unhashed remote dependencies without version evidence get a warning.
 - `@resource` dependencies are now scanned for domain trust and integrity evidence, matching existing `@require` coverage.
-- Installed script matches now show install provenance details — install/download/update URL agreement status and version drift evidence on result cards.
+- Installed script matches now show install provenance details. Install/download/update URL agreement status and version drift evidence on result cards.
 - Version drift test (`tests/version-drift.test.js`) fails when app, package.json, service worker, README badge, or CHANGELOG versions disagree. Runs as part of `npm run qa`.
-- Security scanner now distinguishes `@connect` metadata risk from browser extension site-access requirements — warns when `GM_xmlhttpRequest` is granted without `@connect`, and explains that named `@connect` hosts may also need browser-level site-access permission.
-- License names are normalized to SPDX identifiers during source normalization — common aliases like "MIT License", "Apache License 2.0", "GNU GPL v3" map to stable filter values while unknown/custom licenses pass through as-is.
+- Security scanner now distinguishes `@connect` metadata risk from browser extension site-access requirements. Warns when `GM_xmlhttpRequest` is granted without `@connect`, and explains that named `@connect` hosts may also need browser-level site-access permission.
+- License names are normalized to SPDX identifiers during source normalization. Common aliases like "MIT License", "Apache License 2.0", "GNU GPL v3" map to stable filter values while unknown/custom licenses pass through as-is.
 - Source-docs drift test (`tests/source-docs.test.js`) fails when README source table count doesn't match the code source registry, or when sources are missing from README. GitHub repo description updated to list all 7 sources.
 - Metadata compatibility lint in security scanner: warns on invalid `@match` wildcard syntax, TLD wildcards, `@connect` wildcard prefix misconceptions, missing `@license`, and declared antifeatures.
 - Versioned preference storage (schema v2) with automatic migration on load. "Reset Preferences" button in diagnostics clears preferences, source health, caches, and saved searches without deleting favorites or installed scripts. Preference schema version appears in diagnostics export.
@@ -144,12 +157,12 @@ All notable changes to ScriptHunt will be documented in this file.
 
 ### Fixed
 - Security: Add `rel="noopener"` to all `target="_blank"` links and `noopener` feature to all `window.open()` calls
-- Share button no longer reuses the external-link icon — now has a distinct share network icon
-- `color-mix()` fallback for Safari <16.2 — source toggle active state degrades gracefully
+- Share button no longer reuses the external-link icon. Now has a distinct share network icon
+- `color-mix()` fallback for Safari <16.2. Source toggle active state degrades gracefully
 - Mobile: search `font-size: 16px` prevents iOS auto-zoom on input focus
 - Mobile: touch targets enlarged to 36px minimum on buttons, source toggles, and card action icons
 - Removed inline `onclick="event.stopPropagation()"` from card links (unnecessary with `rel="noopener"`)
-- Search placeholder shortened to "Search userscripts..." — advanced query hints are in the empty state below
+- Search placeholder shortened to "Search userscripts...". Advanced query hints are in the empty state below
 
 ## [v0.3.2]
 
@@ -166,7 +179,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Toast: flexbox layout with proper alignment, underline-style undo link instead of pill button
 - Light theme: cards get subtle box-shadow for depth, modal/compare bar shadows tuned, backdrop blur
 - OLED theme: increased card border contrast (#222 vs #1a1a1a)
-- GitHub source badge color changed from near-white (#e6edf3) to visible gray (#8b949e) — works in all themes
+- GitHub source badge color changed from near-white (#e6edf3) to visible gray (#8b949e). Works in all themes
 - Skeleton bars: more realistic content-proportioned widths
 - prefers-reduced-motion: now uses universal selector to disable all animation and transitions
 - Mobile: tighter padding, smaller logo, responsive compare grid columns
@@ -188,7 +201,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Test assertion updated for 6 source toggles (was 5)
 
 ### Added
-- `prefers-reduced-motion` support — disables all card/toast/panel animations
+- `prefers-reduced-motion` support. Disables all card/toast/panel animations
 - Light theme fixes: select dropdowns, card buttons, and compare bar shadow now theme-aware
 
 ## [v0.3.0]
@@ -198,9 +211,9 @@ All notable changes to ScriptHunt will be documented in this file.
 - AbortSignal.timeout polyfill for Safari <16.4 and Firefox <100
 - GitHub API rate-limit tracking with adaptive backoff and auto-recovery
 - Trust scoring system with 0-100 scale based on installs, ratings, freshness, and security scan
-- Security scanner — pattern-based code analysis for dangerous APIs, obfuscation, and permission risks
+- Security scanner. Pattern-based code analysis for dangerous APIs, obfuscation, and permission risks
 - Permission risk pills showing @grant danger levels per script
-- Script comparison mode — select up to 3 scripts for side-by-side comparison with best-value highlighting
+- Script comparison mode. Select up to 3 scripts for side-by-side comparison with best-value highlighting
 - Favorites system with localStorage persistence
 - Search history with sessionStorage
 - Advanced query syntax: `site:`, `author:`, `updated:`, `grant:` operators
@@ -228,7 +241,7 @@ All notable changes to ScriptHunt will be documented in this file.
 - Responsive dark theme
 - Zero dependencies, single-file HTML
 
-## Roadmap archive — 2026-08-10 — ROADMAP.md
+## Roadmap archive. 2026-08-10. ROADMAP.md
 
 <details>
 <summary>Original roadmap snapshot</summary>

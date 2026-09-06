@@ -1,6 +1,6 @@
 # Blocked Roadmap
 
-- [ ] P2 - Add CI smoke workflow for static app and Worker
+- [ ] P2: Add CI smoke workflow for static app and Worker
   Blocked: Project rules prohibit GitHub Actions workflows; use the local deterministic `npm run qa` path instead.
   Evidence: `ROADMAP.md` item requested `.github/workflows/`; global repo rules forbid GitHub Actions for builds/tests/deploys.
   Touches: `.github/workflows/`, `package.json`, `tests/`, `cors-proxy/worker.js`.

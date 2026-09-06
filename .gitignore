@@ -11,6 +11,9 @@ CLAUDE.md
 # Dependencies
 node_modules/
 
+# Release output
+dist/
+
 # Playwright
 test-results/
 playwright-report/

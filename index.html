@@ -3,12 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Unified search engine for userscripts — query Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, and GitHub Gists from a single interface.">
-    <meta property="og:image" content="https://raw.githubusercontent.com/SysAdminDoc/UserScriptHunt/main/icon.png">
-    <meta name="theme-color" content="#1e1e2e">
+    <meta name="description" content="Search seven userscript catalogs at once, compare trust evidence, inspect metadata, and keep useful results available offline.">
+    <meta property="og:title" content="ScriptHunt | Search userscripts with context">
+    <meta property="og:description" content="Search seven catalogs, compare trust evidence, and inspect metadata before you install.">
+    <meta property="og:image" content="https://raw.githubusercontent.com/SysAdminDoc/UserScriptHunt/main/assets/social-preview.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="theme-color" content="#060810">
     <meta id="csp-meta" http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; connect-src https:; font-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;">
-    <title>ScriptHunt - Unified Userscript Search</title>
-    <link rel="icon" href="data:image/x-icon;base64,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">
+    <title>ScriptHunt | Userscript search with trust context</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
     <link rel="manifest" href="manifest.json">
     <style>
         @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 700;font-display:swap;src:url('fonts/jetbrains-mono-latin-ext.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
@@ -47,8 +52,7 @@
         }
         .theme-light .bg-grid{background-image:linear-gradient(rgba(59,130,246,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.035) 1px,transparent 1px)}
         .theme-light .bg-glow{background:radial-gradient(ellipse,rgba(59,130,246,0.04) 0%,transparent 70%)}
-        .theme-light .logo-icon{box-shadow:0 4px 16px rgba(37,99,235,0.2)}
-        .theme-light .logo-text{background:linear-gradient(135deg,#1a1d24,#5a6478);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .theme-light .logo-mark{filter:drop-shadow(0 8px 18px rgba(37,99,235,0.16))}
         .theme-light ::-webkit-scrollbar-thumb{background:#c4c8d0}
         .theme-light .result-card{box-shadow:0 1px 3px rgba(0,0,0,0.04)}
         .theme-light .modal-overlay{background:rgba(0,0,0,0.35);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
@@ -69,22 +73,22 @@
         ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
         .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(59,130,246,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.025) 1px,transparent 1px);background-size:64px 64px}
         .bg-glow{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:900px;height:500px;z-index:0;pointer-events:none;background:radial-gradient(ellipse,rgba(59,130,246,0.05) 0%,transparent 70%)}
-        .app{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 28px}
+        .app{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:0 32px}
 
         /* Header */
-        .header{padding:40px 0 24px;text-align:center}
-        .logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px}
-        .logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 16px rgba(59,130,246,0.25)}
-        .logo-text{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;background:linear-gradient(135deg,var(--text-primary),var(--text-secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px}
-        .tagline{color:var(--text-secondary);font-size:13.5px;font-weight:400;letter-spacing:0.2px;margin-bottom:10px}
+        .header{padding:44px 0 28px;text-align:center}
+        .logo-row{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px}
+        .logo-mark{width:58px;height:58px;object-fit:contain;filter:drop-shadow(0 8px 22px rgba(59,130,246,0.22))}
+        .logo-text{font-family:'JetBrains Mono',monospace;font-size:31px;font-weight:700;color:var(--text-primary);letter-spacing:-0.8px}
+        .tagline{color:var(--text-secondary);font-size:15px;font-weight:400;letter-spacing:0.1px;margin-bottom:14px}
         .header-meta{display:flex;align-items:center;justify-content:center;gap:6px}
-        .version{display:inline-flex;padding:3px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);line-height:1.4}
-        .theme-toggle{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;font-size:10px;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:border-color var(--transition),color var(--transition);line-height:1.4}
+        .version{display:inline-flex;padding:4px 9px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);line-height:1.4}
+        .theme-toggle{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:10px;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:border-color var(--transition),color var(--transition);line-height:1.4}
         .theme-toggle:hover{border-color:var(--text-muted);color:var(--text-secondary)}
 
         /* Search */
-        .search-wrap{position:relative;max-width:680px;margin:0 auto 12px}
-        .search-input{width:100%;padding:14px 50px 14px 48px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-lg);color:var(--text-primary);font-family:inherit;font-size:15px;font-weight:400;outline:none;transition:border-color 0.2s,box-shadow 0.2s}
+        .search-wrap{position:relative;max-width:760px;margin:0 auto 14px}
+        .search-input{width:100%;padding:16px 52px 16px 50px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-family:inherit;font-size:16px;font-weight:400;outline:none;transition:border-color 0.2s,box-shadow 0.2s}
         .search-input:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px var(--accent-glow)}
         .search-input::placeholder{color:var(--text-muted);font-weight:300}
         .search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none}
@@ -101,7 +105,7 @@
         .history-clear:hover{color:var(--text-secondary)}
 
         /* Filter row */
-        .filter-row{display:flex;align-items:center;justify-content:center;gap:6px;max-width:680px;margin:0 auto 16px;flex-wrap:wrap}
+        .filter-row{display:flex;align-items:center;justify-content:center;gap:7px;max-width:980px;margin:0 auto 18px;flex-wrap:wrap}
         .site-filter-wrap{position:relative;flex:0 0 auto}
         .site-filter{padding:7px 12px 7px 30px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:12.5px;outline:none;width:190px;transition:border-color 0.2s}
         .site-filter:focus{border-color:var(--accent)}.site-filter::placeholder{color:var(--text-muted)}
@@ -109,7 +113,7 @@
         .tool-btn{padding:7px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all var(--transition);display:inline-flex;align-items:center;gap:5px}
         .tool-btn:hover{border-color:var(--text-muted);color:var(--text-primary)}
         .tool-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
-        .advanced-filters{display:flex;align-items:end;justify-content:center;gap:8px;max-width:960px;margin:0 auto 16px;flex-wrap:wrap}
+        .advanced-filters{display:flex;align-items:end;justify-content:center;gap:9px;max-width:1120px;margin:0 auto 18px;flex-wrap:wrap}
         .filter-field{display:flex;flex-direction:column;gap:4px}
         .filter-label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em}
         .filter-control{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:inherit;font-size:12px;height:32px;padding:6px 9px;outline:none;min-width:112px;transition:border-color var(--transition)}
@@ -117,7 +121,7 @@
         .filter-control::placeholder{color:var(--text-muted)}
 
         /* Source toggles */
-        .sources-bar{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;max-width:680px;margin:0 auto 20px}
+        .sources-bar{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;max-width:900px;margin:0 auto 22px}
         .source-toggle{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--bg-secondary);border:1px solid var(--border);cursor:pointer;user-select:none;transition:all var(--transition);font-size:12px;font-weight:500;color:var(--text-muted)}
         .source-toggle:hover{border-color:var(--text-muted);color:var(--text-secondary)}
         .source-toggle.active{border-color:var(--src-color,var(--accent));color:var(--text-primary);background:var(--bg-secondary)}
@@ -135,7 +139,7 @@
         .sort-select:hover{border-color:var(--text-muted)}
 
         /* Source status chips */
-        .source-status-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+        .source-status-bar{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:0 auto 18px}
         .source-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--radius-sm);font-size:11px;font-weight:500;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-muted);transition:all 0.3s}
         .source-chip.loading{color:var(--amber);border-color:var(--amber-dim)}
         .source-chip.done{color:var(--green);border-color:var(--green-dim)}
@@ -160,17 +164,17 @@
         .offline-cache-note{font-size:11px;color:var(--text-muted)}
 
         /* Results grid */
-        .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;padding-bottom:80px;container-type:inline-size}
+        .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;padding-bottom:80px;container-type:inline-size}
 
         /* Result card */
-        .result-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;transition:background var(--transition),border-color var(--transition),box-shadow var(--transition),transform 0.2s;position:relative;overflow:hidden;animation:cardIn 0.3s ease both}
+        .result-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:background var(--transition),border-color var(--transition),box-shadow var(--transition),transform 0.2s;position:relative;overflow:hidden;animation:cardIn 0.3s ease both}
         .result-card:hover{background:var(--bg-card-hover);border-color:var(--text-muted);transform:translateY(-1px);box-shadow:var(--shadow)}
         .result-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
         .result-card.spam{opacity:0.4;filter:grayscale(0.3)}
         @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         .card-source-stripe{position:absolute;top:0;left:0;right:0;height:2px;background:var(--stripe-color,var(--accent));opacity:0.8}
         .card-top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}
-        .card-title{font-size:14px;font-weight:600;line-height:1.35;color:var(--text-primary);cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;transition:color var(--transition);flex:1;min-width:0}
+        .card-title{font-size:15px;font-weight:600;line-height:1.35;color:var(--text-primary);cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;transition:color var(--transition);flex:1;min-width:0}
         .card-title:hover{color:var(--accent)}
         .card-badges{display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
         .card-source-badge{padding:2px 7px;border-radius:4px;font-size:9.5px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;background:var(--badge-bg,var(--accent-glow));color:var(--badge-color,var(--accent));white-space:nowrap}
@@ -196,9 +200,9 @@
         .trust-dim-score{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-secondary);white-space:nowrap}
         .trust-dim-reason{grid-column:2 / 4;color:var(--text-muted);line-height:1.4}
 
-        .card-desc{font-size:12.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px;font-weight:300;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .card-desc{font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;font-weight:300;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .card-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-        .meta-item{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--text-muted);font-weight:400}
+        .meta-item{display:flex;align-items:center;gap:3px;font-size:11.5px;color:var(--text-muted);font-weight:400}
         .meta-item svg{flex-shrink:0;opacity:0.7}.meta-item strong{color:var(--text-secondary);font-weight:600}
         .card-author{font-size:11px;color:var(--text-muted);margin-bottom:5px}.card-author span{color:var(--text-secondary);font-weight:500}
         .script-url-list{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
@@ -234,7 +238,7 @@
 
         /* Card actions */
         .card-actions{display:flex;gap:4px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);align-items:center}
-        .card-btn{padding:5px 11px;border-radius:var(--radius-sm);font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:all var(--transition);border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;text-decoration:none;white-space:nowrap}
+        .card-btn{padding:6px 12px;border-radius:var(--radius-sm);font-family:inherit;font-size:11.5px;font-weight:500;cursor:pointer;transition:all var(--transition);border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;text-decoration:none;white-space:nowrap}
         .card-btn-install{background:var(--accent-dim);border-color:var(--accent);color:#fff}
         .card-btn-install:hover{background:var(--accent);box-shadow:0 2px 8px rgba(59,130,246,0.25)}
         .card-btn-view{background:transparent;color:var(--text-secondary)}.card-btn-view:hover{border-color:var(--text-muted);color:var(--text-primary)}
@@ -308,10 +312,10 @@
         .proxy-settings-status.ok{color:var(--green)}.proxy-settings-status.error{color:var(--red)}
 
         /* Empty / loading */
-        .state-empty{text-align:center;padding:72px 20px;grid-column:1/-1}
-        .state-empty svg{opacity:0.15;margin-bottom:16px}
-        .state-empty h3{font-size:17px;font-weight:500;color:var(--text-secondary);margin-bottom:5px}
-        .state-empty p{font-size:13px;color:var(--text-muted);font-weight:300;line-height:1.6}
+        .state-empty{text-align:center;padding:46px 28px;grid-column:1/-1;width:min(720px,100%);margin:10px auto 0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+        .empty-mark{width:72px;height:72px;object-fit:contain;opacity:0.72;margin-bottom:16px}
+        .state-empty h3{font-size:20px;font-weight:600;color:var(--text-primary);margin-bottom:8px}
+        .state-empty p{font-size:14px;color:var(--text-secondary);font-weight:300;line-height:1.6}
         .state-empty code{background:var(--bg-secondary);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-secondary);border:1px solid var(--border)}
         .skeleton-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;animation:skeleton-pulse 1.8s ease infinite}
         .skeleton-bar{background:var(--bg-secondary);border-radius:4px;margin-bottom:10px}
@@ -348,7 +352,7 @@
 
         @media(max-width:768px){
             .app{padding:0 16px}
-            .header{padding:24px 0 16px}.logo-text{font-size:22px}.logo-icon{width:36px;height:36px}
+            .header{padding:26px 0 18px}.logo-text{font-size:24px}.logo-mark{width:44px;height:44px}
             .tagline{font-size:12.5px}
             .search-input{font-size:16px;padding:12px 44px 12px 42px}
             .results-grid{grid-template-columns:1fr;gap:10px}
@@ -371,12 +375,12 @@
     <div class="app">
         <header class="header">
             <div class="logo-row">
-                <div class="logo-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+                <img class="logo-mark" src="assets/brand/scripthunt-mark.png" width="58" height="58" alt="">
                 <span class="logo-text">ScriptHunt</span>
             </div>
-            <p class="tagline" data-i18n="tagline">Unified search across every userscript source</p>
+            <p class="tagline" data-i18n="tagline">Search seven catalogs. Compare trust before you install.</p>
             <div class="header-meta">
-                <span class="version">v0.6.0</span>
+                <span class="version">v0.6.1</span>
                 <select class="theme-toggle" id="uiLocale" aria-label="Interface language">
                     <option value="en">English</option>
                     <option value="es">Español</option>
@@ -503,9 +507,9 @@
 
         <div class="results-grid" id="resultsGrid" role="list" aria-label="Search results">
             <div class="state-empty" id="defaultEmpty">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <h3>Search userscripts everywhere</h3>
-                <p>Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, GitHub Gists</p>
+                <img class="empty-mark" src="assets/brand/scripthunt-mark.png" width="72" height="72" alt="">
+                <h3>Search once. Compare before you install.</h3>
+                <p>Find userscripts across seven catalogs, then inspect source, freshness, permissions, and trust evidence in one place.</p>
                 <p style="margin-top:10px">Try: <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p>
             </div>
         </div>
@@ -525,7 +529,7 @@
 
     <script>
     /* =============================================
-       ScriptHunt v0.6.0 - Unified Userscript Search
+       ScriptHunt v0.6.1 | Unified Userscript Search
        Security Scanner + Trust Scoring + Comparison
        ============================================= */
 
@@ -551,7 +555,7 @@
         return controller.signal;
     }
 
-    /* -- User Preferences (localStorage) — defined early for use by proxy/sources init -- */
+    /* -- User Preferences (localStorage), defined early for proxy/source initialization -- */
     var PREF_SCHEMA_VERSION = 2;
     function _prefGet(k, def) { try { var v = localStorage.getItem('sh_pref_' + k); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; } }
     function _prefSet(k, v) { try { localStorage.setItem('sh_pref_' + k, JSON.stringify(v)); } catch(e) {} }
@@ -578,7 +582,7 @@
     }
     var UI_STRINGS = {
         en: {
-            tagline: 'Unified search across every userscript source',
+            tagline: 'Search seven catalogs. Compare trust before you install.',
             searchPlaceholder: 'Search userscripts...',
             sitePlaceholder: 'Domain or exact URL',
             bookmarklet: 'Bookmarklet',
@@ -593,15 +597,15 @@
             catalogLanguage: 'Catalog language',
             risk: 'Risk',
             filterResults: 'Filter results...',
-            emptyTitle: 'Search userscripts everywhere',
-            emptySources: 'Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat, GitHub Gists',
+            emptyTitle: 'Search once. Compare before you install.',
+            emptySources: 'Find userscripts across seven catalogs, then inspect source, freshness, permissions, and trust evidence in one place.',
             emptyTry: 'Try:',
             noResults: 'No results found',
             noResultsHelp: 'Try different terms or enable more sources',
             fallbackProbe: 'English fallback',
         },
         es: {
-            tagline: 'Búsqueda unificada en todas las fuentes de userscripts',
+            tagline: 'Busca en siete catálogos. Compara la confianza antes de instalar.',
             searchPlaceholder: 'Buscar userscripts...',
             sitePlaceholder: 'Dominio o URL exacta',
             bookmarklet: 'Marcador',
@@ -616,8 +620,8 @@
             catalogLanguage: 'Idioma del catálogo',
             risk: 'Riesgo',
             filterResults: 'Filtrar resultados...',
-            emptyTitle: 'Busca userscripts en todas partes',
-            emptySources: 'Greasy Fork, Sleazy Fork, GitHub, OpenUserJS, Userscript.Zone, ScriptCat y GitHub Gists',
+            emptyTitle: 'Busca una vez. Compara antes de instalar.',
+            emptySources: 'Encuentra userscripts en siete catálogos y revisa su fuente, vigencia, permisos y señales de confianza en un solo lugar.',
             emptyTry: 'Prueba:',
             noResults: 'No se encontraron resultados',
             noResultsHelp: 'Prueba otros términos o activa más fuentes',
@@ -1270,7 +1274,7 @@
             return list.map(normalizeImportedScript).filter(Boolean);
         } catch(e) { return []; }
     }
-    function setFavs(favs) { try { localStorage.setItem('sh_favs', JSON.stringify((favs || []).map(normalizeImportedScript).filter(Boolean))); } catch(e) { showToast('Could not save favorites — storage full', 'error', 3000); } }
+    function setFavs(favs) { try { localStorage.setItem('sh_favs', JSON.stringify((favs || []).map(normalizeImportedScript).filter(Boolean))); } catch(e) { showToast('Could not save favorites. Storage is full.', 'error', 3000); } }
     function isFav(id) { return getFavs().some(function(f) { return f.id === id; }); }
 
     function cleanUrl(u) { return (u || '').trim(); }
@@ -1350,7 +1354,7 @@
                 importedAt: new Date().toISOString(),
                 installed: items.map(normalizeImportedScript).filter(Boolean),
             }));
-        } catch(e) { showToast('Could not save installed list — storage full', 'error', 3000); }
+        } catch(e) { showToast('Could not save installed list. Storage is full.', 'error', 3000); }
         _installedCacheKey = null;
     }
 
@@ -1713,7 +1717,7 @@
                         } catch(ce) {
                             console.warn('[github-code]', ce.message);
                             partialReasons.push('Code search failed: ' + ((ce && ce.message) || 'unknown error'));
-                            if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid — code search disabled', 'error', 4000);
+                            if (ce.message && ce.message.includes('Invalid GitHub token')) showToast('GitHub token invalid. Code search is disabled.', 'error', 4000);
                         }
                     }
                     var total = (raw.total_count || 0);
@@ -1929,14 +1933,14 @@
 
     /* ===== SECURITY SCANNER ===== */
     var DANGER_PATTERNS = [
-        { rx: /\beval\s*\(/, label: 'eval() - dynamic code execution', level: 'danger' },
-        { rx: /new\s+Function\s*\(/, label: 'new Function() - dynamic code execution', level: 'danger' },
+        { rx: /\beval\s*\(/, label: 'eval(): dynamic code execution', level: 'danger' },
+        { rx: /new\s+Function\s*\(/, label: 'new Function(): dynamic code execution', level: 'danger' },
         { rx: /document\.cookie/, label: 'Accesses browser cookies', level: 'warn' },
         { rx: /GM_xmlhttpRequest|GM\.xmlHttpRequest/, label: 'Makes cross-origin HTTP requests', level: 'warn' },
-        { rx: /unsafeWindow/, label: 'unsafeWindow - page script access', level: 'warn' },
+        { rx: /unsafeWindow/, label: 'unsafeWindow: page script access', level: 'warn' },
         { rx: /document\.createElement\s*\(\s*['"]script['"]\s*\)/, label: 'Creates <script> elements', level: 'danger' },
-        { rx: /atob\s*\(/, label: 'Base64 decode - potential obfuscation', level: 'warn' },
-        { rx: /String\.fromCharCode/, label: 'Character code construction - potential obfuscation', level: 'warn' },
+        { rx: /atob\s*\(/, label: 'Base64 decode: potential obfuscation', level: 'warn' },
+        { rx: /String\.fromCharCode/, label: 'Character code construction: potential obfuscation', level: 'warn' },
         { rx: /\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML/, label: 'Writes raw HTML to DOM', level: 'info' },
         { rx: /crypto\.subtle/, label: 'Uses Web Crypto API', level: 'info' },
         { rx: /fetch\s*\(|XMLHttpRequest/, label: 'Makes network requests', level: 'info' },
@@ -2101,9 +2105,9 @@
         return '<div class="dependency-evidence">' + specs.map(function(spec) {
             var dep = checked[spec.url];
             var stateLabel = dep ? dep.status : 'not checked';
-            var detail = dep && dep.failureReason ? ' — ' + dep.failureReason : dep && dep.changed ? ' — content changed since previous check' : '';
-            if (dep && dep.checkedAt) detail += ' — checked ' + fmtAgeMs(Date.now() - dep.checkedAt) + ' ago';
-            if (dep && dep.contentHash) detail += ' — ' + dep.contentHash.slice(0, 26) + '…';
+            var detail = dep && dep.failureReason ? ': ' + dep.failureReason : dep && dep.changed ? ': content changed since previous check' : '';
+            if (dep && dep.checkedAt) detail += '; checked ' + fmtAgeMs(Date.now() - dep.checkedAt) + ' ago';
+            if (dep && dep.contentHash) detail += '; ' + dep.contentHash.slice(0, 26) + '…';
             return '<div class="scan-item"><span class="scan-dot ' + (dep && dep.status === 'verified' ? 's-ok' : dep && (dep.status === 'mismatch' || dep.status === 'failed') ? 's-danger' : 's-warn') + '"></span>' +
                 esc('@' + spec.type + ' ' + spec.url + ' (' + spec.host + '): ' + (spec.pinned ? 'pinned' : spec.floating ? 'floating' : 'version unknown') + '; integrity ' + (spec.declaredIntegrity ? stateLabel : (dep ? 'not declared; fetched' : 'not declared')) + detail) + '</div>';
         }).join('') + '</div>';
@@ -2121,7 +2125,7 @@
         connectHosts.forEach(function(c) {
             var target = String(c || '').trim();
             if (!target) return;
-            if (target === '*') findings.push({ label: '@connect * - unrestricted cross-origin access', level: 'danger' });
+            if (target === '*') findings.push({ label: '@connect * grants unrestricted cross-origin access', level: 'danger' });
             else if (target.indexOf('*') >= 0) findings.push({ label: '@connect wildcard host: ' + target, level: 'warn' });
             else findings.push({ label: '@connect host allowed: ' + target, level: 'info' });
         });
@@ -2129,7 +2133,7 @@
             findings.push({ label: 'Cross-origin requests may also require browser extension site-access permission for each @connect host', level: 'info' });
         }
         if (hasXhr && connectHosts.length === 0) {
-            findings.push({ label: 'GM_xmlhttpRequest granted without @connect — some managers default to unrestricted access', level: 'warn' });
+            findings.push({ label: 'GM_xmlhttpRequest granted without @connect. Some managers default to unrestricted access.', level: 'warn' });
         }
         listMeta(meta, 'require').forEach(function(r) {
             var req = requireStatus(r);
@@ -2164,15 +2168,15 @@
 
         listMeta(meta, 'match').forEach(function(p) {
             var s = String(p || '').trim();
-            if (/^\*\.\w/.test(s)) findings.push({ label: '@match "' + s + '" — invalid; use *://*.' + s.slice(2) + '/*', level: 'warn' });
-            if (/^[a-z]+:\/\/[^/]*\.\*/.test(s)) findings.push({ label: '@match TLD wildcard "' + s + '" — not supported by most managers', level: 'warn' });
+            if (/^\*\.\w/.test(s)) findings.push({ label: '@match "' + s + '" is invalid. Use *://*.' + s.slice(2) + '/*', level: 'warn' });
+            if (/^[a-z]+:\/\/[^/]*\.\*/.test(s)) findings.push({ label: '@match TLD wildcard "' + s + '" is not supported by most managers', level: 'warn' });
         });
         connectHosts.forEach(function(c) {
             var s = String(c || '').trim();
-            if (s.startsWith('*.')) findings.push({ label: '@connect "' + s + '" — use "' + s.slice(2) + '" without the wildcard prefix; managers match subdomains automatically', level: 'info' });
+            if (s.startsWith('*.')) findings.push({ label: '@connect "' + s + '" should use "' + s.slice(2) + '" without the wildcard prefix. Managers match subdomains automatically.', level: 'info' });
         });
         if (meta && !meta.license) {
-            findings.push({ label: 'No @license declared — some catalogs may flag this as unknown', level: 'info' });
+            findings.push({ label: 'No @license is declared. Some catalogs may flag this as unknown.', level: 'info' });
         }
         var afs = listMeta(meta, 'antifeature');
         afs.forEach(function(af) {
@@ -2204,7 +2208,7 @@
         if (identifiers.length > 50) {
             var shortCount = identifiers.filter(function(id) { return id.length <= 2 && !/^(if|in|do|of)$/.test(id); }).length;
             if (shortCount / identifiers.length > 0.4) {
-                findings.push({ label: 'High ratio of short identifiers (' + Math.round(shortCount / identifiers.length * 100) + '%) — possible obfuscation', level: 'warn' });
+                findings.push({ label: 'High ratio of short identifiers (' + Math.round(shortCount / identifiers.length * 100) + '%). Possible obfuscation.', level: 'warn' });
             }
         }
         // Compute score
@@ -2484,7 +2488,7 @@
     /* ===== Source: GitHub Repos ===== */
     var _ghCooldown = 0;
     async function srcGH(query, page, signal) {
-        if (_ghCooldown > Date.now()) throw new Error('Rate limited — retrying in ' + Math.ceil((_ghCooldown - Date.now()) / 1000) + 's');
+        if (_ghCooldown > Date.now()) throw new Error('Rate limited. Retrying in ' + Math.ceil((_ghCooldown - Date.now()) / 1000) + 's');
         var ck = _ck('github', query, page);
         var cached = _cGet(ck); if (cached) { markSourceTrace('github', { cacheHit: true, httpStatus: 200 }); return cached; }
         var q = encodeURIComponent(query + ' userscript OR tampermonkey OR greasemonkey');
@@ -2497,7 +2501,7 @@
             _ghCooldown = Date.now() + Math.min(waitMs, 120000);
             setTimeout(function() { _ghCooldown = 0; renderStatusChips(); renderGitHubSettings(); }, Math.min(waitMs, 120000));
             renderGitHubSettings();
-            throw new Error('Rate limited — retrying in ' + Math.ceil(waitMs / 1000) + 's');
+            throw new Error('Rate limited. Retrying in ' + Math.ceil(waitMs / 1000) + 's');
         }
         if (r.status === 401) { _ghToken = ''; clearGitHubToken(); renderGitHubSettings(); throw new Error('Invalid GitHub token'); }
         if (!r.ok) throw new Error('GitHub HTTP ' + r.status);
@@ -3008,11 +3012,11 @@
         var failed = [];
         metaArray(meta, 'match').forEach(function(p) {
             var result = target.url ? matchDirectiveAgainstUrl(p, target.url) : { matched: matchDirectiveTargetsHost(p, host), reason: 'host hint mismatch' };
-            if (result.matched) matches.push('@match ' + p); else if (target.url) failed.push('@match ' + p + ' — ' + result.reason);
+            if (result.matched) matches.push('@match ' + p); else if (target.url) failed.push('@match ' + p + ': ' + result.reason);
         });
         metaArray(meta, 'include').forEach(function(p) {
             var result = target.url ? includeDirectiveAgainstUrl(p, target.url) : { matched: includeDirectiveTargetsHost(p, host), reason: 'host hint mismatch' };
-            if (result.matched) matches.push('@include ' + p); else if (target.url) failed.push('@include ' + p + ' — ' + result.reason);
+            if (result.matched) matches.push('@include ' + p); else if (target.url) failed.push('@include ' + p + ': ' + result.reason);
         });
         metaArray(meta, 'exclude').forEach(function(p) {
             var result = target.url ? includeDirectiveAgainstUrl(p, target.url) : { matched: includeDirectiveTargetsHost(p, host) || matchDirectiveTargetsHost(p, host) };
@@ -3059,7 +3063,7 @@
 
     function renderAppliesToEvidence(applies) {
         if (!applies) return '';
-        var html = '<div class="applies-matrix"><strong>' + (applies.mode === 'exact-url' ? 'Exact URL simulation' : 'Host hint') + ' — ' + esc(applies.target || applies.host) + ':</strong> ' + esc(appliesSummary(applies));
+        var html = '<div class="applies-matrix"><strong>' + (applies.mode === 'exact-url' ? 'Exact URL simulation' : 'Host hint') + ': ' + esc(applies.target || applies.host) + '</strong>. ' + esc(appliesSummary(applies));
         if (applies.source) html += '<div><span class="applies-pill source">' + esc(applies.source.label) + '</span></div>';
         if (applies.matchedPatterns && applies.matchedPatterns.length) html += '<div>' + applies.matchedPatterns.map(function(p) { return '<span class="applies-pill">' + esc(p) + '</span>'; }).join('') + '</div>';
         if (applies.excludedPatterns && applies.excludedPatterns.length) html += '<div>' + applies.excludedPatterns.map(function(p) { return '<span class="applies-pill exclude">' + esc(p) + '</span>'; }).join('') + '</div>';
@@ -3309,7 +3313,7 @@
                 default: return 0;
             }
         });
-        document.title = state.rawQuery ? state.rawQuery + ' (' + sorted.length + ') — ScriptHunt' : 'ScriptHunt - Unified Userscript Search';
+        document.title = state.rawQuery ? state.rawQuery + ' (' + sorted.length + ') | ScriptHunt' : 'ScriptHunt | Userscript search with trust context';
         if (document.startViewTransition) { document.startViewTransition(function() { renderResults(sorted); }); } else { renderResults(sorted); }
         renderOfflineCachePanel();
     }
@@ -3730,7 +3734,7 @@
             if (state.offlineCache) details.push(sourceMeta.completenessUnknown ? 'offline record; completeness unknown' : 'offline record');
             if ((s === 'openuserjs' || s === 'uszone' || s === 'gists') && status === 'done' && usedProxy && !sourceMeta.route) details.push('via ' + usedProxy);
             if (status === 'error') details = (_proxyHealth.errorsBySource[s] || (state.sourceErrors[s] ? [state.sourceErrors[s]] : []));
-            var detailText = details.length ? ' - ' + details.join('; ') : '';
+            var detailText = details.length ? ': ' + details.join('; ') : '';
             var retry = (status === 'error' || status === 'suspended') ? '<button type="button" class="chip-retry" data-retry-source="' + esc(s) + '" aria-label="Retry ' + esc(src.name) + '">Retry</button>' : '';
             return '<span class="source-chip ' + status + '" title="' + esc(details.join('; ') || label) + '"><span class="chip-dot"></span>' + esc(src.name) + ': <span class="chip-detail">' + esc(label + detailText) + '</span>' + retry + '</span>';
         }).join('');
@@ -3768,7 +3772,7 @@
     }
 
     function setSavedSearches(items) {
-        try { localStorage.setItem('sh_saved_searches', JSON.stringify((items || []).slice(0, 20))); } catch(e) { showToast('Could not save search — storage full', 'error', 3000); }
+        try { localStorage.setItem('sh_saved_searches', JSON.stringify((items || []).slice(0, 20))); } catch(e) { showToast('Could not save search. Storage is full.', 'error', 3000); }
     }
 
     function searchSnapshot(items) {
@@ -4164,7 +4168,7 @@
 
     /* -- Shared empty state -- */
     function emptyHomeHtml() {
-        return '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><h3>' + esc(uiText('emptyTitle')) + '</h3><p>' + esc(uiText('emptySources')) + '</p><p style="margin-top:10px">' + esc(uiText('emptyTry')) + ' <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p></div>';
+        return '<div class="state-empty"><img class="empty-mark" src="assets/brand/scripthunt-mark.png" width="72" height="72" alt=""><h3>' + esc(uiText('emptyTitle')) + '</h3><p>' + esc(uiText('emptySources')) + '</p><p style="margin-top:10px">' + esc(uiText('emptyTry')) + ' <code>site:youtube.com</code> <code>author:name</code> <code>updated:90d</code></p></div>';
     }
     function emptyNoResultHtml() {
         return '<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/></svg><h3>' + esc(uiText('noResults')) + '</h3><p>' + esc(uiText('noResultsHelp')) + '</p></div>';
@@ -4240,7 +4244,7 @@
         updateCompareBar();
         grid.innerHTML = EMPTY_HOME;
         statsBar.style.display = 'none'; document.getElementById('sourceStatusBar').innerHTML = '';
-        document.title = 'ScriptHunt - Unified Userscript Search';
+        document.title = 'ScriptHunt | Userscript search with trust context';
         syncUrlState();
         renderSourceToggles(); renderOfflineCachePanel(); searchInput.focus();
     });
@@ -4805,7 +4809,7 @@
     EMPTY_NORESULT = emptyNoResultHtml();
     var urlParams = new URLSearchParams(window.location.search);
     var initQ = restoreUrlState(urlParams);
-    window.addEventListener('online', function() { renderOfflineCachePanel(); if (state.offlineCache) showToast('Back online - refresh cached results when ready', 'info', 2500); });
+    window.addEventListener('online', function() { renderOfflineCachePanel(); if (state.offlineCache) showToast('Back online. Refresh cached results when ready.', 'info', 2500); });
     window.addEventListener('offline', renderOfflineCachePanel);
     renderSourceToggles(); renderOfflineCachePanel(); searchInput.focus();
     if (!initQ) grid.innerHTML = EMPTY_HOME;

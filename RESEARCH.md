@@ -1,20 +1,20 @@
-# Research — ScriptHunt
-Date: 2026-07-25 — replaces all prior research.
+# ScriptHunt research
+Date: 2026-07-25. Replaces all prior research.
 
 ## Executive Summary
 
 [Verified] ScriptHunt v0.5.1 is a static, single-file/PWA userscript discovery and vetting tool. It searches seven catalogs, normalizes and deduplicates results, exposes metadata, permissions, trust and scan evidence, tracks favorites/installed state, supports saved searches and comparison, and keeps recent search/scan caches locally (`README.md`, `index.html:1147-1345`, `index.html:683-900`). Local QA on 2026-07-25 passed 7 Node tests and 57 Playwright tests; `npm audit --json` reported zero advisories for the installed dependency tree. Its strongest shape is the evidence-first, local-only catalog workflow. The highest-value direction is to make every trust boundary explicit and reliable before adding more catalogs: secure the optional proxy, prevent failed downloads from looking clean, formalize source completeness and provenance, make imports recoverable, and reconcile release truth.
 
-- P0 — Secure the optional CORS Worker against redirect allowlist bypass, oversized upstream bodies, and misleading success statuses (impact 5, M, leapfrog trust).
-- P0 — Make failed, empty, non-userscript, and stale scan results explicitly unknown instead of allowing a failed response to earn a clean score (impact 5, M, root-cause security).
-- P1 — Introduce a source result envelope with partial-result, latency, route, cache, and error provenance; the current registry and adapter fixtures are the right seam (impact 5, L, parity plus reliability).
-- P1 — Separate trust score from scan state and expose code hash, fetch time, dependency status, and source evidence so “no pattern found” is not read as “safe” (impact 5, M, leapfrog trust).
-- P1 — Add safe dependency-chain and integrity evidence for `@require`/`@resource`, using bounded HTTPS fetches and no execution (impact 5, L, leapfrog security).
-- P1 — Make public-proxy data exposure and per-source routing visible and user-controllable (impact 4, M, privacy/reliability).
-- P1 — Preview, merge, snapshot, and roll back installed/favorite imports instead of replacing local state after normalization (impact 4, M, data safety).
-- P1 — Make GitHub repository/code modes and `incomplete_results`/1,000-result limits visible (impact 4, M, search correctness).
-- P1 — Reconcile `package.json` 0.5.1 with `package-lock.json` root metadata 0.4.1 and make the existing version test cover the release contract (impact 3, S, reproducibility).
-- P2/P3 — Add exact URL matching evidence, bounded custom-source manifests, offline cache schema/provenance, full responsive accessibility coverage, and a lightweight locale layer after the boundaries above are stable.
+- P0. Secure the optional CORS Worker against redirect allowlist bypass, oversized upstream bodies, and misleading success statuses (impact 5, M, leapfrog trust).
+- P0. Make failed, empty, non-userscript, and stale scan results explicitly unknown instead of allowing a failed response to earn a clean score (impact 5, M, root-cause security).
+- P1. Introduce a source result envelope with partial-result, latency, route, cache, and error provenance; the current registry and adapter fixtures are the right seam (impact 5, L, parity plus reliability).
+- P1. Separate trust score from scan state and expose code hash, fetch time, dependency status, and source evidence so “no pattern found” is not read as “safe” (impact 5, M, leapfrog trust).
+- P1. Add safe dependency-chain and integrity evidence for `@require`/`@resource`, using bounded HTTPS fetches and no execution (impact 5, L, leapfrog security).
+- P1. Make public-proxy data exposure and per-source routing visible and user-controllable (impact 4, M, privacy/reliability).
+- P1. Preview, merge, snapshot, and roll back installed/favorite imports instead of replacing local state after normalization (impact 4, M, data safety).
+- P1. Make GitHub repository/code modes and `incomplete_results`/1,000-result limits visible (impact 4, M, search correctness).
+- P1. Reconcile `package.json` 0.5.1 with `package-lock.json` root metadata 0.4.1 and make the existing version test cover the release contract (impact 3, S, reproducibility).
+- P2/P3. Add exact URL matching evidence, bounded custom-source manifests, offline cache schema/provenance, full responsive accessibility coverage, and a lightweight locale layer after the boundaries above are stable.
 
 ## Product Map
 
@@ -60,14 +60,14 @@ Date: 2026-07-25 — replaces all prior research.
 
 ## Rejected Ideas
 
-- Full userscript-manager replacement, script execution, browser permission management, or native mobile packaging — the product boundary and the mature manager products already cover those jobs ([Tampermonkey](https://www.tampermonkey.net/), [Violentmonkey](https://violentmonkey.github.io/), [ScriptCat](https://docs.scriptcat.org/en/), [Userscripts](https://github.com/quoid/userscripts)).
-- Accounts, reviews, comments, reputation, team collaboration, or cloud sync — they contradict the local-only/no-server-state posture and belong to catalog/manager products; ScriptCat demonstrates the scope expansion that would result ([ScriptCat sync](https://docs.scriptcat.org/docs/use/sync/)).
-- Arbitrary JavaScript adapter plugins — the current HTTPS JSON template seam is sufficient for extensibility; executable adapters would run untrusted code inside the discovery surface (`index.html:1306-1345`).
-- A new wave of fragile HTML catalogs before existing source contracts are hardened — OpenUserJS’s unresolved API/cache issues show why stronger adapters and proxy observability have higher leverage ([OpenUserJS #77](https://github.com/OpenUserJs/OpenUserJS.org/issues/77)).
-- Server-side scheduled monitors or push notifications — saved-search refresh and delta badges already exist (`index.html:2920-3070`), while reliable background execution would require a service and account/privacy model; keep this under consideration rather than promising browser-background behavior.
-- Opaque ML/vector ranking — current scale supports deterministic, explainable popularity/freshness/metadata/security dimensions; adding a model would increase maintenance and privacy cost without evidence that ranking, rather than provenance, is the binding problem ([OpenSSF Scorecard](https://openssf.org/scorecard/), [code-search survey](https://arxiv.org/abs/2204.02765)).
-- Full UI localization framework — a small locale layer is retained as P3, but a large translation/runtime framework is not justified while the UI is a single-file zero-runtime-dependency app and the only current language control is catalog/metadata selection (`index.html:466-472`, `index.html:2151-2160`).
-- Remote CI workflows — explicitly excluded by `Roadmap_Blocked.md`; keep the local `npm run qa` contract.
+- Full userscript-manager replacement, script execution, browser permission management, or native mobile packaging. The product boundary and the mature manager products already cover those jobs ([Tampermonkey](https://www.tampermonkey.net/), [Violentmonkey](https://violentmonkey.github.io/), [ScriptCat](https://docs.scriptcat.org/en/), [Userscripts](https://github.com/quoid/userscripts)).
+- Accounts, reviews, comments, reputation, team collaboration, or cloud sync. They contradict the local-only/no-server-state posture and belong to catalog/manager products; ScriptCat demonstrates the scope expansion that would result ([ScriptCat sync](https://docs.scriptcat.org/docs/use/sync/)).
+- Arbitrary JavaScript adapter plugins. The current HTTPS JSON template seam is sufficient for extensibility; executable adapters would run untrusted code inside the discovery surface (`index.html:1306-1345`).
+- A new wave of fragile HTML catalogs before existing source contracts are hardened. OpenUserJS’s unresolved API/cache issues show why stronger adapters and proxy observability have higher leverage ([OpenUserJS #77](https://github.com/OpenUserJs/OpenUserJS.org/issues/77)).
+- Server-side scheduled monitors or push notifications. Saved-search refresh and delta badges already exist (`index.html:2920-3070`), while reliable background execution would require a service and account/privacy model; keep this under consideration rather than promising browser-background behavior.
+- Opaque ML/vector ranking. Current scale supports deterministic, explainable popularity/freshness/metadata/security dimensions; adding a model would increase maintenance and privacy cost without evidence that ranking, rather than provenance, is the binding problem ([OpenSSF Scorecard](https://openssf.org/scorecard/), [code-search survey](https://arxiv.org/abs/2204.02765)).
+- Full UI localization framework. A small locale layer is retained as P3, but a large translation/runtime framework is not justified while the UI is a single-file zero-runtime-dependency app and the only current language control is catalog/metadata selection (`index.html:466-472`, `index.html:2151-2160`).
+- Remote CI workflows. Explicitly excluded by `Roadmap_Blocked.md`; keep the local `npm run qa` contract.
 
 ## Sources
 

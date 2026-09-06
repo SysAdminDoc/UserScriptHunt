@@ -9,6 +9,16 @@ function readFile(name) {
   return fs.readFileSync(path.join(root, name), 'utf8');
 }
 
+function pngInfo(name) {
+  const png = fs.readFileSync(path.join(root, name));
+  assert.equal(png.toString('hex', 0, 8), '89504e470d0a1a0a', `${name} should be a PNG`);
+  return {
+    width: png.readUInt32BE(16),
+    height: png.readUInt32BE(20),
+    colorType: png.readUInt8(25),
+  };
+}
+
 test('README source table matches code source registry', () => {
   const html = readFile('index.html');
   const readme = readFile('README.md');
@@ -101,4 +111,41 @@ test('PWA manifest declares install-grade PNG icons with matching dimensions', (
   for (const filename of expected.values()) {
     assert.ok(serviceWorker.includes(`'./${filename}'`), `${filename} should be in the offline shell`);
   }
+});
+
+test('brand and marketing assets match their published slots', () => {
+  const html = readFile('index.html');
+  const manifest = JSON.parse(readFile('manifest.json'));
+  const mark = pngInfo('assets/brand/scripthunt-mark.png');
+  assert.deepEqual([mark.width, mark.height], [1024, 1024]);
+  assert.equal(mark.colorType, 6, 'canonical mark should be an RGBA PNG');
+
+  for (const [name, width, height] of [
+    ['icon-32.png', 32, 32],
+    ['icon-180.png', 180, 180],
+    ['assets/social-preview.png', 1280, 640],
+    ['assets/screenshots/01-search.png', 1440, 1000],
+    ['assets/screenshots/02-results.png', 1440, 1000],
+    ['assets/screenshots/03-compare.png', 1440, 1000],
+    ['assets/screenshots/04-light-results.png', 1440, 1000],
+    ['assets/screenshots/05-mobile-results.png', 390, 844],
+  ]) {
+    const info = pngInfo(name);
+    assert.deepEqual([info.width, info.height], [width, height], `${name} dimensions should match its published slot`);
+  }
+
+  const maskable = manifest.icons.find((icon) => icon.purpose === 'maskable');
+  assert.ok(maskable, 'manifest should include a dedicated maskable icon');
+  assert.equal(maskable.src, 'icon-maskable-512.png');
+  assert.deepEqual([pngInfo(maskable.src).width, pngInfo(maskable.src).height], [512, 512]);
+
+  assert.match(html, /assets\/brand\/scripthunt-mark\.png/);
+  assert.match(html, /assets\/social-preview\.png/);
+  assert.match(html, /icon-32\.png/);
+  assert.match(html, /icon-180\.png/);
+  assert.doesNotMatch(html, /data:image\/x-icon;base64/);
+
+  const report = JSON.parse(readFile('assets/screenshots/capture-report.json'));
+  assert.equal(report.appVersion, JSON.parse(readFile('package.json')).version);
+  assert.equal(report.screenshots.length, 5);
 });

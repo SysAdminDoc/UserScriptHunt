@@ -1,10 +1,14 @@
-var CACHE_NAME = 'scripthunt-v0.6.0';
+var CACHE_NAME = 'scripthunt-v0.6.1';
 var SHELL_ASSETS = [
   './',
   './index.html',
   './icon.png',
+  './icon-32.png',
+  './icon-180.png',
   './icon-192.png',
   './icon-512.png',
+  './icon-maskable-512.png',
+  './assets/brand/scripthunt-mark.png',
   './manifest.json',
   './fonts/jetbrains-mono-latin.woff2',
   './fonts/jetbrains-mono-latin-ext.woff2',

@@ -261,6 +261,25 @@ test('fonts load from the local offline shell without Google requests', async ({
   expect(googleFontRequests).toEqual([]);
 });
 
+test('installed PWA shell reopens without a network connection', async ({ page, context }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    if (!('serviceWorker' in navigator)) throw new Error('Service workers are unavailable.');
+    await navigator.serviceWorker.ready;
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+
+  try {
+    await context.setOffline(true);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#searchInput')).toBeVisible();
+    await expect(page.locator('.logo-mark')).toBeVisible();
+  } finally {
+    await context.setOffline(false);
+  }
+});
+
 test('search returns results from at least one source', async ({ page }) => {
   await page.goto('/');
   await runSearch(page);
@@ -625,7 +644,7 @@ test('comparison modal shows trust dimensions', async ({ page }) => {
 test('empty state shows when no results', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.state-empty')).toBeVisible();
-  await expect(page.locator('.state-empty h3')).toContainText('Search userscripts');
+  await expect(page.locator('.state-empty h3')).toContainText('Search once');
 });
 
 test('sort select persists preference', async ({ page }) => {
@@ -682,7 +701,7 @@ test('security scan reports manager metadata risks', async ({ page }) => {
 
   await expect(panel).toContainText('Broad @match scope: *://*/*');
   await expect(panel).toContainText('@connect host allowed: api.youtube.com');
-  await expect(panel).toContainText('@connect * - unrestricted cross-origin access');
+  await expect(panel).toContainText('@connect * grants unrestricted cross-origin access');
   await expect(panel).toContainText('@require integrity hash present: cdn.jsdelivr.net');
   await expect(panel).toContainText('Pinned @require dependency: cdn.jsdelivr.net');
   await expect(panel).toContainText('Floating @require version: unpkg.com');
@@ -1063,7 +1082,7 @@ test('ScriptCat raw install URLs expose scan and metadata panels', async ({ page
 
   const card = page.locator('.result-card').filter({ hasText: 'ScriptCat Helper' });
   await card.locator('[data-action="scan"]').click();
-  await expect(card.locator('.scan-results')).toContainText('No @license declared');
+  await expect(card.locator('.scan-results')).toContainText('No @license is declared');
   await card.locator('[data-action="meta"]').click();
   await expect(card.locator('.card-metadata')).toContainText('@grant');
 });
