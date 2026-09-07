@@ -1,4 +1,4 @@
-var CACHE_NAME = 'scripthunt-v0.6.1';
+var CACHE_NAME = 'scripthunt-v0.6.2';
 var SHELL_ASSETS = [
   './',
   './index.html',

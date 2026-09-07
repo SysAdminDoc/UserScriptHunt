@@ -4,7 +4,7 @@
 
 # ScriptHunt
 
-![Version](https://img.shields.io/badge/version-0.6.1-blue)
+![Version](https://img.shields.io/badge/version-0.6.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Web-ff6600)
 ![Runtime](https://img.shields.io/badge/runtime-zero%20dependencies-22c55e)
@@ -134,6 +134,10 @@ Custom sources can be added from Diagnostics with a versioned JSON manifest. The
 ## Related project
 
 [UserScript-Finder](https://github.com/SysAdminDoc/UserScript-Finder) adds a menu command to Tampermonkey and Violentmonkey for finding scripts made for the page you are viewing. ScriptHunt is the broader catalog search and comparison app.
+
+## Brand archive
+
+The three original magnifier concepts are preserved in [`assets/brand/concepts`](assets/brand/concepts). The folder's `selection.json` records the approved code-brace direction and points to the untouched source master. Production-ready transparent artwork remains in `assets/brand` and the PWA icon files at the repository root.
 
 ## License
 

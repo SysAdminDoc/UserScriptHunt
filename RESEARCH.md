@@ -1,6 +1,10 @@
 # ScriptHunt research
 Date: 2026-07-25. Replaces all prior research.
 
+## Brand direction
+
+The approved identity is `direction-03-selected-magnifier-braces.png`. The code braces make the search target obvious, while the simpler circular magnifier remains readable as a favicon and installed-app icon. The terminal and mixed-code directions are busier at small sizes. All three original studies remain in `assets/brand/concepts`, and the production mark keeps the approved geometry on a transparent background.
+
 ## Executive Summary
 
 [Verified] ScriptHunt v0.5.1 is a static, single-file/PWA userscript discovery and vetting tool. It searches seven catalogs, normalizes and deduplicates results, exposes metadata, permissions, trust and scan evidence, tracks favorites/installed state, supports saved searches and comparison, and keeps recent search/scan caches locally (`README.md`, `index.html:1147-1345`, `index.html:683-900`). Local QA on 2026-07-25 passed 7 Node tests and 57 Playwright tests; `npm audit --json` reported zero advisories for the installed dependency tree. Its strongest shape is the evidence-first, local-only catalog workflow. The highest-value direction is to make every trust boundary explicit and reliable before adding more catalogs: secure the optional proxy, prevent failed downloads from looking clean, formalize source completeness and provenance, make imports recoverable, and reconcile release truth.

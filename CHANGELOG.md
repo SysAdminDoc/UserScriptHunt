@@ -4,6 +4,14 @@ All notable changes to ScriptHunt will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.6.2]
+
+### Changed
+- Preserved all three original magnifier concepts with a machine-readable selection record.
+- Kept the approved code-brace direction as an untouched brand master.
+- Regenerated the five product screenshots and social preview from the versioned app.
+- Rebuilt the static release archive and SHA-256 checksum.
+
 ## [v0.6.1]
 
 ### Changed

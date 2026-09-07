@@ -1,6 +1,6 @@
 {
   "name": "scripthunt",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Private in-browser userscript search across seven built-in catalogs with source provenance, trust evidence, and offline recovery.",
   "license": "MIT",
   "repository": "github:SysAdminDoc/UserScriptHunt",
