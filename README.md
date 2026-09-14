@@ -9,6 +9,16 @@
 ![Platform](https://img.shields.io/badge/platform-Web-ff6600)
 ![Runtime](https://img.shields.io/badge/runtime-zero%20dependencies-22c55e)
 
+<p align="center">
+  <a href="https://ko-fi.com/X8K126YVER">
+    <img height="42" src="https://storage.ko-fi.com/cdn/kofi2.png?v=3" alt="Buy me a coffee on Ko-fi" />
+  </a>
+</p>
+
+<p align="center">
+  <sub><em>If this project helps you, a coffee helps me keep working on it.</em></sub>
+</p>
+
 **Search seven userscript catalogs at once. Compare trust evidence and inspect metadata before you install.**
 
 [Open ScriptHunt](https://sysadmindoc.github.io/UserScriptHunt/) · [Try a YouTube search](https://sysadmindoc.github.io/UserScriptHunt/?q=youtube+enhancer) · [Download the latest release](https://github.com/SysAdminDoc/UserScriptHunt/releases/latest)
